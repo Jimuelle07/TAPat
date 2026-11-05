@@ -598,7 +598,7 @@ Fixture JSON shapes:
 { "sha256": "<sha256 of scanned-list.png>", "rows": [ { "last_name": "Dela Cruz", "first_name": "Juan", "middle_name": "Santos", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque" } ] }
 
 // fixtures/prices/doe-diesel-sim.json
-{ "source": "simulated", "currency": "PHP", "unit": "L", "seed": 3, "points": [ { "idx": 1, "price_php": 58.41 }, /* ...45 total... */ ] }
+{ "source": "simulated", "currency": "PHP", "unit": "L", "seed": 3, "points": [ { "idx": 1, "price_php": 58.81 }, /* ...45 total... */ ] }
 
 // fixtures/taps/honest-history.json
 { "source": "simulated", "seed": 7, "tick_ms": 1000, "ticks": [ { "tick": 1, "card_ref": "virtual01", "station_id": "A", "amount_php": 120 } ] }
@@ -833,11 +833,11 @@ No request. Response 200: `TrancheState`. Polled by `/demo` until `running === f
 
 ```json
 {
-  "running": false, "fired": true, "idx": 45, "total": 45, "lastPricePhp": 71.13, "cpRecent": 0.94, "mapR": 5, "thresholdPhp": 65,
+  "running": false, "fired": true, "idx": 45, "total": 45, "lastPricePhp": 70.91, "cpRecent": 0.94, "mapR": 5, "thresholdPhp": 65,
   "budgetVerifiedStroops": "10000000000", "budgetFundedStroops": "4500000000",
   "points": [
-    { "programId": "prog_a1b2c3d4", "idx": 1, "pricePhp": 58.41, "simulated": true, "cpRecent": 0.02, "mapR": 0 },
-    { "programId": "prog_a1b2c3d4", "idx": 45, "pricePhp": 71.13, "simulated": true, "cpRecent": 0.94, "mapR": 5 }
+    { "programId": "prog_a1b2c3d4", "idx": 1, "pricePhp": 58.81, "simulated": true, "cpRecent": 0.02, "mapR": 0 },
+    { "programId": "prog_a1b2c3d4", "idx": 45, "pricePhp": 70.91, "simulated": true, "cpRecent": 0.94, "mapR": 5 }
   ],
   "funds": [
     { "cardId": "card_D1", "beneficiaryId": "ben_D1", "amountStroops": "1500000000", "txId": "ctx_f1", "status": "succeeded", "reason": null },
