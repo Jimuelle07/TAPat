@@ -1,6 +1,6 @@
 /**
  * SPK (docs/build-schedule.md): throwaway card -> register -> register_agent -> fund_escrow(1 XLM) -> authorize(),
- * each call sent through the Velo Gas Station (`sponsorAndSubmit`), or with --direct signed and sent straight to
+ * each call sent through the Velo Gas Station (`sponsor` then one `submit`), or with --direct signed and sent straight to
  * Soroban RPC (the Nov 5 23:00 go/no-go fallback, GAS_MODE=direct).
  * Testnet only. Writes nothing to SQLite or .env; prints statuses and tx hashes, never a secret or an XDR.
  *   pnpm --filter api tsx scripts/spike-authorize.ts
@@ -20,13 +20,7 @@ import {
   type Transaction,
   type xdr,
 } from '@stellar/stellar-sdk';
-import {
-  Velo,
-  VeloError,
-  VeloGasSubmissionUnknownError,
-  VeloProviderError,
-  type GasSubmitResult,
-} from '@carts1024/velo-sdk';
+import { Velo, VeloError, VeloProviderError, type GasSponsorReservation, type GasSubmitResult } from '@carts1024/velo-sdk';
 import { loadConfig } from '../src/config';
 
 const ONE_XLM = 10_000_000n;
@@ -59,7 +53,7 @@ async function unsigned(source: string, contractId: string, method: string, args
   const account = await server.getAccount(source);
   return new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE })
     .addOperation(new Contract(contractId).call(method, ...args))
-    .setTimeout(300) // room for the pre-dispatch provider retries in submit()
+    .setTimeout(300) // room for the sponsor() retries and the status wait in submit()
     .build();
 }
 
@@ -91,34 +85,44 @@ async function submit(step: string, tx: Transaction): Promise<void> {
   // Stable per run and step: a retried sponsorship reuses the reservation, never a second one.
   const key = `tapat-spk:${runId}:${step}`;
   const xdrBase64 = tx.toXDR();
-  let result: GasSubmitResult | undefined;
-  for (let attempt = 1; result === undefined; attempt++) {
+
+  // sponsor() only reserves fee exposure and never submits, so a provider failure here is safe to retry
+  // with the same signed XDR and the same idempotency key.
+  let reservation: GasSponsorReservation | undefined;
+  for (let attempt = 1; reservation === undefined; attempt++) {
     try {
-      result = await velo.gas.sponsorAndSubmit(xdrBase64, { idempotencyKey: key, correlationId: key, timeoutMs: 30_000 });
+      reservation = await velo.gas.sponsor(xdrBase64, { idempotencyKey: key, correlationId: key, timeoutMs: 30_000 });
     } catch (error) {
-      if (error instanceof VeloGasSubmissionUnknownError) {
-        // Handoff uncertain: recover by identity, never send the XDR again.
-        result = await velo.gas.getStatus(error.recovery);
-      } else if (error instanceof VeloProviderError && attempt < 4) {
-        // Pre-dispatch provider failure: Velo allows a retry with the same signed XDR and the same key.
-        console.log(`${step.padEnd(15)} velo    retry ${attempt}/3 after ${error.code ?? 'provider error'}`);
-        await sleep(10_000 * attempt);
-      } else {
-        throw error;
-      }
+      if (!(error instanceof VeloProviderError) || attempt >= 4) throw error;
+      console.log(`${step.padEnd(15)} velo    sponsor retry ${attempt}/3 after ${error.code ?? 'provider error'}`);
+      await sleep(10_000 * attempt);
     }
   }
+
+  // submit() is the single hand-off. Any failure may come after Velo received it (a 5xx arrives as
+  // VeloProviderError, a lost response as VeloGasSubmissionUnknownError), so recover by identity, never resubmit.
+  const identity = { requestId: reservation.requestId, transactionHash: reservation.transactionHash };
+  let result: GasSubmitResult;
+  try {
+    result = await velo.gas.submit({ ...identity, transactionXdr: xdrBase64 });
+  } catch (error) {
+    console.log(`${step.padEnd(15)} velo    hand-off uncertain (${error instanceof Error ? error.constructor.name : 'error'}); reading status by identity`);
+    result = await velo.gas.getStatus(identity);
+  }
   if (result.status === 'claimed' || result.status === 'submitted' || result.status === 'submission_unknown') {
-    result = await velo.gas.waitForResult(
-      { requestId: result.requestId, transactionHash: result.transactionHash },
-      { timeoutMs: 90_000, maxAttempts: 20 },
-    );
+    // waitForResult returns the last non-terminal result when its attempts run out.
+    result = await velo.gas.waitForResult(identity, { timeoutMs: 90_000, maxAttempts: 20 });
   }
   console.log(
     `${step.padEnd(15)} velo    ${result.status.padEnd(9)} outer=${result.outerTransactionHash ?? '-'} ` +
       `inner=${result.transactionHash} fee=${result.actualFeeStroops ?? 'unknown'} stroops`,
   );
-  if (result.status !== 'succeeded') throw new Error(`${step}: Gas Station status ${result.status}`);
+  if (result.status !== 'succeeded') {
+    throw new Error(
+      `${step}: Gas Station status ${result.status}; recover with getStatus({ requestId: ${identity.requestId}, ` +
+        `transactionHash: ${identity.transactionHash} }), never by resubmitting`,
+    );
+  }
 }
 
 async function main(): Promise<void> {
