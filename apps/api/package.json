@@ -1,0 +1,23 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "tsx": "tsx"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11",
+    "@stellar/stellar-sdk": "^16.4.1",
+    "@tapat/shared": "workspace:*",
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^18",
+    "fastify": "^5",
+    "tsx": "^4",
+    "zod": "^4"
+  }
+}

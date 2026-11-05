@@ -1,0 +1,16 @@
+# deploy/tapat-api.service
+[Unit]
+Description=TAPat API (Fastify + agents + Telegram poller)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tapat
+WorkingDirectory=/opt/tapat/apps/api
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

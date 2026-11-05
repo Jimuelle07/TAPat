@@ -1,0 +1,21 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	bind 127.0.0.1
+
+	# Velo must reach the webhook and uptime checks the health route without a password.
+	@protected not path /api/webhooks/velo /api/health
+	basic_auth @protected {
+		import /etc/caddy/tapat-users
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
