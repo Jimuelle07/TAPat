@@ -1,0 +1,186 @@
+{
+  "source": "simulated",
+  "seed": 11,
+  "edges": [
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual01",
+      "station_id": "B",
+      "amount_php": 451.16
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual02",
+      "station_id": "B",
+      "amount_php": 452.99
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual03",
+      "station_id": "B",
+      "amount_php": 460.81
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual04",
+      "station_id": "B",
+      "amount_php": 459.02
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual05",
+      "station_id": "B",
+      "amount_php": 485.08
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual06",
+      "station_id": "B",
+      "amount_php": 453.8
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual07",
+      "station_id": "B",
+      "amount_php": 408
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual08",
+      "station_id": "B",
+      "amount_php": 453.05
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual09",
+      "station_id": "B",
+      "amount_php": 460.77
+    },
+    {
+      "tick_offset": 1,
+      "card_ref": "virtual10",
+      "station_id": "B",
+      "amount_php": 445.03
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual11",
+      "station_id": "B",
+      "amount_php": 448
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual12",
+      "station_id": "B",
+      "amount_php": 484.35
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual13",
+      "station_id": "B",
+      "amount_php": 442
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 467.02
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual15",
+      "station_id": "B",
+      "amount_php": 468.15
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual16",
+      "station_id": "B",
+      "amount_php": 416.08
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual17",
+      "station_id": "B",
+      "amount_php": 417.85
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual18",
+      "station_id": "B",
+      "amount_php": 427.61
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual19",
+      "station_id": "B",
+      "amount_php": 439.59
+    },
+    {
+      "tick_offset": 2,
+      "card_ref": "virtual20",
+      "station_id": "B",
+      "amount_php": 437.7
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual01",
+      "station_id": "B",
+      "amount_php": 458.25
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual02",
+      "station_id": "B",
+      "amount_php": 412.75
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual03",
+      "station_id": "B",
+      "amount_php": 459.71
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual04",
+      "station_id": "B",
+      "amount_php": 457.65
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual05",
+      "station_id": "B",
+      "amount_php": 441.84
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual06",
+      "station_id": "B",
+      "amount_php": 484.43
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual07",
+      "station_id": "B",
+      "amount_php": 480.54
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual08",
+      "station_id": "B",
+      "amount_php": 476.88
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual09",
+      "station_id": "B",
+      "amount_php": 431.76
+    },
+    {
+      "tick_offset": 3,
+      "card_ref": "virtual10",
+      "station_id": "B",
+      "amount_php": 462.31
+    }
+  ]
+}

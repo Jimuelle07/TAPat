@@ -1,0 +1,188 @@
+{
+  "source": "simulated",
+  "currency": "PHP",
+  "unit": "L",
+  "seed": 3,
+  "points": [
+    {
+      "idx": 1,
+      "price_php": 58.81
+    },
+    {
+      "idx": 2,
+      "price_php": 58.95
+    },
+    {
+      "idx": 3,
+      "price_php": 58.21
+    },
+    {
+      "idx": 4,
+      "price_php": 58.75
+    },
+    {
+      "idx": 5,
+      "price_php": 57.88
+    },
+    {
+      "idx": 6,
+      "price_php": 59.13
+    },
+    {
+      "idx": 7,
+      "price_php": 58.18
+    },
+    {
+      "idx": 8,
+      "price_php": 58.7
+    },
+    {
+      "idx": 9,
+      "price_php": 58.28
+    },
+    {
+      "idx": 10,
+      "price_php": 58.2
+    },
+    {
+      "idx": 11,
+      "price_php": 58.72
+    },
+    {
+      "idx": 12,
+      "price_php": 58.94
+    },
+    {
+      "idx": 13,
+      "price_php": 58.42
+    },
+    {
+      "idx": 14,
+      "price_php": 58.52
+    },
+    {
+      "idx": 15,
+      "price_php": 66
+    },
+    {
+      "idx": 16,
+      "price_php": 57.98
+    },
+    {
+      "idx": 17,
+      "price_php": 58.82
+    },
+    {
+      "idx": 18,
+      "price_php": 57.27
+    },
+    {
+      "idx": 19,
+      "price_php": 58.33
+    },
+    {
+      "idx": 20,
+      "price_php": 58.58
+    },
+    {
+      "idx": 21,
+      "price_php": 58.14
+    },
+    {
+      "idx": 22,
+      "price_php": 57.86
+    },
+    {
+      "idx": 23,
+      "price_php": 58.74
+    },
+    {
+      "idx": 24,
+      "price_php": 57.98
+    },
+    {
+      "idx": 25,
+      "price_php": 58.07
+    },
+    {
+      "idx": 26,
+      "price_php": 58.68
+    },
+    {
+      "idx": 27,
+      "price_php": 58.25
+    },
+    {
+      "idx": 28,
+      "price_php": 58.39
+    },
+    {
+      "idx": 29,
+      "price_php": 58.99
+    },
+    {
+      "idx": 30,
+      "price_php": 58.45
+    },
+    {
+      "idx": 31,
+      "price_php": 71.42
+    },
+    {
+      "idx": 32,
+      "price_php": 71.34
+    },
+    {
+      "idx": 33,
+      "price_php": 69.87
+    },
+    {
+      "idx": 34,
+      "price_php": 70.85
+    },
+    {
+      "idx": 35,
+      "price_php": 70.86
+    },
+    {
+      "idx": 36,
+      "price_php": 70.41
+    },
+    {
+      "idx": 37,
+      "price_php": 70.59
+    },
+    {
+      "idx": 38,
+      "price_php": 71.17
+    },
+    {
+      "idx": 39,
+      "price_php": 70.9
+    },
+    {
+      "idx": 40,
+      "price_php": 71.05
+    },
+    {
+      "idx": 41,
+      "price_php": 69.99
+    },
+    {
+      "idx": 42,
+      "price_php": 70.65
+    },
+    {
+      "idx": 43,
+      "price_php": 70.74
+    },
+    {
+      "idx": 44,
+      "price_php": 71.08
+    },
+    {
+      "idx": 45,
+      "price_php": 70.91
+    }
+  ]
+}

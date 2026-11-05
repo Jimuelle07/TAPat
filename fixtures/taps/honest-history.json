@@ -1,0 +1,523 @@
+{
+  "source": "simulated",
+  "seed": 7,
+  "tick_ms": 1000,
+  "ticks": [
+    {
+      "tick": 1,
+      "card_ref": "virtual02",
+      "station_id": "B",
+      "amount_php": 262.72
+    },
+    {
+      "tick": 2,
+      "card_ref": "virtual09",
+      "station_id": "A",
+      "amount_php": 129.58
+    },
+    {
+      "tick": 2,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 134.77
+    },
+    {
+      "tick": 3,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 117.17
+    },
+    {
+      "tick": 4,
+      "card_ref": "virtual06",
+      "station_id": "A",
+      "amount_php": 145.94
+    },
+    {
+      "tick": 5,
+      "card_ref": "virtual05",
+      "station_id": "B",
+      "amount_php": 115.33
+    },
+    {
+      "tick": 5,
+      "card_ref": "virtual03",
+      "station_id": "A",
+      "amount_php": 144.38
+    },
+    {
+      "tick": 6,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 324.75
+    },
+    {
+      "tick": 6,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 257.23
+    },
+    {
+      "tick": 7,
+      "card_ref": "virtual13",
+      "station_id": "B",
+      "amount_php": 300.01
+    },
+    {
+      "tick": 7,
+      "card_ref": "virtual01",
+      "station_id": "A",
+      "amount_php": 163.52
+    },
+    {
+      "tick": 8,
+      "card_ref": "virtual01",
+      "station_id": "A",
+      "amount_php": 282.72
+    },
+    {
+      "tick": 9,
+      "card_ref": "virtual09",
+      "station_id": "A",
+      "amount_php": 334.4
+    },
+    {
+      "tick": 10,
+      "card_ref": "virtual14",
+      "station_id": "A",
+      "amount_php": 163.34
+    },
+    {
+      "tick": 10,
+      "card_ref": "virtual03",
+      "station_id": "A",
+      "amount_php": 324.78
+    },
+    {
+      "tick": 11,
+      "card_ref": "virtual04",
+      "station_id": "A",
+      "amount_php": 157.66
+    },
+    {
+      "tick": 12,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 218.88
+    },
+    {
+      "tick": 13,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 93.94
+    },
+    {
+      "tick": 13,
+      "card_ref": "virtual11",
+      "station_id": "A",
+      "amount_php": 318.41
+    },
+    {
+      "tick": 14,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 339.52
+    },
+    {
+      "tick": 14,
+      "card_ref": "virtual20",
+      "station_id": "A",
+      "amount_php": 297.37
+    },
+    {
+      "tick": 15,
+      "card_ref": "virtual11",
+      "station_id": "A",
+      "amount_php": 270.04
+    },
+    {
+      "tick": 16,
+      "card_ref": "virtual16",
+      "station_id": "B",
+      "amount_php": 221.69
+    },
+    {
+      "tick": 16,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 246.28
+    },
+    {
+      "tick": 17,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 128.68
+    },
+    {
+      "tick": 17,
+      "card_ref": "virtual01",
+      "station_id": "A",
+      "amount_php": 333.59
+    },
+    {
+      "tick": 18,
+      "card_ref": "virtual13",
+      "station_id": "A",
+      "amount_php": 239.48
+    },
+    {
+      "tick": 18,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 348.51
+    },
+    {
+      "tick": 19,
+      "card_ref": "virtual20",
+      "station_id": "A",
+      "amount_php": 293.43
+    },
+    {
+      "tick": 20,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 348.32
+    },
+    {
+      "tick": 20,
+      "card_ref": "virtual11",
+      "station_id": "A",
+      "amount_php": 106.66
+    },
+    {
+      "tick": 21,
+      "card_ref": "virtual05",
+      "station_id": "B",
+      "amount_php": 309.85
+    },
+    {
+      "tick": 22,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 236.7
+    },
+    {
+      "tick": 22,
+      "card_ref": "virtual15",
+      "station_id": "B",
+      "amount_php": 201.87
+    },
+    {
+      "tick": 23,
+      "card_ref": "virtual12",
+      "station_id": "B",
+      "amount_php": 307.64
+    },
+    {
+      "tick": 24,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 212.44
+    },
+    {
+      "tick": 25,
+      "card_ref": "virtual06",
+      "station_id": "A",
+      "amount_php": 198.48
+    },
+    {
+      "tick": 26,
+      "card_ref": "virtual01",
+      "station_id": "A",
+      "amount_php": 66.99
+    },
+    {
+      "tick": 27,
+      "card_ref": "virtual18",
+      "station_id": "B",
+      "amount_php": 77.43
+    },
+    {
+      "tick": 28,
+      "card_ref": "virtual09",
+      "station_id": "A",
+      "amount_php": 272.38
+    },
+    {
+      "tick": 29,
+      "card_ref": "virtual08",
+      "station_id": "B",
+      "amount_php": 266.11
+    },
+    {
+      "tick": 30,
+      "card_ref": "virtual11",
+      "station_id": "B",
+      "amount_php": 179.53
+    },
+    {
+      "tick": 30,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 212.91
+    },
+    {
+      "tick": 31,
+      "card_ref": "virtual02",
+      "station_id": "A",
+      "amount_php": 299.78
+    },
+    {
+      "tick": 31,
+      "card_ref": "virtual17",
+      "station_id": "B",
+      "amount_php": 184.65
+    },
+    {
+      "tick": 32,
+      "card_ref": "virtual19",
+      "station_id": "A",
+      "amount_php": 164.81
+    },
+    {
+      "tick": 33,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 342.62
+    },
+    {
+      "tick": 34,
+      "card_ref": "virtual09",
+      "station_id": "A",
+      "amount_php": 215.74
+    },
+    {
+      "tick": 34,
+      "card_ref": "virtual06",
+      "station_id": "B",
+      "amount_php": 225.96
+    },
+    {
+      "tick": 35,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 186.67
+    },
+    {
+      "tick": 35,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 219.69
+    },
+    {
+      "tick": 36,
+      "card_ref": "virtual04",
+      "station_id": "A",
+      "amount_php": 173.33
+    },
+    {
+      "tick": 36,
+      "card_ref": "virtual13",
+      "station_id": "B",
+      "amount_php": 171.31
+    },
+    {
+      "tick": 37,
+      "card_ref": "virtual02",
+      "station_id": "A",
+      "amount_php": 272.32
+    },
+    {
+      "tick": 38,
+      "card_ref": "virtual07",
+      "station_id": "A",
+      "amount_php": 79.55
+    },
+    {
+      "tick": 38,
+      "card_ref": "virtual15",
+      "station_id": "B",
+      "amount_php": 287.41
+    },
+    {
+      "tick": 39,
+      "card_ref": "virtual20",
+      "station_id": "A",
+      "amount_php": 343.84
+    },
+    {
+      "tick": 39,
+      "card_ref": "virtual06",
+      "station_id": "A",
+      "amount_php": 173.42
+    },
+    {
+      "tick": 40,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 270.4
+    },
+    {
+      "tick": 40,
+      "card_ref": "virtual13",
+      "station_id": "A",
+      "amount_php": 138.86
+    },
+    {
+      "tick": 41,
+      "card_ref": "virtual10",
+      "station_id": "A",
+      "amount_php": 269.54
+    },
+    {
+      "tick": 41,
+      "card_ref": "virtual10",
+      "station_id": "A",
+      "amount_php": 219.88
+    },
+    {
+      "tick": 42,
+      "card_ref": "virtual20",
+      "station_id": "A",
+      "amount_php": 89.51
+    },
+    {
+      "tick": 42,
+      "card_ref": "virtual06",
+      "station_id": "A",
+      "amount_php": 173.9
+    },
+    {
+      "tick": 43,
+      "card_ref": "virtual18",
+      "station_id": "A",
+      "amount_php": 323.31
+    },
+    {
+      "tick": 43,
+      "card_ref": "virtual06",
+      "station_id": "A",
+      "amount_php": 328.52
+    },
+    {
+      "tick": 44,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 323.78
+    },
+    {
+      "tick": 44,
+      "card_ref": "virtual20",
+      "station_id": "B",
+      "amount_php": 60.78
+    },
+    {
+      "tick": 45,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 83.93
+    },
+    {
+      "tick": 46,
+      "card_ref": "virtual06",
+      "station_id": "B",
+      "amount_php": 268.68
+    },
+    {
+      "tick": 47,
+      "card_ref": "virtual09",
+      "station_id": "B",
+      "amount_php": 83.89
+    },
+    {
+      "tick": 48,
+      "card_ref": "virtual08",
+      "station_id": "B",
+      "amount_php": 260.48
+    },
+    {
+      "tick": 49,
+      "card_ref": "virtual10",
+      "station_id": "A",
+      "amount_php": 199.98
+    },
+    {
+      "tick": 50,
+      "card_ref": "virtual11",
+      "station_id": "A",
+      "amount_php": 283.96
+    },
+    {
+      "tick": 51,
+      "card_ref": "virtual14",
+      "station_id": "B",
+      "amount_php": 70.71
+    },
+    {
+      "tick": 52,
+      "card_ref": "virtual15",
+      "station_id": "B",
+      "amount_php": 141.75
+    },
+    {
+      "tick": 53,
+      "card_ref": "virtual13",
+      "station_id": "A",
+      "amount_php": 87.48
+    },
+    {
+      "tick": 53,
+      "card_ref": "virtual03",
+      "station_id": "B",
+      "amount_php": 261.1
+    },
+    {
+      "tick": 54,
+      "card_ref": "virtual11",
+      "station_id": "A",
+      "amount_php": 209.63
+    },
+    {
+      "tick": 55,
+      "card_ref": "virtual16",
+      "station_id": "A",
+      "amount_php": 274.93
+    },
+    {
+      "tick": 56,
+      "card_ref": "virtual05",
+      "station_id": "A",
+      "amount_php": 315.31
+    },
+    {
+      "tick": 57,
+      "card_ref": "virtual01",
+      "station_id": "B",
+      "amount_php": 327.11
+    },
+    {
+      "tick": 58,
+      "card_ref": "virtual12",
+      "station_id": "A",
+      "amount_php": 109.5
+    },
+    {
+      "tick": 59,
+      "card_ref": "virtual02",
+      "station_id": "A",
+      "amount_php": 269.23
+    },
+    {
+      "tick": 59,
+      "card_ref": "virtual17",
+      "station_id": "A",
+      "amount_php": 225.35
+    },
+    {
+      "tick": 60,
+      "card_ref": "virtual02",
+      "station_id": "B",
+      "amount_php": 139.12
+    }
+  ]
+}
