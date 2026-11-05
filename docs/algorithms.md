@@ -778,7 +778,7 @@ Output shape — exactly the fixture shape in [api-and-data.md](./api-and-data.m
   "unit": "L",
   "seed": 3,
   "points": [
-    { "idx": 1, "price_php": 58.41 },
+    { "idx": 1, "price_php": 58.81 },
     { "idx": 15, "price_php": 66.0 }
   ]
 }
@@ -858,7 +858,7 @@ cards = virtual01 .. virtual20
 for tick = 0..2:
    for i = 0..9:
      card = cards[(tick * 10 + i) % 20]
-     amountPhp = round2(400 + rand() * 100)     // 400.00 .. 500.00, i.e. >= 90% of the cap
+     amountPhp = round2(400 + rand() * 100)     // 400.00 .. 500.00, i.e. >= 80% of the cap
      push edge { tick_offset: tick + 1, card_ref: card, station_id: 'B', amount_php: amountPhp }
 ```
 

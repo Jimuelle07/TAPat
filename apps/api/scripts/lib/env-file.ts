@@ -9,8 +9,9 @@ export function readEnvValue(text: string, name: string): string | undefined {
 }
 
 /**
- * Replace each `NAME=...` line in place (an empty `NAME=` line is filled), append missing names in `updates` order,
- * keep every other line and comment; keep CRLF if `text` contains "\r\n", else LF; end with exactly one line ending.
+ * Replace the first `NAME=...` line of each update in place (an empty `NAME=` line is filled), append missing names in
+ * `updates` order, keep every other line and comment; keep CRLF if `text` contains "\r\n", else LF; always end with a
+ * line ending.
  */
 export function upsertEnv(text: string, updates: Readonly<Record<string, string>>): string {
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
