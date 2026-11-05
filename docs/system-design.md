@@ -495,7 +495,7 @@ The docs and the judge Q&A say this plainly. Do not imply the Freeze Agent can r
 ```
 packages/agent/                    @tapat/agent — pure: no env, no SQLite, no HTTP
   src/chain/
-    noir.ts      createNoirClient(), signNoirCall(), submitDirect(), reads + checkPayment
+    noir.ts      createNoirClient(), signNoirCall(), submitDirect()
     gas.ts       submitSponsored(): Velo sponsor → one submit → status recovery
     keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot   (planned, C2)
   src/algorithms/ names, matcher, crc, bocpd, cms, midas (planned, NM/MT/BOC/MIDAS)
