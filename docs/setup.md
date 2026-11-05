@@ -143,7 +143,7 @@ Done when both accounts appear in Freighter, both show a nonzero testnet XLM bal
 1. Open https://velo-build.dev and sign in. If sign-in is wallet-based, connect **Freighter** and pick `TAPat Program Wallet` (unverified — follow dashboard labels).
 2. Create a project named **`TAPat`** (unverified — follow dashboard labels). Confirm the project's `ownerAddress` / receiver address is the **Program Wallet public key** from stage 2. This is the only address Velo will accept a classic `payment` to, so it must be the Program Wallet.
    - If the project already exists from an earlier attempt, delete it and re-create rather than editing the owner.
-3. Create a **general / project API key** (unverified — follow dashboard labels). It is prefixed `tk_test_`. Paste it into `apps/api/.env` as `VELO_API_KEY`. This key is used for `checkout.sessions.create` and `paymentIntents.retrieve`.
+3. Create a **general / project API key**: **API Keys → Generate key → API access: General project API**. The dashboard issues it with the prefix `tk_live_` (older keys may read `tk_test_`; both are accepted, and Velo checkout still runs on Stellar Testnet only). Paste it into `apps/api/.env` as `VELO_API_KEY`. This key is used for `checkout.sessions.create` and `paymentIntents.retrieve`.
 4. Create a **Gas Station · Testnet key** (unverified — follow dashboard labels). It is prefixed `tg_test_`. Paste it as `VELO_GAS_API_KEY`. Also confirm `VELO_GAS_BASE_URL=https://www.velo-build.dev` (already set in `.env.example`).
 5. **Link the 3 Noir contracts** to the Gas Station allow-list (`allowedContractIds`, max 20). Paste them exactly:
 
@@ -158,7 +158,7 @@ Done when both accounts appear in Freighter, both show a nonzero testnet XLM bal
 7. **Set limits** to **50 XLM / day** and **300 requests / wallet / hour**, then **enable sponsorship** (unverified — follow dashboard labels). The Gas Station defaults are 10 XLM/day and 100 req/wallet/hour; the demo needs more because every contract write is sponsored. 50/300 is still far above the demo's real usage (under 20 writes).
 8. Confirm the Gas Station shows **active** and the allow-list shows **3 contracts**.
 
-Done when `VELO_API_KEY` starts with `tk_test_`, `VELO_GAS_API_KEY` starts with `tg_test_`, and the dashboard shows the project active with sponsorship enabled.
+Done when `VELO_API_KEY` starts with `tk_live_` (or `tk_test_`), `VELO_GAS_API_KEY` starts with `tg_test_`, and the dashboard shows the project active with sponsorship enabled.
 
 If Velo cannot be set up by **23:00 on Nov 5**, continue with `GAS_MODE=direct` in `.env` and keep Velo for the budget checkout and webhooks only — this is the plan's go/no-go fallback ([build-schedule.md](build-schedule.md)). Nothing else in the stack changes.
 
@@ -308,7 +308,7 @@ Every variable in [api-and-data.md §7](api-and-data.md), where it comes from, a
 | `GAS_FALLBACK_DIRECT` | — | `.env.example` default `true` |
 | `VELO_GAS_BASE_URL` | — | `.env.example` default `https://www.velo-build.dev` |
 | `VELO_GAS_API_KEY` | Stage 4 | Gas Station · Testnet key (`tg_test_…`) |
-| `VELO_API_KEY` | Stage 4 | project API key (`tk_test_…`) |
+| `VELO_API_KEY` | Stage 4 | project API key (`tk_live_…`, or an older `tk_test_…`) |
 | `VELO_WEBHOOK_SECRET` | Stage 5 | the webhook endpoint's signing secret |
 | `TELEGRAM_BOT_TOKEN` | Stage 6 | BotFather |
 | `TELEGRAM_BOT_USERNAME` | Stage 6 | BotFather, no `@` |

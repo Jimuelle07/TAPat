@@ -57,7 +57,15 @@ describe('parseConfig', () => {
 
   it('names a missing required variable, and only that one', () => {
     const result = parseConfig(without('VELO_API_KEY'));
-    expect(result).toEqual({ ok: false, errors: ["VELO_API_KEY: missing (rule: starts with 'tk_test_')"] });
+    expect(result).toEqual({ ok: false, errors: ["VELO_API_KEY: missing (rule: starts with 'tk_test_' or 'tk_live_')"] });
+  });
+
+  it("accepts a tk_live_ general key (the dashboard's current prefix) and rejects any other prefix", () => {
+    expect(parseConfig({ ...VALID, VELO_API_KEY: 'tk_live_dummy' }).ok).toBe(true);
+    for (const key of ['tg_test_dummy', 'tk_prod_dummy', 'xtk_live_dummy']) {
+      const result = parseConfig({ ...VALID, VELO_API_KEY: key });
+      expect(!result.ok && result.errors).toEqual(["VELO_API_KEY: invalid (rule: starts with 'tk_test_' or 'tk_live_')"]);
+    }
   });
 
   it('treats the empty KEY_ENCRYPTION_SECRET from .env.example as missing', () => {
