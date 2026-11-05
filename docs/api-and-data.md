@@ -1281,7 +1281,7 @@ GAS_FALLBACK_DIRECT=true
 VELO_GAS_BASE_URL=https://www.velo-build.dev
 VELO_GAS_API_KEY=tg_test_...
 # Velo project (general) API key, used by checkout + paymentIntents.
-VELO_API_KEY=tk_test_...
+VELO_API_KEY=tk_live_...
 # From the Velo dashboard webhook endpoint.
 VELO_WEBHOOK_SECRET=...
 
@@ -1327,7 +1327,7 @@ API_ORIGIN=http://localhost:4000
 | `GAS_FALLBACK_DIRECT` | `'true'` \| `'false'` → boolean |
 | `VELO_GAS_BASE_URL` | URL |
 | `VELO_GAS_API_KEY` | starts with `tg_test_` |
-| `VELO_API_KEY` | starts with `tk_test_` |
+| `VELO_API_KEY` | starts with `tk_test_` or `tk_live_` (the dashboard now issues `tk_live_`; Velo checkout still runs on Stellar Testnet) |
 | `VELO_WEBHOOK_SECRET` | min length 16 |
 | `TELEGRAM_BOT_TOKEN` | contains `:` |
 | `TELEGRAM_BOT_USERNAME` | `/^[A-Za-z0-9_]{5,32}$/` (no leading `@`) |
