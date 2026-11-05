@@ -2,6 +2,8 @@
 
 Everything one person needs to run the 3-minute TAPat demo on testnet, plus the fallbacks and the judge answers.
 
+On Nov 8 the face-to-face pitch is **5 minutes: this 3-minute script runs inside it, followed by 3 minutes of Q&A** (session 13:00–20:00).
+
 Last updated: 2026-11-05
 
 ## 1. Kit
@@ -16,7 +18,7 @@ Last updated: 2026-11-05
 | NFC tags | 4 labelled tags: **D1** (card, Telegram linked), **D2** (card), **D3** (sticker, policy expires 600 s after seed), **D4** (sticker, blank — enrolled on stage). NTAG213/215/216 only. | Each tag scanned once in the NFC Tools app. |
 | Team phone | Telegram open, logged in as the bot's chat partner, linked to **D1** and to one **uncertain** driver for the evidence beat. | `/start <link_code>` already sent for both. |
 | Hotspot | Phone hotspot as backup internet. | Hotspot name/password on a sticky note. |
-| Backup video | Nov 7 recording, on the laptop and on a USB stick. | Plays with Wi-Fi off. |
+| Backup video | The **2-minute demo video** and the full-length backup recording, both filmed Nov 7 09:00–10:30, on the laptop and on a USB stick. | Both play with Wi-Fi off. |
 | Printed runbook | This file, plus the Q&A card from §5. | Two copies. |
 
 **Optional Vercel frontend:** if the team switched it on ([deployment.md §9](deployment.md)), the phone and the judges may use `https://<project>.vercel.app` instead of the Funnel URL; if anything about it misbehaves, fall back to the Funnel URL, which always works.

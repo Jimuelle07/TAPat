@@ -140,13 +140,13 @@ Each feature states a user story, acceptance criteria an implementer can test, a
    2. No card for that `device_hash` in this program → **404 `CARD_NOT_ENROLLED`**.
    3. Otherwise submit `payment_escrow.authorize(agent, device_hash, merchant=stationAccount, XLM_SAC, amount, nonce)`.
 3. `nonce = max(Date.now(), cards.last_nonce + 1)` and is persisted **before** submit.
-4. On a `ContractRejection` with code 3, the API re-reads `agent_registry.get_policy(device_hash)` and maps: `now > expires_at` → **`EXPIRED`**; `amount > max_amount` → **`OVER_CAP`**; else **`POLICY_DENIED`**. Code 2 → **`INSUFFICIENT_ESCROW`**. Any other contract code (`6`, `8`, `9`, `10`, `11`, …) is a **`failed`** tap with `reason_code = null` and **502 `CHAIN_ERROR`**. `TapResponse.message` carries the sentence the station page shows, e.g. "Declined: ₱800.00 is over the ₱500.00 per-tap cap — rejected by the Noir contract (Soroban simulation of `authorize` returned Error #3); no tx submitted".
+4. There is no local pre-check: the contract refuses during the SDK's `prepare()` simulation, so no tx is submitted. On a `NoirContractError` from `authorize` with code 3 (`AgentNotAuthorized`), the API calls the SDK's `checkPayment({deviceHash, agent, asset, amount, requireEscrow: false})` and maps its reason: `expired` → **`EXPIRED`**; `over_limit` → **`OVER_CAP`**; `no_agent`/`wrong_agent`/`wrong_asset`/`invalid_amount` → **`POLICY_DENIED`**. Code 2 (`InsufficientBalance`) → **`INSUFFICIENT_ESCROW`**. Any other contract code (`6`, `8`, `9`, `10`, `11`, …) is a **`failed`** tap with `reason_code = null` and **502 `CHAIN_ERROR`**. `TapResponse.message` carries the sentence the station page shows, e.g. "Declined: ₱800.00 is over the ₱500.00 per-tap cap — rejected by the Noir contract (Soroban simulation of `authorize` returned Error #3); no tx submitted".
 5. Every attempt writes one `taps` row with `status` ∈ `authorized|rejected|refused|failed`, its `reason_code`, `nonce`, `chain_tx_id`, `simulated`, and is fed to the Freeze Agent.
 6. A linked driver gets a Telegram receipt for both outcomes, within 10 s:
    - `TAPat ⛽ Paid ₱{amt} at {station}\nBalance: ₱{bal}\nTx: https://stellar.expert/explorer/testnet/tx/{hash}`
    - `TAPat ⛽ Declined ₱{amt} at {station}: {reason}`
 7. SSE `tap` carries the tap row. The station page shows paid/declined with the reason and the tx hash.
-8. Fees are never paid by the station or the driver: every call goes through the Gas Station (`GAS_MODE=velo`), falling back to direct Soroban RPC submission only on a typed pre-dispatch sponsorship error when `GAS_FALLBACK_DIRECT=true`.
+8. Fees are never paid by the station or the driver: every call goes through the Gas Station (`GAS_MODE=velo`), falling back to a direct submission through the Noir SDK (`noir.submit`) only when `sponsor()` failed before hand-off and `GAS_FALLBACK_DIRECT=true`.
 9. Demo tap matrix at Station A (station id `A`, route `/station/A`; Station B is id `B`, route `/station/B`): D1 ₱350 → `authorized`; ₱800 → **`OVER_CAP`**; D3 ₱200 → **`EXPIRED`**.
 
 **Real / simulated.** Everything on the tap path is **real**: Web NFC UID read, nonce, `authorize`, Gas Station sponsorship, Telegram receipt. Only taps created by the burst/`simulated:true` path are marked `simulated` in the DB and UI.
@@ -187,16 +187,37 @@ Each feature states a user story, acceptance criteria an implementer can test, a
 
 ## 5. Hackathon fit
 
-TAPat must show an **agentic payment** built **with Velo** and using **all three Noir contracts for what they were built for**.
+TAPat must show an **agentic payment** built **with Velo** and using **all three Noir contracts for what they were built for**. The Builder Handbook (Nov 5) states six build requirements; all six are submission-eligibility conditions, not suggestions.
+
+| Requirement (Builder Handbook, Nov 5) | How TAPat meets it |
+|---|---|
+| An agentic payment (submission eligibility) | Two agents move money inside LGU-signed limits: the Tranche Agent funds escrows, the Freeze Agent refuses taps and withholds settlement. See the `Agentic payment` row below |
+| **Noir only through `@noirx402/agent-sdk`** (eligibility) | Every read and write goes through `@noirx402/agent-sdk@0.3.0` (pinned exactly) in `apps/api/src/chain/noir.ts`; there is no direct contract invocation. At boot the service asserts the SDK's `TESTNET` contract IDs and passphrase equal `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE`, because calling other contract IDs does not count |
+| Built with the **Velo SDK** for the rest | `@carts1024/velo-sdk@1.0.0` pinned exactly (npm `latest` = 1.0.0, published 2026-11-05; the handbook's `@alpha` advice predates that release): the budget checkout, the Gas Station sponsor/submit, and the signed webhooks |
+| Stellar **Testnet** | Every contract ID, tx hash, and Stellar Expert link in this repo is Testnet; XLM is displayed as PHP at the fixed demo rate |
+| Public GitHub **monorepo** with the handbook's root `README.md` template | One pnpm workspace (`apps/api`, `apps/web`, `packages/shared`) and a root `README.md` in the handbook's section order |
+| A **live website** reachable at submission | `https://tapat.<tailnet>.ts.net` (the Funnel URL, behind basic auth), kept up and seeded from submission through judging ([deployment.md §11](deployment.md)) |
+
+Judging criteria and weights (Builder Handbook, Nov 5):
+
+| Criterion | Weight |
+|---|---|
+| Agentic payments fit | 30% |
+| Technical execution | 25% |
+| Innovation | 20% |
+| Real-world potential | 15% |
+| Pitch and demo | 10% |
+
+How the build maps to the Noir and Velo requirements:
 
 | Requirement | How TAPat meets it |
 |---|---|
 | Agentic payment | Tranche Agent funds (`fund_escrow`); Freeze Agent withholds settlement (skips `claim`) and refuses new taps; per-card agents request payment (`authorize`) inside a policy the LGU signed |
 | Built with Velo — budget checkout | The LGU Budget Office wallet pays one Velo checkout intent for the program budget; the intent is ledger-verified (webhook + polling) before any tranche can be funded |
-| Built with Velo — Gas Station | Every contract write is fee-sponsored through `velo.gas.sponsorAndSubmit`, then `waitForResult`; identity-based recovery instead of resubmission |
+| Built with Velo — Gas Station | Every contract write is fee-sponsored: `velo.gas.sponsor(xdr, {idempotencyKey})`, then exactly one `velo.gas.submit(...)`; a non-terminal status goes to the reconciler (`getStatus`), never a resubmission |
 | Built with Velo — signed webhooks | `POST /api/webhooks/velo` verifies `x-velo-signature` (HMAC over the raw body) and dedupes on `x-velo-delivery` |
 | Noir `device_registry` | `register` (one device per driver card, owned by the Program Wallet/LGU) and `revoke` (reset only) |
-| Noir `agent_registry` | `register_agent` (per-card `max_amount`, asset `XLM_SAC`, `expires_at`), `revoke_agent` (at sweep), `get_policy` (used to render the exact refusal reason). `check_payment` is enforced inside `payment_escrow.authorize`, so a policy breach surfaces as `AgentNotAuthorized=3` |
+| Noir `agent_registry` | `register_agent` (per-card `max_amount`, asset `XLM_SAC`, `expires_at`), `revoke_agent` (at sweep), `get_policy` (the SDK reads it as `getPolicy`). `check_payment` is enforced inside `payment_escrow.authorize`, so a policy breach surfaces as `AgentNotAuthorized=3`; the SDK's `checkPayment` then names the reason |
 | Noir `payment_escrow` | `fund_escrow` (tranche), `authorize` (tap), `claim` (settlement), `sweep_on_revoke` (return) |
 
 | Contract | Testnet ID |

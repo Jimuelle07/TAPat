@@ -1,6 +1,6 @@
 # AGENTS.md — rules for AI assistants and humans in TAPat
 
-Binding rules for any agent (Antigravity, Claude, Copilot) or person editing this repo. TAPat is a hackathon prototype on Stellar Testnet; the demo must survive on stage on Nov 7.
+Binding rules for any agent (Antigravity, Claude, Copilot) or person editing this repo. TAPat is a hackathon prototype on Stellar Testnet; we submit on Nov 7 at 11:00 (submissions close at 12:00 noon) and pitch face to face on Nov 8.
 
 Last updated: 2026-11-05
 
@@ -46,6 +46,7 @@ Do not start editing from a prompt alone. If the prompt contradicts the docs, th
 - Render tap reasons only through `TAP_REASON_LABELS` in `@tapat/shared` (`packages/shared/constants.ts`); the station page shows the server's `TapResponse.message` verbatim.
 - A rejected or refused tap writes **no** chain tx. Never "fix" a rejection by lowering the cap, changing `expires_at`, or retrying with a different nonce.
 - Never resubmit a `chain_txs` row in `submission_unknown`. Recover with `velo.gas.getStatus(identity)`; the reconciler owns it.
+- Noir contract calls go only through `@noirx402/agent-sdk` — never invoke a contract directly (hackathon submission requirement).
 
 ## 5. Honesty labels
 

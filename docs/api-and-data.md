@@ -181,7 +181,7 @@ CREATE TABLE chain_txs (
   velo_request_id TEXT,
   inner_hash      TEXT,                                  -- inner tx hash (what the signer signed)
   outer_hash      TEXT,                                  -- fee-bump hash when Gas Station submitted it
-  error_code      TEXT,                                  -- 'ContractRejection:3' | 'VeloRateLimitError' | ...
+  error_code      TEXT,                                  -- 'CONTRACT_AgentNotAuthorized' | 'VeloRateLimitError' | ...
   error           TEXT,                                  -- full message, for the logs and the UI tooltip
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL
@@ -217,7 +217,7 @@ CREATE TABLE velo_intents (
   id             TEXT PRIMARY KEY,                       -- Velo paymentIntentId
   purpose        TEXT NOT NULL,                          -- 'budget'
   amount         TEXT NOT NULL,                          -- XLM decimal string, always 2 decimals ('1000.00')
-  asset          TEXT NOT NULL,                          -- 'XLM'
+  asset          TEXT NOT NULL,                          -- 'native' (the checkout constant)
   status         TEXT NOT NULL,                          -- 'created'|'paid'|'failed'
   checkout_url   TEXT,
   tx_hash        TEXT,
@@ -257,7 +257,7 @@ CREATE INDEX idx_agent_decisions_created      ON agent_decisions(agent, created_
 - `cards.device_hash` is `UNIQUE` per program because the program has a single salt; a re-seeded program has a new salt, so the same physical card re-enrolls without an on-chain `AlreadyRegistered`.
 - `cards.last_nonce` is persisted **before** `authorize` is submitted. A failed submit keeps the value: `nonce = max(Date.now(), last_nonce + 1)` remains strictly increasing.
 - `taps.status` vocabulary: `authorized` (contract accepted), `rejected` (contract refused with `Error #3` or `#2`), `refused` (our API refused before signing: frozen station, unknown card), `failed` (submit/chain failure, no decision).
-- `rejected` and `refused` taps write **no** `chain_txs` row and keep `chain_tx_id = NULL`: the rejection is detected during `prepareTransaction` simulation, so nothing was submitted and no hash exists. Only `authorized` and `failed` taps can point at a `chain_txs` row.
+- `rejected` and `refused` taps write **no** `chain_txs` row and keep `chain_tx_id = NULL`: the rejection is detected during `prepare()` simulation, so nothing was submitted and no hash exists. Only `authorized` and `failed` taps can point at a `chain_txs` row.
 - `chain_txs.status = 'submission_unknown'` rows are reconciled to `succeeded` or `failed` by the background reconciler (SDD §3). They are never resubmitted.
 - `velo_intents.amount` is a string so `1000.00` stays exact. SQLite `REAL` would lose the trailing digits Velo compares.
 - One `program` row exists at a time in the demo build. `reset-demo.ts` deletes every row, then `seed-demo.ts` inserts one.
@@ -686,10 +686,10 @@ Request body:
 
 Response 201: `{ "checkoutUrl": "https://pay.velo-build.dev/...", "paymentIntentId": "pi_..." }`
 
-Steps: `amount = stroopsToXlmString(phpToStroops(amountPhp))` → `velo.checkout.sessions.create({ amount, asset: "XLM", description: "TAPat fuel program budget", successUrl: `${PUBLIC_BASE_URL}/?budget=success`, cancelUrl: `${PUBLIC_BASE_URL}/?budget=cancel` }, { idempotencyKey: `budget:${programId}:${seq}` })` → insert `velo_intents` (`purpose='budget'`, `status='created'`). `seq` is `count(velo_intents where purpose='budget') + 1`.
+Steps: `amount = stroopsToXlmString(phpToStroops(amountPhp))` → `velo.checkout.sessions.create({ amount, asset: "native", description: "TAPat fuel program budget", successUrl: `${PUBLIC_BASE_URL}/?budget=success`, cancelUrl: `${PUBLIC_BASE_URL}/?budget=cancel` }, { idempotencyKey: `budget:${programId}:${seq}` })` → insert `velo_intents` (`purpose='budget'`, `status='created'`). `seq` is `count(velo_intents where purpose='budget') + 1`.
 
 - `amountPhp` must be a whole peso amount with 2 decimals; `10000` → `"1000.00"` XLM.
-- If Velo rejects `asset:"XLM"`, use `asset:"native"` (Velo passes both through as-is). This is the only allowed fallback.
+- `asset` is `"native"`, the handbook's checkout example (Builder Handbook, Nov 5); it is one constant, `VELO_CHECKOUT_ASSET`. The crediting check accepts an echoed `'native'` or `'XLM'`.
 - Errors: `400 VALIDATION_ERROR`, `404 NOT_FOUND` (no program), `409 INVALID_STATE` (program `ending`/`ended`), `502 CHAIN_ERROR` (`code:'VELO_CALL_FAILED'` in `message` when the SDK throws).
 
 #### 5. `POST /api/program/end`
@@ -880,7 +880,7 @@ A declined tap returns the same envelope with `status:'rejected'`, its `reasonCo
 {
   "tap": { "id": "tap_8001", "cardId": "card_D1", "cardRef": null, "stationId": "A", "amountStroops": "800000000", "nonce": "1793808201000", "status": "rejected", "reasonCode": "OVER_CAP", "chainTxId": null, "simulated": false, "midasScore": 0.14, "tick": 63, "createdAt": 1793808201123 },
   "balanceStroops": null,
-  "message": "Declined: ₱800.00 is over the ₱500.00 per-tap cap — rejected by the Noir contract (Soroban simulation of `authorize` returned Error #3); no tx submitted."
+  "message": "Declined: ₱800.00 is over the ₱500.00 per-tap cap — rejected by the Noir contract (simulation of `authorize` returned Error #3); no tx submitted."
 }
 ```
 
@@ -888,14 +888,14 @@ Order of operations (must not be reordered):
 
 1. Station unknown → `404 NOT_FOUND`. Station `frozen` → record a `refused` tap (`reason_code='STATION_FROZEN'`, `card_id=NULL`, no nonce, no `chain_txs` row) and return `423 STATION_FROZEN` with **no** chain call and **no** card lookup.
 2. Resolve `device_hash` from `uid` (or use `cardId`); no card / card not `active` → record a `refused` tap (`reason_code='CARD_NOT_ENROLLED'`, `card_id=NULL`, no `chain_txs` row) and return `404 CARD_NOT_ENROLLED`.
-3. `nonce = max(Date.now(), cards.last_nonce + 1)`; persist it; then `payment_escrow.authorize(agent, device_hash, merchant=station, asset=XLM_SAC, amount, nonce)`.
-4. On `ContractRejection`, map by the contract code — the exact closed mapping:
+3. `nonce = max(Date.now(), cards.last_nonce + 1)`; persist it; then `authorize(agent, deviceHash, merchant=station, asset=XLM_SAC_ID, amount, nonce)` through the SDK.
+4. On `NoirContractError`, map by the contract code — the exact closed mapping:
 
    | `payment_escrow` code | outcome |
    |---|---|
-   | `3` `AgentNotAuthorized` | read `agent_registry.get_policy(device_hash)`: `now > expires_at` (strict, as Noir's `is_expired`) → `rejected` / `EXPIRED`; `amount > max_amount` → `rejected` / `OVER_CAP`; else `rejected` / `POLICY_DENIED`. Response 200 |
+   | `3` `AgentNotAuthorized` | re-run the contract's predicate: `noir.checkPayment({ deviceHash, agent, asset: XLM_SAC_ID, amount, requireEscrow: false })`. Reason `expired` → `rejected` / `EXPIRED`; `over_limit` → `rejected` / `OVER_CAP`; `no_agent` / `wrong_agent` / `wrong_asset` / `invalid_amount` → `rejected` / `POLICY_DENIED`. Response 200 |
    | `2` `InsufficientBalance` | `rejected` / `INSUFFICIENT_ESCROW`. Response 200 |
-   | any other code (`6` `DuplicateAuth`, `8` `DeviceNotRegistered`, `9` `InvalidAsset`, `10` `InvalidRecipient`, `11` `InvalidAmount`, …) | `failed`, `reasonCode = null`; the contract name + code stay in `chain_txs.error_code` (`"ContractRejection:6"`); response `502 CHAIN_ERROR` |
+   | any other code (`6` `DuplicateAuth`, `8` `DeviceNotRegistered`, `9` `InvalidAsset`, `10` `InvalidRecipient`, `11` `InvalidAmount`, …) | `failed`, `reasonCode = null`; the contract name + code stay in `chain_txs.error_code` (`"CONTRACT_DuplicateAuth"`); response `502 CHAIN_ERROR` |
 
 5. Write the tap row, `agent_decisions` is not written for taps (the tap row is the record), feed the Freeze Agent, SSE `tap`, and send the Telegram receipt/decline when the driver is linked. After the Freeze Agent scores a tap it writes `taps.midas_score`/`taps.tick` and re-emits `tap` with the same `id` (clients upsert by `id`).
 6. `502 CHAIN_ERROR` also covers a submit that failed with no contract decision: the tap row is `failed`, `reason_code = null`, and `chain_tx_id` points at the failed tx.
@@ -1064,14 +1064,14 @@ Errors: `404 NOT_FOUND`, `500 INTERNAL`.
 | `VALIDATION_ERROR` | 400 | any | zod parse or business validation failed; `message` names the field |
 | `NOT_FOUND` | 404 | any `:id` route | id unknown, or no program exists |
 | `CARD_NOT_ENROLLED` | 404 | `POST /api/taps` | no card for that device hash in this program |
-| `WEBHOOK_SIGNATURE_INVALID` | 401 | `POST /api/webhooks/velo` | HMAC verify failed |
+| `WEBHOOK_SIGNATURE_INVALID` | 400 | `POST /api/webhooks/velo` | HMAC verify failed |
 | `CARD_ALREADY_ENROLLED` | 409 | `POST /api/enroll` | UID already has a non-`failed` card in this program |
 | `INVALID_STATE` | 409 | program/agents/stations/beneficiaries | the resource is in the wrong state for the action; `message` says which (e.g. `"Tap D2 at Station B first"`, `"no verified budget"`, `"tranche already fired"`) |
 | `OCR_UNAVAILABLE` | 422 | `POST /api/intake/upload` | image hash not in fixtures |
 | `PHOTO_MISMATCH` | 422 | `POST /api/enroll` | sample-photo plate or TODA ≠ the beneficiary record |
 | `PHOTO_CONFIRMATION_REQUIRED` | 422 | `POST /api/enroll` | uploaded photo without `officerConfirmed=true` |
 | `STATION_FROZEN` | 423 | `POST /api/taps` | station frozen; tap refused before signing |
-| `CHAIN_ERROR` | 502 | any chain call | submit/contract failure not otherwise mapped; `message` carries `ContractRejection:<code>` or the Velo error class |
+| `CHAIN_ERROR` | 502 | any chain call | submit/contract failure not otherwise mapped; `message` carries `CONTRACT_<errorName>` or the Velo error class |
 | `INTERNAL` | 500 | any | unexpected error; the full stack is logged, never returned |
 
 Tap reason codes are **never** HTTP error codes. `EXPIRED`, `OVER_CAP`, `POLICY_DENIED`, `INSUFFICIENT_ESCROW` and `SIMULATED_EDGE` (burst fixture rows) live only in `tap.reasonCode`; `STATION_FROZEN`/`CARD_NOT_ENROLLED` appear in `tap.reasonCode` **and** as the two error codes above. `BUDGET_EXHAUSTED` and `HELD` are `agent_decisions.decision` values, never HTTP codes.
@@ -1117,7 +1117,7 @@ Fastify **encapsulated plugin** registered at prefix `/api/webhooks/velo`. It re
 Handling order (this order is required — the HMAC covers the raw bytes):
 
 1. `x-velo-delivery` header missing → `400 VALIDATION_ERROR`.
-2. `Velo.webhooks.verify({ payload: rawBody, signature: req.headers['x-velo-signature'], secret: VELO_WEBHOOK_SECRET })` → failure = `401 WEBHOOK_SIGNATURE_INVALID`, nothing stored.
+2. `Velo.webhooks.verify({ payload: rawBody, signature: req.headers['x-velo-signature'], secret: VELO_WEBHOOK_SECRET })` → failure = `400 WEBHOOK_SIGNATURE_INVALID`, nothing stored (a bad signature is a bad request, the answer Velo's own SDK examples give).
 3. `INSERT OR IGNORE INTO webhook_deliveries` on `delivery_id`. If the insert was ignored (duplicate delivery) → `200 {"received":true}` immediately.
 4. Store `payload_json`; `type` = payload `type`.
 5. Dispatch:
@@ -1126,7 +1126,7 @@ Handling order (this order is required — the HMAC covers the raw bytes):
    - `payment.created` and everything else (including `contract.event`) → stored only.
 6. Always respond `200 {"received":true}` after step 4, even if step 5's handler throws (the throw is logged; Velo must not retry a delivery we already recorded). Never return 5xx to Velo.
 
-The 3 s `paymentIntents.retrieve` poller in the API covers a missed or delayed webhook with the same idempotent credit path. Response bodies: `200 {"received":true}`, `400 VALIDATION_ERROR`, `401 WEBHOOK_SIGNATURE_INVALID`.
+The 3 s `paymentIntents.retrieve` poller in the API covers a missed or delayed webhook with the same idempotent credit path. Response bodies: `200 {"received":true}`, `400 VALIDATION_ERROR`, `400 WEBHOOK_SIGNATURE_INVALID`.
 
 ### 5.6 Front-end mocks — `apps/web/mocks/`
 
@@ -1174,27 +1174,27 @@ Every `Tap` in those files includes `cardRef` (null for real cards). The mocks c
 
 ## 6. Chain call map
 
-Every write goes through `apps/api/src/chain/soroban.ts` → `gas.ts`. Signers are `Keypair`s loaded from env or decrypted from `cards.agent_secret_enc` ([SDD §3](system-design.md)).
+Every write goes through `apps/api/src/chain/noir.ts` → `gas.ts`, and every Noir call is an operation of `@noirx402/agent-sdk@0.3.0` (pinned exactly; its built-in `TESTNET` IDs are asserted equal to `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID` and `STELLAR_NETWORK_PASSPHRASE` at boot, and the API refuses to start on a mismatch). Signers are `Keypair`s loaded from env or decrypted from `cards.agent_secret_enc` ([SDD §3](system-design.md)).
 
-| TAPat action | Contract | Method | Signer | Args (in order) |
+| TAPat action | SDK operation | Contract method | Signer | Args (in order) |
 |---|---|---|---|---|
-| enroll a card | `device_registry` (`NOIR_DEVICE_REGISTRY_ID`) | `register` | Program Wallet | `wallet: Address`, `device_hash: BytesN<32>`, `agent: Address` (card agent) |
-| enroll a card (policy) | `agent_registry` (`NOIR_AGENT_REGISTRY_ID`) | `register_agent` | Program Wallet (device owner) | `wallet: Address`, `device_hash: BytesN<32>`, `agent: Address`, `max_amount: i128` (stroops), `asset: Address` (`XLM_SAC_ID`), `expires_at: u64` |
-| Tranche funding | `payment_escrow` (`NOIR_PAYMENT_ESCROW_ID`) | `fund_escrow` | Program Wallet | `token: Address` (`XLM_SAC_ID`), `wallet: Address` (Program Wallet), `device_hash: BytesN<32>`, `amount: i128` |
-| tap | `payment_escrow` | `authorize` | card agent (decrypted) | `agent: Address`, `device_hash: BytesN<32>`, `merchant: Address` (station public key), `asset: Address` (`XLM_SAC_ID`), `amount: i128`, `nonce: u64` |
-| settlement | `payment_escrow` | `claim` | station keypair | `token: Address` (`XLM_SAC_ID`), `merchant: Address` (station public key) |
-| end program | `agent_registry` | `revoke_agent` | Program Wallet (device owner) | `wallet: Address`, `device_hash: BytesN<32>` |
-| end program | `payment_escrow` | `sweep_on_revoke` | Program Wallet | `token: Address` (`XLM_SAC_ID`), `device_hash: BytesN<32>`, `agent: Address` (card agent) |
-| `reset-demo.ts` | `device_registry` | `revoke` | Program Wallet | `wallet: Address`, `device_hash: BytesN<32>` |
-| tap pre-check, UI reason | `agent_registry` | `get_policy` (read) | Program Wallet (simulation source) | `device_hash: BytesN<32>` → `{owner, agent, max_amount, asset, expires_at}` |
-| enrollment retry | `device_registry` | `get_owner` (read) | Program Wallet (simulation source) | `device_hash: BytesN<32>` → `Option<Address>`; some(wallet) means `register` already succeeded |
-| dashboard, tap response, sweep | `payment_escrow` | `balance_of` (read) | Program Wallet | `device_hash: BytesN<32>` → `i128` |
-| settlement, stations | `payment_escrow` | (no read) | — | unclaimed totals come from our own tables (#16), not a chain read |
-| `smoke-testnet.ts` only | `payment_escrow` | `pending_balance` (read) | Program Wallet | `merchant: Address` → `i128` (all tokens) — availability check for the settlement path |
+| enroll a card | `registerDevice{ deviceHash, agent }` | `device_registry.register` | Program Wallet | `wallet: Address`, `device_hash: BytesN<32>`, `agent: Address` (card agent) |
+| enroll a card (policy) | `registerAgent{ deviceHash, agent, asset, maxAmount, expiresAt }` | `agent_registry.register_agent` | Program Wallet (device owner) | `wallet: Address`, `device_hash: BytesN<32>`, `agent: Address`, `max_amount: i128` (stroops), `asset: Address` (`XLM_SAC_ID`), `expires_at: u64` |
+| Tranche funding | `fundEscrow{ deviceHash, token, amount }` | `payment_escrow.fund_escrow` | Program Wallet | `token: Address` (`XLM_SAC_ID`), `wallet: Address` (Program Wallet), `device_hash: BytesN<32>`, `amount: i128` |
+| tap | `authorize{ deviceHash, merchant, asset, amount, nonce }` | `payment_escrow.authorize` | card agent (decrypted) | `agent: Address`, `device_hash: BytesN<32>`, `merchant: Address` (station public key), `asset: Address` (`XLM_SAC_ID`), `amount: i128`, `nonce: u64` |
+| settlement | `claim{ token }` | `payment_escrow.claim` | station keypair | `token: Address` (`XLM_SAC_ID`), `merchant: Address` (station public key) |
+| end program | `revokeAgent{ deviceHash }` | `agent_registry.revoke_agent` | Program Wallet (device owner) | `wallet: Address`, `device_hash: BytesN<32>` |
+| end program | `sweepOnRevoke{ deviceHash, token, agent }` | `payment_escrow.sweep_on_revoke` | Program Wallet | `token: Address` (`XLM_SAC_ID`), `device_hash: BytesN<32>`, `agent: Address` (card agent) |
+| `reset-demo.ts` | `revokeDevice{ deviceHash }` | `device_registry.revoke` | Program Wallet | `wallet: Address`, `device_hash: BytesN<32>` |
+| tap reason, UI reason | `checkPayment({ deviceHash, agent, asset, amount, requireEscrow: false })` (read) | `agent_registry.check_payment` | — | `{ ok: true }` or `{ ok: false, reason }`; the contract's own predicate, used only for code 3 |
+| enrollment retry | `getDeviceOwner(deviceHash)` (read) | `device_registry.get_owner` | — | `Option<Address>`; some(wallet) means `register` already succeeded |
+| dashboard, tap response, sweep | `getEscrowBalance(deviceHash)` (read) | `payment_escrow.balance_of` | — | `i128` |
+| settlement, stations | (no read) | — | — | unclaimed totals come from our own tables (#16), not a chain read |
+| `smoke-testnet.ts` only | `getPendingBalance(merchant)` (read) | `payment_escrow.pending_balance` | — | `i128` (all tokens) — availability check for the settlement path |
 
-Arg encoding: `nativeToScVal(address, { type: 'address' })`, `nativeToScVal(Buffer.from(hex, 'hex'), { type: 'bytes' })` for `device_hash`, `{ type: 'i128' }` with a `bigint` for amounts, `{ type: 'u64' }` with a `bigint` for `nonce`/`expires_at`.
+Arguments are the SDK's typed values: amounts are `bigint` stroops (`i128`), `deviceHash` is a 64-hex string (`BytesN<32>`), `expiresAt` is a `Date` or `null`, `nonce` is a `bigint`. No `xdr.ScVal` is built anywhere in `apps/api`.
 
-Contract errors map to `CHAIN_ERROR` with `message = "ContractRejection:3"` style, using the tables below.
+Contract errors arrive as `NoirContractError` and map to `CHAIN_ERROR`; `chain_txs.error_code` holds `CONTRACT_<errorName>` (e.g. `CONTRACT_AgentNotAuthorized`) and `chain_txs.error` keeps the SDK's raw message, using the tables below.
 
 | `payment_escrow` | code | | `device_registry` | code | | `agent_registry` | code |
 |---|---|---|---|---|---|---|---|
@@ -1214,7 +1214,7 @@ Contract behavior that the services rely on (verified against `noirx402/noir` `m
 - `register_agent` panics `InvalidPolicy` when `expires_at != 0 && expires_at <= ledger now`, so every seeded expiry must be in the future.
 - A policy is expired when `ledger now > expires_at` (strict).
 - `sweep_on_revoke` checks only `is_auth(device_hash, agent)` (agent matches and not expired) → `AgentStillActive`. With a zero balance it returns `0` and transfers nothing. `revoke_agent` on a missing policy panics `AgentNotFound` (#2).
-- A panic inside a nested contract call (e.g. `device_registry.get_owner` → `DeviceNotFound` inside `sweep_on_revoke`) surfaces as `Error(Contract, #N)` too and can collide with the invoked contract's table; map by the invoked contract and keep the raw diagnostic string in `chain_txs.error`.
+- A panic inside a nested contract call (e.g. `device_registry.get_owner` → `DeviceNotFound` inside `sweep_on_revoke`) surfaces as `Error(Contract, #N)`, but the SDK resolves `errorName` against the **invoked** contract's table — so a sweep on an unregistered hash reports `payment_escrow` code 2 `InsufficientBalance`. `chain_txs.error` stores the SDK's synthesized message (`<contract>.<method> failed: <Name> (#<code>)`) together with the code and method; the raw RPC diagnostic is not retained, so map by the invoked contract and never read the text as the nested cause.
 
 Events the indexer sees (for debugging only, nothing depends on them): `("fund", device)`, `("authorize", device, merchant)`, `("claim", merchant)`, `("defund", device)`, `("sweep", device)`.
 
@@ -1231,14 +1231,14 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 
 | Call | Used by | Notes |
 |---|---|---|
-| `velo.checkout.sessions.create({ amount, asset, description, successUrl, cancelUrl }, { idempotencyKey })` | `POST /api/program/budget-checkout` | `amount` is an XLM decimal string (`"1000.00"`), `asset` is `"XLM"`; returns `{ checkoutUrl, paymentIntentId }` |
+| `velo.checkout.sessions.create({ amount, asset, description, successUrl, cancelUrl }, { idempotencyKey })` | `POST /api/program/budget-checkout` | `amount` is an XLM decimal string (`"1000.00"`), `asset` is `"native"`; returns `{ checkoutUrl, paymentIntentId }` |
 | `velo.paymentIntents.retrieve(paymentIntentId)` | webhook `payment.succeeded`, 3 s poller | returns `status`, `receiverAddress`, `payerAddress`; `paid` requires a classic `payment` op to the project `ownerAddress` with the exact asset and amount |
-| `velo.gas.sponsorAndSubmit(signedXdr, { idempotencyKey, correlationId })` | `chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor |
-| `velo.gas.waitForResult(identity, { timeoutMs: 30000 })` | `chain/gas.ts` | only `succeeded` is success; `claimed`/`submitted`/`submission_unknown` still running; `failed`/`cancelled` terminal |
-| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s for ≤ 2 min, then the row stays `submission_unknown` for the logs |
+| `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
+| `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
+| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s for ≤ 2 min, then the row stays `submission_unknown` for the logs; `claimed`/`submitted`/`submission_unknown` are still running, `failed`/`cancelled` terminal |
 | `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
 
-Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; never resubmit after `VeloGasSubmissionUnknownError`.
+Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly — it is the current `latest`, so the handbook's "use the latest" is satisfied without `@alpha`); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; `GAS_FALLBACK_DIRECT=true` switches to the direct path only when `sponsor()` failed (nothing was handed off), never after `submit()`; never resubmit after a lost hand-off.
 
 ---
 
@@ -1276,6 +1276,8 @@ KEY_ENCRYPTION_SECRET=
 
 # --- Velo Gas Station ---
 # velo = sponsor every contract write; direct = always send via Soroban RPC.
+# GAS_FALLBACK_DIRECT only applies when sponsor() itself failed (nothing was
+# handed off) — never after a submit, which is recovered by identity.
 GAS_MODE=velo
 GAS_FALLBACK_DIRECT=true
 VELO_GAS_BASE_URL=https://www.velo-build.dev
@@ -1320,7 +1322,7 @@ API_ORIGIN=http://localhost:4000
 | `PUBLIC_BASE_URL` | URL, `https:` required |
 | `STELLAR_RPC_URL` | URL |
 | `STELLAR_NETWORK_PASSPHRASE` | literal `Test SDF Network ; September 2015` |
-| `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID`, `XLM_SAC_ID` | `/^C[A-Z2-7]{55}$/` |
+| `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID`, `XLM_SAC_ID` | `/^C[A-Z2-7]{55}$/`; after parsing, `chain/noir.ts` asserts the three Noir IDs equal the SDK's built-in `TESTNET` contracts and that `STELLAR_NETWORK_PASSPHRASE` equals its `networkPassphrase`, and refuses to boot on a mismatch (only the deployed IDs count for the hackathon) |
 | `PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET` | `/^S[A-Z2-7]{55}$/` |
 | `KEY_ENCRYPTION_SECRET` | `/^[0-9a-f]{64}$/` |
 | `GAS_MODE` | enum `velo` \| `direct` |

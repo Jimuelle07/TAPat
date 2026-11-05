@@ -1,17 +1,17 @@
 # TAPat MVP Sprint — "Demo-ready by Nov 7"
 
-The sprint that ends with the full TAPat MVP working on Stellar testnet: all six features run the 3-minute demo end to end by **Nov 7, 14:00 (feature freeze)**.
+The sprint that ends with the full TAPat MVP working on Stellar testnet: all six features run the 3-minute demo end to end by the **Nov 7, 09:00 feature freeze** (submission at 11:00, closing 12:00 noon).
 Last updated: 2026-11-05
 
 This is the **sprint view**: what the MVP is, what counts as "working", and what we cut if we fall behind. Per-task owners, dependencies, and acceptance checks live in [build-schedule.md](build-schedule.md); this doc points to its task IDs (`C4`, `TR`, `UI2`, …) and does not repeat them.
 
 ## 1. Sprint goal
 
-> On Nov 7 at 14:00, `reset-demo` → `seed-demo` → budget checkout → the 7 demo beats run on testnet without a code change. The dashboard ends at **funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190**, and every money step has a `succeeded` tx hash.
+> On Nov 7 at 09:00, `reset-demo` → `seed-demo` → budget checkout → the 7 demo beats run on testnet without a code change. The dashboard ends at **funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190**, and every money step has a `succeeded` tx hash.
 
 | | |
 |---|---|
-| Sprint window | Nov 5 PM → Nov 7 14:00 (≈ 2 working days) |
+| Sprint window | Nov 5 PM → Nov 7 09:00 (≈ 2 working days) |
 | Team | Jim (integration owner), Dev2, BegA, BegB — role tags as in [build-schedule.md](build-schedule.md) |
 | Demo script | [demo-runbook.md §3](demo-runbook.md) |
 | Proof of done | `pnpm demo:e2e` green + one full manual rehearsal on the phone ([test-plan.md](test-plan.md)) |
@@ -34,7 +34,7 @@ This is the **sprint view**: what the MVP is, what counts as "working", and what
 
 ### Should work (shown in the demo, but has a fallback)
 
-| Item | Fallback if not ready by Nov 7 12:00 |
+| Item | Fallback if not ready by the Nov 7 09:00 freeze |
 |---|---|
 | Gas Station sponsorship on every Noir call | `GAS_MODE=direct` (decided at the Nov 5 23:00 go/no-go); Velo story = budget checkout + webhooks |
 | **Hosted at the stable Funnel URL** (`https://tapat.<tailnet>.ts.net`, one always-free VM, Caddy + basic auth, [deployment.md](deployment.md)) | **Jim's laptop + Funnel** (`tailscale funnel 3000`, [deployment.md §10](deployment.md) step 3) — same URL shape, ~10 min of setup, demo state starts fresh |
@@ -58,10 +58,10 @@ The tasks are the ones in [build-schedule.md](build-schedule.md). This table onl
 | **Nov 5, 23:00 — go/no-go** | A sponsored `authorize()` round trip from a script; all five pages render on mocks; name matcher passes the Dela Cruz vector | M0, S1–S7, SPK, M1, SH, NM, BOC, UI1, FIX1 |
 | **Nov 6, 12:00 — midday** | Enroll + tap through the real API (`curl` or UI): ₱350 paid, ₱800 `OVER_CAP`; MIDAS threshold calibrated; bot replies to `/start` | C1–C4, MT, MID, TG1, FIX2–3 |
 | **Nov 6, EOD — demo gate** | `pnpm demo:e2e` green **on the VM** against testnet with the §1 totals, over the same Funnel URL the demo uses | C5, TR, SED, FRZ, SET, SW, SSE, CSV, UI2, TP1, DEP1–DEP2 |
-| **Nov 7, 10:00 — rehearsal 1** | Full 3-minute run on the phone + laptop, timed | All of the above; bug fixes only |
-| **Nov 7, 14:00 — feature freeze** | 2 of 3 rehearsals hit the §1 totals; `git tag demo-ready` | Bug fixes with a repro only |
+| **Nov 7, 07:00–09:00 — two timed rehearsals** | Two full 3-minute runs on the phone + laptop over the public URL, timed | All of the above; bug fixes only |
+| **Nov 7, 09:00 — feature freeze** | 2 of 2 rehearsals hit the §1 totals; `git tag demo-ready` | Bug fixes with a repro only |
 
-After 14:00 the work is the backup video, README, submission text, and the printed kit — see [build-schedule.md §6](build-schedule.md).
+After 09:00 the work is the **2-minute demo video + full-length backup recording**, the README in the handbook template, the write-up, and the printed kit, then **submission at 11:00** (closes 12:00 noon) — see [build-schedule.md §6](build-schedule.md).
 
 ## 4. Definition of done (every task)
 
@@ -90,4 +90,4 @@ Decide at each checkpoint in §3, in this order. **Never cut a money decision** 
 - **09:00 and 18:00 stand-up (10 min):** each person says done / next / blocked, against the task IDs. Jim updates the checkpoint status in §3.
 - **Blocked > 30 min:** post in the team chat with the task ID and the exact error; Jim or Dev2 picks it up.
 - **Beginners (BegA, BegB):** run the app on your own machine with [test-guide.md](test-guide.md) before you report "done".
-- **Bugs on Nov 7:** file with the task ID, steps, expected vs actual, screenshot; Jim triages, no feature work after 14:00.
+- **Bugs on Nov 7:** file with the task ID, steps, expected vs actual, screenshot; Jim triages, no feature work after 09:00.

@@ -1,7 +1,8 @@
 /**
- * SPK (docs/build-schedule.md): throwaway card -> register -> register_agent -> fund_escrow(1 XLM) -> authorize(),
- * each call sent through the Velo Gas Station (`sponsor` then one `submit`), or with --direct signed and sent straight to
- * Soroban RPC (the Nov 5 23:00 go/no-go fallback, GAS_MODE=direct).
+ * SPK (docs/build-schedule.md): throwaway card -> registerDevice -> registerAgent -> fundEscrow(1 XLM) -> checkPayment
+ * -> authorize. Every Noir call is built by @noirx402/agent-sdk (`prepare`), signed here, then submitted by the Velo
+ * Gas Station (`sponsor` then one `submit`), or with --direct by the Noir SDK (`submit`, the Nov 5 23:00 go/no-go
+ * fallback, GAS_MODE=direct). Builder Handbook requirement 2: Noir only through the Noir SDK, on the deployed IDs.
  * Testnet only. Writes nothing to SQLite or .env; prints statuses and tx hashes, never a secret or an XDR.
  *   pnpm --filter api tsx scripts/spike-authorize.ts
  *   pnpm --filter api tsx scripts/spike-authorize.ts --direct
@@ -9,17 +10,8 @@
 import { randomBytes } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
-import {
-  BASE_FEE,
-  Contract,
-  Keypair,
-  TransactionBuilder,
-  nativeToScVal,
-  rpc,
-  scValToNative,
-  type Transaction,
-  type xdr,
-} from '@stellar/stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
+import { NoirAgentClient, NoirContractError, TESTNET, keypairSigner, type NoirOperation } from '@noirx402/agent-sdk';
 import { Velo, VeloError, VeloProviderError, type GasSponsorReservation, type GasSubmitResult } from '@carts1024/velo-sdk';
 import { loadConfig } from '../src/config';
 
@@ -30,7 +22,19 @@ const EXPERT_TX = 'https://stellar.expert/explorer/testnet/tx/';
 
 const { values } = parseArgs({ options: { direct: { type: 'boolean', default: false } } });
 const config = loadConfig();
-const server = new rpc.Server(config.STELLAR_RPC_URL);
+
+// The SDK's built-in Testnet deployment must be exactly the one in .env (handbook: other contract IDs do not count).
+const expected = {
+  deviceRegistry: config.NOIR_DEVICE_REGISTRY_ID,
+  agentRegistry: config.NOIR_AGENT_REGISTRY_ID,
+  paymentEscrow: config.NOIR_PAYMENT_ESCROW_ID,
+};
+for (const [name, id] of Object.entries(expected)) {
+  if (TESTNET.contracts[name as keyof typeof expected] !== id) throw new Error(`Noir SDK ${name} differs from .env`);
+}
+if (TESTNET.networkPassphrase !== config.STELLAR_NETWORK_PASSPHRASE) throw new Error('Noir SDK passphrase differs from .env');
+
+const noir = new NoirAgentClient({ network: 'testnet', rpcUrl: config.STELLAR_RPC_URL });
 const programWallet = Keypair.fromSecret(config.PROGRAM_WALLET_SECRET);
 const stationA = Keypair.fromSecret(config.STATION_A_SECRET).publicKey();
 const velo = values.direct
@@ -38,60 +42,36 @@ const velo = values.direct
   : new Velo({ apiKey: config.VELO_GAS_API_KEY, baseUrl: config.VELO_GAS_BASE_URL, environment: 'testnet', timeoutMs: 30_000 });
 const runId = Date.now().toString(36);
 
-// ScVal encoding, docs/system-design.md §4.3.
-const address = (value: string) => nativeToScVal(value, { type: 'address' });
-const bytes32 = (hex: string) => nativeToScVal(Buffer.from(hex, 'hex'), { type: 'bytes' });
-const i128 = (value: bigint) => nativeToScVal(value, { type: 'i128' });
-const u64 = (value: bigint) => nativeToScVal(value, { type: 'u64' });
-
 async function friendbot(publicKey: string): Promise<void> {
   const res = await fetch(`https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`);
   if (!res.ok) throw new Error(`friendbot failed for ${publicKey}: HTTP ${res.status}`);
 }
 
-async function unsigned(source: string, contractId: string, method: string, args: xdr.ScVal[]): Promise<Transaction> {
-  const account = await server.getAccount(source);
-  return new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE })
-    .addOperation(new Contract(contractId).call(method, ...args))
-    .setTimeout(300) // room for the sponsor() retries and the status wait in submit()
-    .build();
+/** Noir SDK builds and simulates the call (one invokeHostFunction op, source = signer), signed with one signature. */
+async function signedNoirCall(signer: Keypair, op: NoirOperation): Promise<string> {
+  const unsigned = await noir.prepare(signer.publicKey(), op);
+  const signed = await keypairSigner(signer.secret()).signTransaction(unsigned, {
+    networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
+  });
+  return typeof signed === 'string' ? signed : signed.signedTxXdr;
 }
 
-/** One invokeHostFunction op, source = signer, exactly one signature (the Gas Station envelope rule). */
-async function signed(signer: Keypair, contractId: string, method: string, args: xdr.ScVal[]): Promise<Transaction> {
-  const tx = await server.prepareTransaction(await unsigned(signer.publicKey(), contractId, method, args));
-  tx.sign(signer);
-  return tx;
-}
-
-async function read(contractId: string, method: string, args: xdr.ScVal[]): Promise<unknown> {
-  const sim = await server.simulateTransaction(await unsigned(programWallet.publicKey(), contractId, method, args));
-  if (!rpc.Api.isSimulationSuccess(sim) || !sim.result) {
-    throw new Error(`${method}: simulation failed ${rpc.Api.isSimulationError(sim) ? sim.error : ''}`);
-  }
-  return scValToNative(sim.result.retval);
-}
-
-async function submit(step: string, tx: Transaction): Promise<void> {
+async function submit(step: string, op: NoirOperation, signedXdr: string): Promise<void> {
   if (!velo) {
-    const sent = await server.sendTransaction(tx);
-    if (sent.status === 'ERROR') throw new Error(`${step}: sendTransaction returned ERROR`);
-    const done = await server.pollTransaction(sent.hash, { attempts: 30 });
-    console.log(`${step.padEnd(15)} direct  ${done.status.padEnd(9)} tx=${sent.hash}`);
-    if (done.status !== 'SUCCESS') throw new Error(`${step}: ${done.status}`);
+    const hash = await noir.submit(signedXdr, op); // resolves once the network confirms
+    console.log(`${step.padEnd(15)} direct  SUCCESS   tx=${hash}`);
     return;
   }
 
   // Stable per run and step: a retried sponsorship reuses the reservation, never a second one.
   const key = `tapat-spk:${runId}:${step}`;
-  const xdrBase64 = tx.toXDR();
 
   // sponsor() only reserves fee exposure and never submits, so a provider failure here is safe to retry
   // with the same signed XDR and the same idempotency key.
   let reservation: GasSponsorReservation | undefined;
   for (let attempt = 1; reservation === undefined; attempt++) {
     try {
-      reservation = await velo.gas.sponsor(xdrBase64, { idempotencyKey: key, correlationId: key, timeoutMs: 30_000 });
+      reservation = await velo.gas.sponsor(signedXdr, { idempotencyKey: key, correlationId: key, timeoutMs: 30_000 });
     } catch (error) {
       if (!(error instanceof VeloProviderError) || attempt >= 4) throw error;
       console.log(`${step.padEnd(15)} velo    sponsor retry ${attempt}/3 after ${error.code ?? 'provider error'}`);
@@ -104,7 +84,7 @@ async function submit(step: string, tx: Transaction): Promise<void> {
   const identity = { requestId: reservation.requestId, transactionHash: reservation.transactionHash };
   let result: GasSubmitResult;
   try {
-    result = await velo.gas.submit({ ...identity, transactionXdr: xdrBase64 });
+    result = await velo.gas.submit({ ...identity, transactionXdr: signedXdr });
   } catch (error) {
     console.log(`${step.padEnd(15)} velo    hand-off uncertain (${error instanceof Error ? error.constructor.name : 'error'}); reading status by identity`);
     result = await velo.gas.getStatus(identity);
@@ -125,30 +105,37 @@ async function submit(step: string, tx: Transaction): Promise<void> {
   }
 }
 
+async function run(step: string, signer: Keypair, op: NoirOperation): Promise<void> {
+  await submit(step, op, await signedNoirCall(signer, op));
+}
+
 async function main(): Promise<void> {
-  const wallet = programWallet.publicKey();
   const deviceHash = randomBytes(32).toString('hex');
   const agent = Keypair.random();
   await friendbot(agent.publicKey()); // the agent is the source of authorize(), so it must exist on chain
 
-  console.log(`mode ${velo ? 'velo (Gas Station)' : 'direct (RPC)'}  run ${runId}`);
+  console.log(`mode ${velo ? 'velo (Gas Station)' : 'direct (Noir SDK submit)'}  run ${runId}`);
   console.log(`throwaway device ${deviceHash.slice(0, 8)}…  agent ${agent.publicKey()}  merchant station A ${stationA}`);
 
-  await submit('register', await signed(programWallet, config.NOIR_DEVICE_REGISTRY_ID, 'register', [
-    address(wallet), bytes32(deviceHash), address(agent.publicKey()),
-  ]));
-  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
-  await submit('register_agent', await signed(programWallet, config.NOIR_AGENT_REGISTRY_ID, 'register_agent', [
-    address(wallet), bytes32(deviceHash), address(agent.publicKey()), i128(PER_TAP_CAP), address(config.XLM_SAC_ID), u64(expiresAt),
-  ]));
-  await submit('fund_escrow', await signed(programWallet, config.NOIR_PAYMENT_ESCROW_ID, 'fund_escrow', [
-    address(config.XLM_SAC_ID), address(wallet), bytes32(deviceHash), i128(ONE_XLM),
-  ]));
-  const before = (await read(config.NOIR_PAYMENT_ESCROW_ID, 'balance_of', [bytes32(deviceHash)])) as bigint;
-  await submit('authorize', await signed(agent, config.NOIR_PAYMENT_ESCROW_ID, 'authorize', [
-    address(agent.publicKey()), bytes32(deviceHash), address(stationA), address(config.XLM_SAC_ID), i128(TAP_AMOUNT), u64(BigInt(Date.now())),
-  ]));
-  const after = (await read(config.NOIR_PAYMENT_ESCROW_ID, 'balance_of', [bytes32(deviceHash)])) as bigint;
+  const asset = config.XLM_SAC_ID;
+  await run('registerDevice', programWallet, { kind: 'registerDevice', deviceHash, agent: agent.publicKey() });
+  await run('registerAgent', programWallet, {
+    kind: 'registerAgent', deviceHash, agent: agent.publicKey(), asset, maxAmount: PER_TAP_CAP,
+    expiresAt: new Date(Date.now() + 3_600_000),
+  });
+  await run('fundEscrow', programWallet, { kind: 'fundEscrow', deviceHash, token: asset, amount: ONE_XLM });
+
+  const before = await noir.getEscrowBalance(deviceHash);
+  const check = await noir.checkPayment({ deviceHash, agent: agent.publicKey(), asset, amount: TAP_AMOUNT });
+  console.log(`checkPayment    ${check.ok ? 'ok' : `refused: ${check.reason}`}`);
+  if (!check.ok) throw new Error(`checkPayment refused: ${check.reason}`);
+  const overCap = await noir.checkPayment({ deviceHash, agent: agent.publicKey(), asset, amount: PER_TAP_CAP + 1n });
+  console.log(`checkPayment    over cap -> ${overCap.ok ? 'ok (UNEXPECTED)' : overCap.reason}`);
+
+  await run('authorize', agent, {
+    kind: 'authorize', deviceHash, merchant: stationA, asset, amount: TAP_AMOUNT, nonce: BigInt(Date.now()),
+  });
+  const after = await noir.getEscrowBalance(deviceHash);
 
   console.log(`escrow balance  ${before} -> ${after} stroops (expected -${TAP_AMOUNT})`);
   if (before - after !== TAP_AMOUNT) throw new Error('escrow balance did not drop by the tap amount');
@@ -158,6 +145,8 @@ async function main(): Promise<void> {
 main().catch((error: unknown) => {
   if (error instanceof VeloError) {
     console.error(`FAIL  ${error.constructor.name} code=${error.code ?? '-'} status=${error.status ?? '-'} requestId=${error.requestId ?? '-'}: ${error.message}`);
+  } else if (error instanceof NoirContractError) {
+    console.error(`FAIL  NoirContractError ${error.contract}.${error.method} #${error.code} ${error.errorName}`);
   } else {
     console.error(`FAIL  ${(error instanceof Error ? error.message : String(error)).slice(0, 1500)}`);
   }
