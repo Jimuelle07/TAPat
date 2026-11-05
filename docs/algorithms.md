@@ -513,8 +513,8 @@ var  = [var0]
      prec      = 1 / var[r] + 1 / sigma2
      newVar[r+1] = 1 / prec
      newMu[r+1]  = newVar[r+1] * ( mu[r] / var[r] + x_t / sigma2 )
-   newMu[0]  = mu0            // the changepoint hypothesis starts from the prior
-   newVar[0] = var0
+   newVar[0] = 1 / (1 / var0 + 1 / sigma2)                  // r = 0: x_t opens the new segment,
+   newMu[0]  = newVar[0] * ( mu0 / var0 + x_t / sigma2 )    // so the prior absorbs x_t
    ```
 
 6. **Truncate** at `R = 200`: drop every index `> R`, then renormalize `P` (`L = logSumExp(newLogP); newLogP[k] -= L`).
@@ -540,7 +540,7 @@ fire  = cpRecent >= 0.9
 
 `thresholdPhp` is `program.price_threshold_php` (default `65.00`).
 
-The clause `mapRunLength >= 3` forces the average over at least 4 points: a single outlier can never push `segmentMean` over the threshold. The clause `mapRunLength < t - 1` requires the changepoint to be strictly in the past, not "the series just started". Combined, the earliest possible fire is the 5th point of a new segment.
+The clause `mapRunLength >= 3` forces the average over at least 4 points: a single outlier can never push `segmentMean` over the threshold. The clause `mapRunLength < t - 1` requires the changepoint to be strictly in the past, not "the series just started". Combined, the earliest possible fire is the 4th point of a new segment (on the fixture: the step starts at index 30, the fire lands at index 33).
 
 The agent fires at most once per program (`program.tranche_fired`); `trancheShouldFire` returns the first index that satisfies the rule and is pure — the caller owns the "once" policy.
 
