@@ -95,7 +95,7 @@ flowchart LR
 | `noir.getEscrowBalance(deviceHash)` | Escrow balance reads | [`spike-authorize.ts#L128`](apps/api/scripts/spike-authorize.ts#L128) and [#L138](apps/api/scripts/spike-authorize.ts#L138) |
 | `TESTNET` | Assertion that the SDK's deployed IDs and passphrase equal ours | [`spike-authorize.ts#L27-L35`](apps/api/scripts/spike-authorize.ts#L27-L35) |
 
-**Operations** (`NoirOperation` values): `registerDevice`, `registerAgent`, `fundEscrow`, `authorize`, `claim`, `revokeAgent`, `sweepOnRevoke`, `revokeDevice`, `defundEscrow` — called at [`spike-authorize.ts#L121-L138`](apps/api/scripts/spike-authorize.ts#L121-L138).
+**Operations** (`NoirOperation` values): `registerDevice`, `registerAgent`, `fundEscrow`, `authorize`, `claim`, `revokeAgent`, `sweepOnRevoke`, `revokeDevice`, `defundEscrow`; the spike exercises `registerDevice`, `registerAgent`, `fundEscrow` and `authorize` at [spike-authorize.ts#L121-L137](apps/api/scripts/spike-authorize.ts#L121-L137).
 
 The API service modules `apps/api/src/chain/noir.ts` (client, reads, `checkPayment`, `write()` = prepare → sign → `gas.submit()`) and `apps/api/src/chain/gas.ts` (Velo sponsor/submit and the direct fallback) are being built in tasks C1/C2 of [`docs/build-schedule.md`](docs/build-schedule.md). `@stellar/stellar-sdk` stays only for `Keypair`, `TransactionBuilder.fromXDR`, and signing.
 
