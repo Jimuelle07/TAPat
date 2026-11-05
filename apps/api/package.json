@@ -11,6 +11,7 @@
     "tsx": "tsx"
   },
   "dependencies": {
+    "@carts1024/velo-sdk": "1.0.0",
     "@fastify/cors": "^11",
     "@stellar/stellar-sdk": "^16.4.1",
     "@tapat/shared": "workspace:*",

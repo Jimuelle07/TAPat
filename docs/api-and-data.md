@@ -1238,7 +1238,7 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 | `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s for ≤ 2 min, then the row stays `submission_unknown` for the logs |
 | `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
 
-Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@0.1.0-alpha.4`, pinned exactly); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; never resubmit after `VeloGasSubmissionUnknownError`.
+Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; never resubmit after `VeloGasSubmissionUnknownError`.
 
 ---
 

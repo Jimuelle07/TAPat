@@ -53,7 +53,7 @@ cloudflared --version
 
 Notes:
 
-- Node **22 LTS** is the recorded demo config: `better-sqlite3` prebuilds and `@carts1024/velo-sdk@0.1.0-alpha.4` are verified there, and [prerequisites.md](prerequisites.md) §3/§6 says to use it exactly. The install line above pins `OpenJS.NodeJS.22`, because the unpinned LTS package id would now install a newer release. If `node --version` still prints something other than `v22.x`, close and reopen the terminal (PATH changes do not reach an open shell) and, if it still does not, check `where.exe node` for a second Node on PATH — do not continue on a newer version.
+- Node **22 LTS** is the recorded demo config: `better-sqlite3` prebuilds are verified there, `@carts1024/velo-sdk@1.0.0` requires Node ≥ 22.6, and [prerequisites.md](prerequisites.md) §3/§6 says to use it exactly. The install line above pins `OpenJS.NodeJS.22`, because the unpinned LTS package id would now install a newer release. If `node --version` still prints something other than `v22.x`, close and reopen the terminal (PATH changes do not reach an open shell) and, if it still does not, check `where.exe node` for a second Node on PATH — do not continue on a newer version.
 - If `npm install -g pnpm@9` is blocked by policy, use `corepack enable` and then `pnpm --version` (Corepack ships with Node 22 and downloads pnpm on first use).
 - If `winget install Cloudflare.cloudflared` fails, download `cloudflared-windows-amd64.exe` from https://github.com/cloudflare/cloudflared/releases, rename it `cloudflared.exe`, put it in `C:\Users\jomalyne\bin`, and add that folder to PATH.
 - `better-sqlite3` needs build tools only as a fallback. If `pnpm install` fails on it, the API switches to `node:sqlite` (see the SDD); nothing in this doc changes.
