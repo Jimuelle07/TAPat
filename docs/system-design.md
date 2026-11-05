@@ -630,7 +630,7 @@ export async function reconcileOnce(now: number): Promise<void>;
 
 | Velo status | Our outcome |
 |---|---|
-| `succeeded` | `succeeded` — store `outerHash` (`transactionHash`) and `ledger` |
+| `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`), the inner hash (`transactionHash`) and `ledger` |
 | `failed` | `failed`, `errorCode = 'GAS_FAILED'` |
 | `cancelled` | `failed`, `errorCode = 'GAS_CANCELLED'` |
 | `claimed`, `submitted`, `submission_unknown` | `submission_unknown`, `veloRequestId = requestId`; the reconciler owns it |
@@ -963,7 +963,7 @@ The `refused` status is what keeps simulated edges out of settlement, which sums
 
 Errors: `404 NOT_FOUND` (no program), `502 CHAIN_ERROR` (a claim failed; the remaining stations still run).
 
-`claim` transfers everything pending for that merchant in one SAC transfer, which is why "pending since the last successful claim" is the correct local model. `noir.pendingBalance(station.publicKey)` (the escrow's `pending_balance(merchant)`) is the chain-side total for that merchant: `smoke-testnet.ts` asserts it drops to zero after a successful claim, and the dashboard may display it as a cross-check. It is never the settlement trigger.
+`claim` transfers everything pending for that merchant in one SAC transfer, which is why "pending since the last successful claim" is the correct local model. `noir.getPendingBalance(station.publicKey)` (the escrow's `pending_balance(merchant)`) is the chain-side total for that merchant: `smoke-testnet.ts` asserts it drops to zero after a successful claim, and the dashboard may display it as a cross-check. It is never the settlement trigger.
 
 ### 6.8 Sweep (F6)
 
@@ -1021,7 +1021,7 @@ Poller — every 3 s, `velo_intents` rows with `status != 'paid'` and `created_a
 | `spentStroops` | Σ over stations of Σ `taps.amount_stroops` with `status='authorized'`, `created_at <= lastClaimAt(station)` |
 | `heldStroops` | Σ `taps.amount_stroops` with `status='authorized'`, `created_at > lastClaimAt(station)`, station `frozen` |
 | `pendingStroops` | same but station `active` |
-| `escrowRemainingStroops` | Σ `balanceOf(device_hash)` over cards with `status='active'`; cached 5 s. This must stay a **chain read**: with every other term DB-derived from the same rows, the invariant would stop being an independent cross-check. |
+| `escrowRemainingStroops` | Σ `noir.getEscrowBalance(device_hash)` over cards with `status='active'`; cached 5 s. This must stay a **chain read**: with every other term DB-derived from the same rows, the invariant would stop being an independent cross-check. |
 | `returnedStroops` | Σ `cards.returned_stroops` |
 | `invariantOk` | `funded === spent + held + pending + escrowRemaining + returned` → `true` / `false`; the UI renders OK or MISMATCH with the escrow-remaining number beside the five money tiles |
 
@@ -1038,7 +1038,7 @@ Which page renders which slice of `Dashboard`:
 
 Every page reads `GET /api/program` for `{ program, phpPerXlm }`; when `program` is `null` it renders "No active program — run seed-demo.ts" and offers no money action.
 
-`lastClaimAt(station)` is the `MAX(updated_at)` of that station's successful claims, as defined in §6.7. `noir.pendingBalance(station.publicKey)` is the escrow's own `pending_balance(merchant)` total — a read-only cross-check shown next to `held + pending`, and asserted by `smoke-testnet.ts`. It never feeds settlement or the dashboard totals.
+`lastClaimAt(station)` is the `MAX(updated_at)` of that station's successful claims, as defined in §6.7. `noir.getPendingBalance(station.publicKey)` is the escrow's own `pending_balance(merchant)` total — a read-only cross-check shown next to `held + pending`, and asserted by `smoke-testnet.ts`. It never feeds settlement or the dashboard totals.
 
 The invariant holds per card: each peso is either claimed, pending (held or releasable), still escrowed, or swept back. Show it on the dashboard — it is the answer to "how do we know the numbers are real".
 
@@ -1064,7 +1064,7 @@ Long polling `getUpdates` inside the API; no webhook, no public bot endpoint.
 | OR/CR matches the fixture | `Verified ✅ Pwede ka nang mag-enroll sa TODA.` |
 | OR/CR does not match | `Natanggap namin. Ire-review ng LGU officer.` |
 
-`{bal}` is `balanceOf(device_hash)` after the tap — the money still available to that card, not including pending.
+`{bal}` is `noir.getEscrowBalance(device_hash)` after the tap — the money still available to that card, not including pending.
 
 `{reason}` is `TAP_REASON_LABELS[reasonCode]`, the same record the dashboard feed renders, exported from `packages/shared/constants.ts` (`Record<TapReasonCode, string>`). The bot never composes its own wording (the label is the whole `{reason}` clause), while `tap.message` is a longer server-composed sentence for the station page. Labels: `EXPIRED` → `card expired`; `OVER_CAP` → `over the ₱500.00 per-tap cap`; `POLICY_DENIED` → `not permitted by the card policy`; `INSUFFICIENT_ESCROW` → `no fuel credit left on the card`; `STATION_FROZEN` → `station paused by the Freeze Agent`; `CARD_NOT_ENROLLED` → `card not enrolled`; `SIMULATED_EDGE` → `simulated edge (no card)`.
 
