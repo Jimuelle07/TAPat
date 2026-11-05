@@ -1,0 +1,63 @@
+// API entry point: config -> SQLite -> Fastify on 127.0.0.1 (docs/api-and-data.md §1, deployment.md §5).
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import cors from '@fastify/cors';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import type { ErrorCode } from '@tapat/shared';
+import { loadConfig } from './config';
+import { openDb } from './db/index';
+
+const STREAM_PATH = '/api/stream';
+
+function errorBody(code: ErrorCode, message: string) {
+  return { error: { code, message } };
+}
+
+/** The Fastify app with CORS, the /api/* cache rule and the NOT_FOUND envelope; routes are registered by callers. */
+export async function buildServer(options: FastifyServerOptions = {}): Promise<FastifyInstance> {
+  const app = Fastify(options);
+
+  // Only the laptop's manual SSE fallback (/?sse=direct) calls the API cross-origin.
+  await app.register(cors, { origin: 'http://localhost:3000', methods: ['GET'] });
+
+  // Every /api/* response is no-store, except the SSE stream, which keeps no-cache (never no-store).
+  app.addHook('onSend', async (request, reply, payload) => {
+    const path = request.url.split('?', 1)[0];
+    if (path === STREAM_PATH) reply.header('Cache-Control', 'no-cache');
+    else if (path.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+    return payload;
+  });
+
+  app.setNotFoundHandler((request, reply) => {
+    const path = request.url.split('?', 1)[0];
+    void reply.code(404).send(errorBody('NOT_FOUND', `No route for ${request.method} ${path}`));
+  });
+
+  return app;
+}
+
+async function main(): Promise<void> {
+  const config = loadConfig();
+  const db = openDb(config.DATABASE_PATH);
+  const app = await buildServer({ logger: true });
+  app.addHook('onClose', async () => db.close());
+  await app.listen({ port: config.PORT, host: '127.0.0.1' });
+}
+
+/** True when this file is the process entry (`tsx src/server.ts`), false when imported (tests). */
+function isEntryPoint(): boolean {
+  const entry = process.argv[1];
+  if (entry === undefined) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
