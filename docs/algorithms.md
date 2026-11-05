@@ -998,9 +998,9 @@ Vitest, in `apps/api/src/algorithms/`. Each row is one `it(...)`.
 
 | Test | Expectation |
 |---|---|
-| Tap reason mapping from a mocked `ContractRejection{code: 3}` + `get_policy` | `EXPIRED` when `now > expires_at` (strict, as Noir's `is_expired`); `OVER_CAP` when `amount > max_amount`; else `POLICY_DENIED` |
-| Tap mapping from a mocked `ContractRejection{code: 2}` | `INSUFFICIENT_ESCROW`, tap `rejected`, HTTP 200 |
-| Tap mapping from a mocked `ContractRejection{code: 6}` / `{code: 8}` / any other code | tap `failed`, `reasonCode === null`, HTTP `502 CHAIN_ERROR`, cause on `chain_txs.error_code` |
-| `ContractRejection` on `register`/`fund_escrow`/`claim`/`sweep` | HTTP `502 CHAIN_ERROR`, `message` containing `ContractRejection:<code>`; never a tap reason code |
+| Tap reason mapping from a mocked `NoirContractError{code: 3}` + the `checkPayment` reason | `expired` → `EXPIRED`; `over_limit` → `OVER_CAP`; `no_agent` / `wrong_agent` / `wrong_asset` / `invalid_amount` → `POLICY_DENIED` |
+| Tap mapping from a mocked `NoirContractError{code: 2}` | `INSUFFICIENT_ESCROW`, tap `rejected`, HTTP 200 |
+| Tap mapping from a mocked `NoirContractError{code: 6}` / `{code: 8}` / any other code | tap `failed`, `reasonCode === null`, HTTP `502 CHAIN_ERROR`, cause on `chain_txs.error_code` |
+| `NoirContractError` on `register`/`fund_escrow`/`claim`/`sweep` | HTTP `502 CHAIN_ERROR`, `message` containing the SDK error name (`CONTRACT_<errorName>`); never a tap reason code |
 | Budget webhook idempotency | the same `x-velo-delivery` twice credits budget once |
-| Gas status mapping | `VeloGasSubmissionUnknownError` produces `submission_unknown` and no second `sponsorAndSubmit` for that row |
+| Gas status mapping | a failed `velo.gas.submit` (hand-off uncertain) produces `submission_unknown` and no second `sponsor()`/`submit()` for that row |

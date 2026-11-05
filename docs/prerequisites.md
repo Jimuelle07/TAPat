@@ -38,7 +38,7 @@ If `winget` is not found, install **App Installer** from the Microsoft Store fir
 | # | Program | Install | Check (new PowerShell window) |
 |---|---|---|---|
 | 1 | Git | `winget install --id Git.Git -e` | `git --version` → any version |
-| 2 | Node.js **22** | `winget install OpenJS.NodeJS.22` | `node --version` → `v22.x` |
+| 2 | Node.js **22** | `winget install OpenJS.NodeJS.22` (installs the latest 22.x) | `node --version` → `v22.23.4` or a later `v22` |
 | 3 | pnpm **9** | `npm install -g pnpm@9` (if blocked: `corepack enable`) | `pnpm --version` → `9.x` |
 | 4 | Google Chrome | `winget install --id Google.Chrome -e` | Chrome opens |
 | 5 | Antigravity (AI editor) | Download from the link Jim posts in the team chat | Opens and signs in with Google |
@@ -53,7 +53,7 @@ git config --global user.email "you@example.com"
 
 Notes:
 
-- **Use Node 22 exactly**: the team's setup is tested on it. If `node --version` shows another version, run the install line in row 2 again, reopen PowerShell, and check again. If it still shows the wrong version, ask Jim.
+- **Use Node 22 at 22.23.4 or above, exactly**: `@noirx402/agent-sdk` (the SDK we use to call Noir) requires it. Its engines are `^22.23.4 || ^24.22.1 || >=26.12.1`, and Node 24/26 below those floors (e.g. 26.4) is not supported. If `node --version` prints a v22 lower than v22.23.4, or anything that is not a v22, run `winget upgrade OpenJS.NodeJS.22`, reopen PowerShell, and check again. If it still shows the wrong version, ask Jim.
 - If PowerShell says `pnpm ... cannot be loaded because running scripts is disabled`, run this once, then reopen PowerShell:
 
   ```powershell
@@ -82,7 +82,7 @@ git --version; node --version; pnpm --version; cloudflared --version
 | Line | Expected |
 |---|---|
 | `git version …` | any |
-| `v22.…` | must start with `v22` |
+| `v22.…` | must be `v22.23.4` or a later v22 |
 | `9.…` | must start with `9` |
 | `cloudflared version …` | BegB only; others may see "not recognized" — that's fine |
 
@@ -94,7 +94,7 @@ git --version; node --version; pnpm --version; cloudflared --version
 |---|---|
 | `winget` is not recognized | Install **App Installer** from the Microsoft Store, reopen PowerShell |
 | A command is "not recognized" right after installing | Close and reopen PowerShell |
-| `node --version` is not `v22` | Re-run `winget install OpenJS.NodeJS.22`, reopen PowerShell; still wrong → ask Jim |
+| `node --version` is below `v22.23.4` or not a v22 | Run `winget upgrade OpenJS.NodeJS.22` (or the install line in §3 row 2), reopen PowerShell; still wrong → ask Jim |
 | `npm install -g pnpm@9` fails | Run `corepack enable`, reopen PowerShell, then `pnpm --version` |
 | `pnpm` blocked by script policy | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, reopen PowerShell |
 | Can't see the TAPat repo on GitHub | Check your email for the invite from Jim and accept it |

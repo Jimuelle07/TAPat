@@ -10,7 +10,7 @@ Last updated: 2026-11-05
 |---|---|---|
 | `pnpm test` | All Vitest suites in `packages/shared`, `apps/api`, and `apps/web` | Before every push |
 | `pnpm --filter api tsx scripts/smoke-testnet.ts` | Live testnet reads and one sponsored write | After any env var or contract ID change; at T-60 |
-| `pnpm demo:e2e` | The 7 demo beats headlessly through the API against testnet, asserting the totals — run **on the VM**, in `/opt/tapat` | Nov 6 EOD gate, Nov 7 each rehearsal |
+| `pnpm demo:e2e` | The 7 demo beats headlessly through the API against testnet, asserting the totals — run **on the VM**, in `/opt/tapat` | Nov 6 EOD gate, both Nov 7 rehearsals (07:00–09:00) |
 
 A failure is a bug with a repro, filed against the task id in `docs/build-schedule.md`. Do not "fix" a red algorithmic test by changing α, β, the calibration fixture, or a weight — fix the code or the fixture rows (`fixtures/masterlist/*.csv`), per the plan.
 
@@ -37,15 +37,17 @@ A failure is a bug with a repro, filed against the task id in `docs/build-schedu
 
 | File | Test | Exact expectation |
 |---|---|---|
-| `src/chain/soroban.test.ts` | Rejection parsing | `Error(Contract, #3)` from simulation → `ContractRejection{contract:'payment_escrow', code:3, name:'AgentNotAuthorized'}`; device `#4` → `AlreadyRegistered` |
-| | Arg encoding | `i128` amounts encoded as bigint stroops; `bytes32` hash from a 32-byte buffer; addresses as `address`; `u64` nonce/expiry |
-| `src/chain/gas.test.ts` | Status mapping | `succeeded` → `succeeded`; `failed` and `cancelled` → `failed`; `claimed`/`submitted` → still `pending` |
-| | Submission unknown | A `VeloGasSubmissionUnknownError` records `submission_unknown`, stores the identity, and **never** resubmits; the reconciler calls `getStatus` every 5 s up to 2 min |
-| | Fallback | A typed pre-dispatch error (`VeloValidationError`) with `GAS_FALLBACK_DIRECT=true` sends the **same** XDR via `rpc.sendTransaction` and records `gas_mode='direct'`; with the flag false it fails without sending |
+| `src/chain/noir.test.ts` | Boot assert | The SDK's `TESTNET.contracts` or `networkPassphrase` differing from `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE` makes boot refuse: exit 1, the mismatch named, the listener never started |
+| | Error mapping | A `NoirContractError{contract, code, errorName, method}` is mapped through the per-contract tables in [system-design.md §4.4](system-design.md); device code `4` → `AlreadyRegistered`. The SDK does the encoding: amounts are bigint stroops, `deviceHash` is 64 hex, `expiresAt` is a `Date` |
+| `src/chain/gas.test.ts` | Sponsor retry | `velo.gas.sponsor(xdr, {idempotencyKey})` is retried **only** on `VeloProviderError`, with the same XDR and the same idempotency key |
+| | Single hand-off | Exactly one `velo.gas.submit({requestId, transactionHash, transactionXdr})` per operation |
+| | Submission unknown | Any failure of that `submit` (including a lost response) records `submission_unknown`, stores the identity, and the reconciler recovers with `getStatus(identity)` every 5 s up to 2 min — **never** a second `submit` |
+| | Status mapping | `succeeded` → `succeeded`; `failed` and `cancelled` → `failed`; `claimed`/`submitted`/`submission_unknown` → non-terminal, owned by the reconciler |
+| | Fallback | Direct only after a `sponsor()` failure (nothing was handed off): with `GAS_FALLBACK_DIRECT=true` the **same** XDR goes through `noir.submit` and the row records `gas_mode='direct'`; with the flag false it fails without sending, and a failure after `submit` never falls back |
 | `src/services/tap.test.ts` | Frozen station | Frozen station → 423 `STATION_FROZEN`, and **no** `chain_txs` row is created |
 | | Unknown card | Unknown `device_hash` → 404 `CARD_NOT_ENROLLED` |
-| | Reason mapping | Mocked code 3 + `now > expires_at` → `EXPIRED`; code 3 + `amount > max_amount` → `OVER_CAP`; code 3 otherwise → `POLICY_DENIED`; code 2 → `INSUFFICIENT_ESCROW` |
-| | Other codes | Mocked code 6 (`DuplicateAuth`), 8 (`DeviceNotRegistered`), 9, 10 → tap `failed`, `reasonCode = null`, `chain_txs.error_code = "ContractRejection:6"`, response `502 CHAIN_ERROR` |
+| | Reason mapping | A mocked `NoirContractError` #3 (`AgentNotAuthorized`) on `authorize` → `checkPayment` reason `expired` → `EXPIRED`, `over_limit` → `OVER_CAP`, `no_agent`/`wrong_agent`/`wrong_asset`/`invalid_amount` → `POLICY_DENIED`; `#2` (`InsufficientBalance`) → `INSUFFICIENT_ESCROW` |
+| | Other codes | Mocked code 6 (`DuplicateAuth`), 8 (`DeviceNotRegistered`), 9, 10 → tap `failed`, `reasonCode = null`, the SDK's synthesized message (`<contract>.<method> failed: <Name> (#<code>)`) kept in `chain_txs.error` with the code and method, response `502 CHAIN_ERROR` |
 | | Message | `TapResponse.message` is non-empty for both outcomes and contains the peso amount and the cap sentence on an `OVER_CAP` decline |
 | | Nonce | `nonce = max(Date.now(), last_nonce + 1)`, persisted **before** submit; a failed submit keeps it and the next nonce is still strictly greater |
 | | No money on rejection | `rejected`/`refused` tap rows have `chain_tx_id = NULL`; a `failed` tap points at a `chain_txs` row whose status is `failed` |
@@ -58,7 +60,7 @@ A failure is a bug with a repro, filed against the task id in `docs/build-schedu
 | | Cards | `Dashboard.cards` returns one `CardSummary` per card with `displayName` in "Juan D." format, `deviceHashPrefix` exactly 8 hex chars, and no `deviceHash` and no full beneficiary name anywhere in the JSON |
 | | Series | `midasThreshold` equals `config/midas.json.threshold`; `recentTaps` newest first, max 50 |
 | `src/services/budget.test.ts` | Webhook idempotency | The same `x-velo-delivery` delivered twice credits `budget_verified_stroops` **once**; a second delivery with a new id but the same `paymentIntentId` also credits once |
-| | Signature | A bad `x-velo-signature` → 401, nothing stored as paid |
+| | Signature | A bad `x-velo-signature` → 400 `WEBHOOK_SIGNATURE_INVALID`, nothing stored as paid |
 | | Poller | A `paymentIntents.retrieve` that turns `paid` credits once even if the webhook never arrives |
 | `src/services/tranche.test.ts` | Eligibility | An expired card (D3) is skipped with a reason; a program with `tranche_fired = 1` does not fire again |
 | | Budget guard | Remaining budget < tranche → stop, log `BUDGET_EXHAUSTED`, fund nothing further |
@@ -88,8 +90,8 @@ The two rows above are unit-only and never gate the demo: `middleware.ts` is ine
 
 ### 3.1 `scripts/smoke-testnet.ts` (manual, Jim)
 
-1. `get_policy` on a random 32-byte hash → simulation fails with `ContractRejection{contract:'agent_registry', code:2, name:'AgentNotFound'}` (expected; proves RPC, contract ID and error parsing).
-2. One sponsored `register` of a throwaway hash through `chain/gas.ts` with `GAS_MODE=velo` → `chain_txs` row `succeeded` with `gas_mode='velo'`; the tx opens on Stellar Expert.
+1. `noir.getPolicy` on a random 32-byte hash → `null` (the SDK treats `agent_registry`'s `AgentNotFound` #2 as "no policy"), and `noir.checkPayment` on it → `{ ok: false, reason: 'no_agent' }` (expected; proves RPC, contract ID and the SDK read path).
+2. One sponsored `registerDevice` of a throwaway hash through `chain/gas.ts` with `GAS_MODE=velo` (`noir.prepare` → sign → `sponsor` → one `submit`) → `chain_txs` row `succeeded` with `gas_mode='velo'`; the tx opens on Stellar Expert.
 3. One `checkout.sessions.create` of 1 XLM → returns `{checkoutUrl, paymentIntentId}`; the intent is retrievable with status `created`.
 
 ### 3.2 `pnpm demo:e2e` (the Nov 6 EOD gate)
@@ -116,7 +118,7 @@ Runs the 7 beats headlessly through the API (no browser, no phone) against testn
 
 If `GAS_MODE=direct` is active, the same assertions hold with `gas_mode='direct'` — the run still passes, and the report names the mode.
 
-## 4. Manual phone checks (before the Nov 7 rehearsals)
+## 4. Manual phone checks (before the Nov 7 07:00–09:00 rehearsals)
 
 All of these run against the **deployed app**, `https://tapat.<tailnet>.ts.net` (prod profile), after one basic-auth login on the phone. Hosting acceptance list: [deployment.md §13](deployment.md). If the **optional** Vercel frontend is switched on, substitute `https://<project>.vercel.app` and add its checklist ([deployment.md §9.4](deployment.md)); none of these checks may be skipped because of it.
 
@@ -129,7 +131,7 @@ All of these run against the **deployed app**, `https://tapat.<tailnet>.ts.net` 
 - [ ] An unknown tag returns `CARD_NOT_ENROLLED` on screen with a readable message (not a raw 404).
 - [ ] D1 ₱350 at Station A → **Paid** on screen in < 2 s, Telegram receipt on the team phone in < 10 s.
 - [ ] Telegram receipt text matches: `TAPat ⛽ Paid ₱350.00 at Petron San Roque`, balance line, `https://stellar.expert/explorer/testnet/tx/{hash}`.
-- [ ] ₱800 → the on-screen reason says over cap and names `get_policy`'s `max_amount`; D3 → expired; no tx link on either.
+- [ ] ₱800 → the on-screen reason says over cap and names the policy's `max_amount`; D3 → expired; no tx link on either.
 - [ ] **Simulate tap** picker charges D5 without a tag and the laptop dashboard updates within 1 s.
 - [ ] A second scan of the same tag 1 s later creates a second nonce and still succeeds (nonce strictly increasing).
 - [ ] `/enroll` with tag D4 + `d4-photo.jpg` completes in one pass; a photo mismatch (wrong plate/TODA) is blocked with 422 `PHOTO_MISMATCH` and the field named on screen.

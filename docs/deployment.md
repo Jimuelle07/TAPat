@@ -206,7 +206,7 @@ The repo URL is passed a second time as the script's argument (`$1`): the script
 
 1. `apt-get install -y build-essential python3 git sqlite3 curl debian-keyring debian-archive-keyring apt-transport-https`. The build tools are the fallback if `better-sqlite3` has no prebuilt binary for this CPU/Node pair.
 2. If RAM < 2 GB (the GCP `e2-micro` case), create `/swapfile` (2 GB) with `fallocate -l 2G /swapfile`, `chmod 600 /swapfile`, `mkswap /swapfile`, `swapon /swapfile`, then append `/swapfile none swap sw 0 0` to `/etc/fstab` so it survives a reboot, and confirm with `swapon --show`. `next build` needs it.
-3. Install Node 22 from NodeSource, then `corepack enable && npm install -g pnpm@9` (a pinned pnpm on the image, not corepack's on-demand download).
+3. Install Node 22 (≥ 22.23.4, the `@noirx402/agent-sdk` engine floor) from NodeSource, then `corepack enable && npm install -g pnpm@9` (a pinned pnpm on the image, not corepack's on-demand download).
 4. Create the service user with a home, a login shell and its own group, then create the checkout root and clone into it: `useradd --system --create-home -U --shell /bin/bash tapat`, `install -d -o tapat -g tapat -m 755 /opt/tapat`, then `sudo -H -u tapat git clone "$1" /opt/tapat`, where `$1` is the repo URL passed to the script (`sudo bash /tmp/tapat/deploy/provision.sh <repo-url>`). The repo must be public, or add a read-only deploy key: `sudo install -d -o tapat -g tapat -m 700 /home/tapat/.ssh`, then `sudo -H -u tapat ssh-keygen -t ed25519 -N '' -f /home/tapat/.ssh/id_ed25519`, and register `/home/tapat/.ssh/id_ed25519.pub` on the repository. `/opt/tapat` ends up owned by `tapat`.
 5. Install Caddy from its official apt repository. Copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`. Create an empty `/etc/caddy/tapat-users` with mode `640`, group `caddy`.
 6. Install Tailscale: `curl -fsSL https://tailscale.com/install.sh | sh`.
@@ -265,7 +265,7 @@ sudo systemctl restart tapat-api tapat-web
 | Funnel status | `sudo tailscale funnel status` |
 | Change basic-auth credentials | edit `/etc/caddy/tapat-users`, then `sudo systemctl restart caddy` |
 
-- **No redeploys after the Nov 7 14:00 feature freeze**, except a bug fix with a repro ([build-schedule.md](build-schedule.md)).
+- **No redeploys after the Nov 7 09:00 feature freeze**, except a bug fix with a repro ([build-schedule.md](build-schedule.md)). The site must stay live and seeded from submission (Nov 7 11:00) through judging.
 - Never restart `tapat-api` during a demo beat.
 
 ## 8. Security
@@ -329,8 +329,9 @@ Everyone opens `https://tapat.<tailnet>.ts.net`; the VM's `tapat-web` never stop
 
 ## 11. Judging period
 
-- The submission lists the Funnel URL plus the basic-auth user and password, and says "testnet, demo rate ₱10/XLM".
-- Before submitting (Nov 8 07:00), leave the instance freshly reset and seeded with the budget verified, so a judge can run the beats from `/demo` using **Simulate tap**.
+- The submission (Nov 7 11:00) lists the Funnel URL plus the basic-auth user and password, and says "testnet, demo rate ₱10/XLM".
+- The site stays live and seeded **from submission through judging**: no redeploys except a bug fix with a repro.
+- Before submitting (Nov 7 11:00), leave the instance freshly reset and seeded with the budget verified, so a judge can run the beats from `/demo` using **Simulate tap**.
 - Keep `tapat-api` and `tapat-web` running. Check `/api/health` daily until results are announced.
 
 | Risk | Note | Recovery |

@@ -28,13 +28,14 @@ New to the project? Read `docs/PRD.md` (why), then `docs/system-design.md` (how)
 | [`test-plan.md`](test-plan.md) | Unit vectors, live testnet checks, phone checks, dry-run checklist | Dev2 | Before every push and at the Nov 6 EOD gate |
 | [`hackathon-context.md`](hackathon-context.md) | Background notes on the hackathon, Noir, and Velo | Jim | When checking where a claim came from. **Background only** — where it disagrees with the SDD or API docs, the SDD wins (for example, `authorize()` moves no tokens) |
 | [`TAPat Hackathon Build Plan.pdf`](TAPat%20Hackathon%20Build%20Plan.pdf) | The original submitted plan: problem stats, F1–F6 wording, demo beats, judge Q&A | Jim | As the source for PRD problem figures and demo beats. Its one-checkout-per-tap claim is superseded by the SDD (see PRD §5.1) |
+| [`Velo x Noir Agentic Payment Hackathon — Builder Handbook.pdf`](Velo%20x%20Noir%20Agentic%20Payment%20Hackathon%20%E2%80%94%20Builder%20Handbook.pdf) | The organizers' handbook (Nov 5 update): eligibility, the required SDKs, submission format, schedule, venues, judging weights | Jim | **The authority on hackathon rules** — submission, eligibility, and schedule questions. The PRD, SDD, and API docs follow it; where another doc drifted from it, the doc was corrected |
 | `AGENTS.MD` (this folder) | Short standing instruction: read the docs first, start at `index.md` | — | Automatically, if you are an AI assistant. Leave it unchanged |
 | [`../AGENTS.md`](../AGENTS.md) | Rules for AI assistants and humans working in the repo | Jim | Before your first edit |
 | [`../README.md`](../README.md) | One-paragraph pitch, hackathon fit, how to run the demo | Jim | First contact with the repo |
 
 ## 3. Planned repository layout
 
-Built from scratch per the plan. Nothing here exists yet except `docs/`.
+Built from the plan. What is on disk today: `apps/api` (`src/config.ts`, `src/server.ts`, `src/db/`, `scripts/`), `apps/web`, `packages/shared`, `fixtures/` and `deploy/`. `apps/api/src/chain/`, `src/algorithms/` and `src/services/` are planned (tasks C/NM/MT/BOC), and `docs/` describes the target each of them fills.
 
 ```text
 TAPat/
@@ -63,7 +64,7 @@ TAPat/
 │  │                           copied to .env.local (git-ignored)
 │  └─ api/                     Fastify 5 + tsx — every secret, every chain write
 │     ├─ src/
-│     │  ├─ chain/             soroban.ts, gas.ts, noir.ts, keys.ts
+│     │  ├─ chain/             noir.ts (NoirAgentClient + wrappers), gas.ts, keys.ts
 │     │  ├─ algorithms/        names, matcher, crc, bocpd, cms, midas (pure functions)
 │     │  ├─ services/          intake, enroll, tap, tranche, freeze, settlement, sweep,
 │     │  │                     budget, dashboard, telegram, sse

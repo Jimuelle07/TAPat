@@ -45,7 +45,7 @@ winget install Cloudflare.cloudflared
 Open a **new** terminal (PATH changes do not apply to the old one), then:
 
 ```powershell
-node --version     # must print v22.x
+node --version     # must print v22.23.4 or a later v22
 npm install -g pnpm@9
 pnpm --version     # must print 9.x
 cloudflared --version
@@ -53,12 +53,13 @@ cloudflared --version
 
 Notes:
 
-- Node **22 LTS** is the recorded demo config: `better-sqlite3` prebuilds are verified there, `@carts1024/velo-sdk@1.0.0` requires Node ≥ 22.6, and [prerequisites.md](prerequisites.md) §3/§6 says to use it exactly. The install line above pins `OpenJS.NodeJS.22`, because the unpinned LTS package id would now install a newer release. If `node --version` still prints something other than `v22.x`, close and reopen the terminal (PATH changes do not reach an open shell) and, if it still does not, check `where.exe node` for a second Node on PATH — do not continue on a newer version.
+- Node **22 LTS** at **≥ 22.23.4** is the recorded demo config: `@noirx402/agent-sdk@0.3.0` declares engines `^22.23.4 || ^24.22.1 || >=26.12.1`, and Node 24/26 below those floors (e.g. 26.4) is not supported. `better-sqlite3` prebuilds are verified on 22, `@carts1024/velo-sdk@1.0.0` needs only Node ≥ 22.6, and [prerequisites.md](prerequisites.md) §3/§6 says to use it exactly. The install line above pins `OpenJS.NodeJS.22`, which installs the latest 22.x (the unpinned LTS package id would install a newer major). If `node --version` prints a v22 lower than v22.23.4, or anything other than a v22, run `winget upgrade OpenJS.NodeJS.22`, close and reopen the terminal (PATH changes do not reach an open shell) and, if it still does not, check `where.exe node` for a second Node on PATH — do not continue on a newer version.
+- **Noir SDK.** Noir is reached only through `@noirx402/agent-sdk@0.3.0`, pinned in `apps/api`, with `@stellar/stellar-sdk` v16 as its peer. It talks to the three contracts over Soroban RPC with the config in `.env.example`; there is no Noir server, account or API key to create — nothing in this doc sets one up.
 - If `npm install -g pnpm@9` is blocked by policy, use `corepack enable` and then `pnpm --version` (Corepack ships with Node 22 and downloads pnpm on first use).
 - If `winget install Cloudflare.cloudflared` fails, download `cloudflared-windows-amd64.exe` from https://github.com/cloudflare/cloudflared/releases, rename it `cloudflared.exe`, put it in `C:\Users\jomalyne\bin`, and add that folder to PATH.
 - `better-sqlite3` needs build tools only as a fallback. If `pnpm install` fails on it, the API switches to `node:sqlite` (see the SDD); nothing in this doc changes.
 
-Done when `node --version` prints a v22 line and `pnpm --version` prints 9.x.
+Done when `node --version` prints v22.23.4 or a later v22 and `pnpm --version` prints 9.x.
 
 ---
 
@@ -160,6 +161,8 @@ Done when both accounts appear in Freighter, both show a nonzero testnet XLM bal
 
 Done when `VELO_API_KEY` starts with `tk_live_` (or `tk_test_`), `VELO_GAS_API_KEY` starts with `tg_test_`, and the dashboard shows the project active with sponsorship enabled.
 
+> **SDK pin.** The app pins `@carts1024/velo-sdk@1.0.0` exactly — it is npm `latest` as of Nov 5, so the Builder Handbook (Nov 5) advice to install `@alpha` predates the release and does not apply here.
+
 If Velo cannot be set up by **23:00 on Nov 5**, continue with `GAS_MODE=direct` in `.env` and keep Velo for the budget checkout and webhooks only — this is the plan's go/no-go fallback ([build-schedule.md](build-schedule.md)). Nothing else in the stack changes.
 
 ---
@@ -200,7 +203,7 @@ Then, for either profile:
    ```
 
    Subscribe to `payment.succeeded`, `payment.failed`, and `payment.created` (adding `contract.event` is optional; we store it and ignore it).
-3. Copy the endpoint's **signing secret** into `apps/api/.env` as `VELO_WEBHOOK_SECRET` and restart the API. Without it the webhook route returns `401 WEBHOOK_SIGNATURE_INVALID` and the budget never verifies. This is the same secret in both profiles — dev simply receives no deliveries, because the Velo endpoint points at prod only and the dev 3 s poller credits the budget instead.
+3. Copy the endpoint's **signing secret** into `apps/api/.env` as `VELO_WEBHOOK_SECRET` and restart the API. Without it the webhook route answers a delivery with `400 WEBHOOK_SIGNATURE_INVALID` and the budget never verifies. This is the same secret in both profiles — dev simply receives no deliveries, because the Velo endpoint points at prod only and the dev 3 s poller credits the budget instead.
 4. Open `${PUBLIC_BASE_URL}/api/health` and confirm it returns `"ok": true`. On prod Caddy answers `/api/health` without basic auth, so `curl` works; every other path returns `401` until you log in with the Caddy credentials ([deployment.md §5.1](deployment.md)).
 
 **The Velo endpoint is registered once, against prod.** A laptop never needs it: the 3 s `paymentIntents.retrieve` poller credits a missed webhook anyway, so a stale endpoint costs time, not money. Do not repoint the prod webhook at a laptop — the dev profile would then receive the prod program's deliveries into a database that has never heard of that intent. If a stable laptop URL is ever unavoidable, create a named tunnel on a Cloudflare account instead of a quick tunnel ([deployment.md §10](deployment.md) step 3 shows the `tailscale funnel` laptop variant).
@@ -243,21 +246,21 @@ pnpm --filter api tsx scripts/smoke-testnet.ts
 
 It performs exactly three checks and prints a PASS/FAIL line for each:
 
-1. **Read a policy that must not exist.** Calls `agent_registry.get_policy` with a random `device_hash` and expects the simulation to fail with `ContractRejection` `AgentNotFound` (#2) — Noir panics instead of returning `None`. This proves the contract ID, the RPC URL, the passphrase, the argument encoding, and the error parser are right without writing anything.
-2. **One sponsored `register` of a throwaway hash.** Generates a throwaway keypair, uses its address as the `agent` argument for a random `device_hash`, and submits through the Gas Station. Expect `status: "succeeded"` and a `gas_mode: "velo"` record. Nothing is funded, so the leftover registration can never spend anything; it is never stored in `.env`. If sponsorship is rejected and `GAS_FALLBACK_DIRECT=true`, the line prints `WARN ... gas_mode=direct` instead of PASS: the chain path works, but Gas Station is not sponsoring yet (fix stage 4, or apply the Nov 5 23:00 go/no-go in [build-schedule.md](build-schedule.md)).
-3. **One 1 XLM checkout session.** `velo.checkout.sessions.create({ amount: "1.00", asset: "XLM", description: "TAPat smoke test", successUrl: "${PUBLIC_BASE_URL}/?smoke=ok", cancelUrl: "${PUBLIC_BASE_URL}/?smoke=cancel" }, { idempotencyKey: "smoke:<timestamp>" })` and asserts a `checkoutUrl`. Do **not** pay it; the session is only proof that `VELO_API_KEY` and the project binding work.
+1. **Read a policy that must not exist.** Calls `noir.getPolicy(random deviceHash)` through `@noirx402/agent-sdk` and expects `null` — for an unknown hash the SDK returns `null` instead of throwing. This proves the contract ID, the RPC URL, the passphrase, and the client config are right without writing anything.
+2. **One sponsored `registerDevice` of a throwaway hash.** Generates a throwaway keypair, uses its address as the `agent` argument for a random `deviceHash`, and takes that write down the Noir SDK path: the SDK's `registerDevice` operation through `noir.prepare(signer.publicKey(), op)`, signed server-side, then handed to the Gas Station (`velo.gas.sponsor` → `velo.gas.submit`). Expect `status: "succeeded"` and a `gas_mode: "velo"` record. Nothing is funded, so the leftover registration can never spend anything; it is never stored in `.env`. If sponsorship is rejected and `GAS_FALLBACK_DIRECT=true`, the line prints `WARN ... gas_mode=direct` instead of PASS: the chain path works, but Gas Station is not sponsoring yet (fix stage 4, or apply the Nov 5 23:00 go/no-go in [build-schedule.md](build-schedule.md)).
+3. **One 1 XLM checkout session.** `velo.checkout.sessions.create({ amount: "1.00", asset: "native", description: "TAPat smoke test", successUrl: "${PUBLIC_BASE_URL}/?smoke=ok", cancelUrl: "${PUBLIC_BASE_URL}/?smoke=cancel" }, { idempotencyKey: "smoke:<timestamp>" })` and asserts a `checkoutUrl`. Do **not** pay it; the session is only proof that `VELO_API_KEY` and the project binding work.
 
 Expected output:
 
 ```
-PASS  get_policy(random hash) -> AgentNotFound (#2), as expected
-PASS  register(throwaway) -> succeeded  gas_mode=velo  hash=...
+PASS  getPolicy(random hash) -> null, as expected
+PASS  registerDevice(throwaway) -> succeeded  gas_mode=velo  hash=...
 PASS  checkout.sessions.create(1 XLM) -> https://...
 ```
 
-If check 1 fails: the contract ID, passphrase, or RPC URL is wrong. If check 2 fails with a contract allow-list error: stage 4 step 5. If check 2 fails with a relayer balance error: stage 4 step 6. If check 3 fails: `VELO_API_KEY` or the project owner binding.
+If check 1 fails: the contract ID, passphrase, or RPC URL is wrong — the API refuses to boot when the SDK's built-in TESTNET IDs or network passphrase disagree with `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE`. If check 2 fails with a contract allow-list error: stage 4 step 5. If check 2 fails with a relayer balance error: stage 4 step 6. If check 3 fails: `VELO_API_KEY` or the project owner binding.
 
-The script also reads `payment_escrow.balance_of(random hash)` (expects `0`) and `payment_escrow.pending_balance(Station A)` as a silent ABI check on the read methods used by the dashboard and sweep; a failure prints FAIL on line 1.
+The script also reads `noir.getEscrowBalance(random hash)` (expects `0`) and `noir.getPendingBalance(Station A)` as a silent check on the SDK read methods used by the dashboard and sweep; a failure prints FAIL on line 1.
 
 Done when all three lines say PASS.
 
@@ -320,7 +323,7 @@ Every variable in [api-and-data.md §7](api-and-data.md), where it comes from, a
 
 ## Boot checklist
 
-- [ ] `node --version` → v22.x, `pnpm --version` → 9.x, `cloudflared --version` → any
+- [ ] `node --version` → v22.23.4 or a later v22, `pnpm --version` → 9.x, `cloudflared --version` → any
 - [ ] `apps/api/.env` has all 24 API variables; `apps/web/.env.local` has the 1 required web variable, `API_ORIGIN` (the optional `WEB_BASIC_AUTH` exists only in the Vercel project, if that front end is on)
 - [ ] You know which profile this `.env` is: **prod** (VM only, one copy on Jim's USB) or **dev** (laptop, second accounts + second bot) — [deployment.md §4](deployment.md)
 - [ ] Both secrets wallets imported into Freighter on Testnet with a testnet XLM balance
