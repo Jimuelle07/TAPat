@@ -22,7 +22,7 @@ pnpm install
 
 ## 2. Get the env files
 
-1. Ask Jim for the **dev** `apps/api/.env` — never the prod one. He sends it privately. Save it as `apps/api/.env`.
+1. Ask Jim for the **dev** `apps/server/.env` — never the prod one. He sends it privately. Save it as `apps/server/.env`. The committed root `.env.example` lists every variable (server and web sections) if you want to see the full set.
    - The dev profile has its **own** accounts and its **own** Telegram bot (`@tapat_dev_bot`), made by a second `bootstrap-accounts.ts` run in a separate clone. It uses `GAS_MODE=direct` and `PUBLIC_BASE_URL=https://localhost:3000`. Profiles: [deployment.md §4](deployment.md).
    - Never use the prod `.env` on a laptop while the VM's API is running: two pollers on the demo bot token return `409 Conflict`, and two signers on the same wallets race on Stellar sequence numbers.
 2. Create the web env file:
@@ -63,8 +63,8 @@ Open **http://localhost:3000/api/health** in Chrome.
 Open a **second** terminal in the repo root:
 
 ```powershell
-pnpm --filter api tsx scripts/reset-demo.ts
-pnpm --filter api tsx scripts/seed-demo.ts --d3-expiry-offset=30
+pnpm --filter server tsx scripts/reset-demo.ts
+pnpm --filter server tsx scripts/seed-demo.ts --d3-expiry-offset=30
 ```
 
 `--d3-expiry-offset=30` makes driver D3's card expire 30 seconds after the seed, so you don't have to wait 10 minutes. **Wait 1 minute before step 6.**

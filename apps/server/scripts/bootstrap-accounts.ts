@@ -1,9 +1,9 @@
 /**
  * setup.md stage 2: create and friendbot-fund the four testnet accounts, write the three
- * server secrets (plus KEY_ENCRYPTION_SECRET when absent) into apps/api/.env in place,
+ * server secrets (plus KEY_ENCRYPTION_SECRET when absent) into apps/server/.env in place,
  * and print the public keys and the Budget Office secret.
  *
- * Run: pnpm --filter api tsx scripts/bootstrap-accounts.ts
+ * Run: pnpm --filter server tsx scripts/bootstrap-accounts.ts
  */
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -25,7 +25,7 @@ async function friendbot(label: string, publicKey: string): Promise<void> {
 
 async function main(): Promise<void> {
   if (!existsSync(ENV_PATH)) {
-    throw new Error(`${ENV_PATH} not found. Run first: Copy-Item apps/api/.env.example apps/api/.env`);
+    throw new Error(`${ENV_PATH} not found. Run first: Copy-Item apps/server/.env.example apps/server/.env`);
   }
 
   const accounts = {

@@ -1,7 +1,7 @@
 node_modules
 .env
 .env.local
-apps/api/data/
+apps/server/data/
 .next
 dist
 coverage

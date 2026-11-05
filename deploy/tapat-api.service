@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 User=tapat
-WorkingDirectory=/opt/tapat/apps/api
+WorkingDirectory=/opt/tapat/apps/server
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/env pnpm start
 Restart=always

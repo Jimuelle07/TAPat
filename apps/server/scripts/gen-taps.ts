@@ -1,7 +1,7 @@
 /**
  * docs/algorithms.md §9.3: simulated card -> station tap edges for the Freeze Agent.
- *   pnpm --filter api tsx scripts/gen-taps.ts --mode honest --seed 7 --ticks 60 --out fixtures/taps/honest-history.json
- *   pnpm --filter api tsx scripts/gen-taps.ts --mode burst  --seed 11 --out fixtures/taps/burst.json
+ *   pnpm --filter server tsx scripts/gen-taps.ts --mode honest --seed 7 --ticks 60 --out fixtures/taps/honest-history.json
+ *   pnpm --filter server tsx scripts/gen-taps.ts --mode burst  --seed 11 --out fixtures/taps/burst.json
  */
 import { parseArgs } from 'node:util';
 import { intFlag, requiredFlag, writeFixture } from './lib/fixture-file';

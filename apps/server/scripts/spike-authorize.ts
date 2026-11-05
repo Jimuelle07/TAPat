@@ -1,18 +1,26 @@
 /**
  * SPK (docs/build-schedule.md): throwaway card -> registerDevice -> registerAgent -> fundEscrow(1 XLM) -> checkPayment
- * -> authorize. Every Noir call is built by @noirx402/agent-sdk (`prepare`), signed here, then submitted by the Velo
- * Gas Station (`sponsor` then one `submit`), or with --direct by the Noir SDK (`submit`, the Nov 5 23:00 go/no-go
- * fallback, GAS_MODE=direct). Builder Handbook requirement 2: Noir only through the Noir SDK, on the deployed IDs.
- * Testnet only. Writes nothing to SQLite or .env; prints statuses and tx hashes, never a secret or an XDR.
- *   pnpm --filter api tsx scripts/spike-authorize.ts
- *   pnpm --filter api tsx scripts/spike-authorize.ts --direct
+ * -> authorize. Every Noir call is built by @noirx402/agent-sdk (`prepare`, inside @tapat/agent), signed here, then
+ * submitted by the Velo Gas Station (`sponsor` then one `submit`), or with --direct by the Noir SDK (`submit`, the
+ * Nov 5 23:00 go/no-go fallback, GAS_MODE=direct). Builder Handbook requirement 2: Noir only through the Noir SDK,
+ * on the deployed IDs. Testnet only. Writes nothing to SQLite or .env; prints statuses and tx hashes, never a secret
+ * or an XDR.
+ *   pnpm --filter server tsx scripts/spike-authorize.ts
+ *   pnpm --filter server tsx scripts/spike-authorize.ts --direct
  */
 import { randomBytes } from 'node:crypto';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { Keypair } from '@stellar/stellar-sdk';
-import { NoirAgentClient, NoirContractError, TESTNET, keypairSigner, type NoirOperation } from '@noirx402/agent-sdk';
-import { Velo, VeloError, VeloProviderError, type GasSponsorReservation, type GasSubmitResult } from '@carts1024/velo-sdk';
+import {
+  NoirContractError,
+  Velo,
+  VeloError,
+  createNoirClient,
+  signNoirCall,
+  submitDirect,
+  submitSponsored,
+  type NoirOperation,
+} from '@tapat/agent';
 import { loadConfig } from '../src/config';
 
 const ONE_XLM = 10_000_000n;
@@ -24,17 +32,15 @@ const { values } = parseArgs({ options: { direct: { type: 'boolean', default: fa
 const config = loadConfig();
 
 // The SDK's built-in Testnet deployment must be exactly the one in .env (handbook: other contract IDs do not count).
-const expected = {
-  deviceRegistry: config.NOIR_DEVICE_REGISTRY_ID,
-  agentRegistry: config.NOIR_AGENT_REGISTRY_ID,
-  paymentEscrow: config.NOIR_PAYMENT_ESCROW_ID,
-};
-for (const [name, id] of Object.entries(expected)) {
-  if (TESTNET.contracts[name as keyof typeof expected] !== id) throw new Error(`Noir SDK ${name} differs from .env`);
-}
-if (TESTNET.networkPassphrase !== config.STELLAR_NETWORK_PASSPHRASE) throw new Error('Noir SDK passphrase differs from .env');
-
-const noir = new NoirAgentClient({ network: 'testnet', rpcUrl: config.STELLAR_RPC_URL });
+const noir = createNoirClient({
+  rpcUrl: config.STELLAR_RPC_URL,
+  networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
+  contracts: {
+    deviceRegistry: config.NOIR_DEVICE_REGISTRY_ID,
+    agentRegistry: config.NOIR_AGENT_REGISTRY_ID,
+    paymentEscrow: config.NOIR_PAYMENT_ESCROW_ID,
+  },
+});
 const programWallet = Keypair.fromSecret(config.PROGRAM_WALLET_SECRET);
 const stationA = Keypair.fromSecret(config.STATION_A_SECRET).publicKey();
 const velo = values.direct
@@ -47,66 +53,41 @@ async function friendbot(publicKey: string): Promise<void> {
   if (!res.ok) throw new Error(`friendbot failed for ${publicKey}: HTTP ${res.status}`);
 }
 
-/** Noir SDK builds and simulates the call (one invokeHostFunction op, source = signer), signed with one signature. */
-async function signedNoirCall(signer: Keypair, op: NoirOperation): Promise<string> {
-  const unsigned = await noir.prepare(signer.publicKey(), op);
-  const signed = await keypairSigner(signer.secret()).signTransaction(unsigned, {
-    networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
-  });
-  return typeof signed === 'string' ? signed : signed.signedTxXdr;
-}
-
 async function submit(step: string, op: NoirOperation, signedXdr: string): Promise<void> {
   if (!velo) {
-    const hash = await noir.submit(signedXdr, op); // resolves once the network confirms
+    const hash = await submitDirect(noir, signedXdr, op); // resolves once the network confirms
     console.log(`${step.padEnd(15)} direct  SUCCESS   tx=${hash}`);
     return;
   }
 
   // Stable per run and step: a retried sponsorship reuses the reservation, never a second one.
   const key = `tapat-spk:${runId}:${step}`;
-
-  // sponsor() only reserves fee exposure and never submits, so a provider failure here is safe to retry
-  // with the same signed XDR and the same idempotency key.
-  let reservation: GasSponsorReservation | undefined;
-  for (let attempt = 1; reservation === undefined; attempt++) {
-    try {
-      reservation = await velo.gas.sponsor(signedXdr, { idempotencyKey: key, correlationId: key, timeoutMs: 30_000 });
-    } catch (error) {
-      if (!(error instanceof VeloProviderError) || attempt >= 4) throw error;
-      console.log(`${step.padEnd(15)} velo    sponsor retry ${attempt}/3 after ${error.code ?? 'provider error'}`);
-      await sleep(10_000 * attempt);
-    }
-  }
-
-  // submit() is the single hand-off. Any failure may come after Velo received it (a 5xx arrives as
-  // VeloProviderError, a lost response as VeloGasSubmissionUnknownError), so recover by identity, never resubmit.
-  const identity = { requestId: reservation.requestId, transactionHash: reservation.transactionHash };
-  let result: GasSubmitResult;
-  try {
-    result = await velo.gas.submit({ ...identity, transactionXdr: signedXdr });
-  } catch (error) {
-    console.log(`${step.padEnd(15)} velo    hand-off uncertain (${error instanceof Error ? error.constructor.name : 'error'}); reading status by identity`);
-    result = await velo.gas.getStatus(identity);
-  }
-  if (result.status === 'claimed' || result.status === 'submitted' || result.status === 'submission_unknown') {
-    // waitForResult returns the last non-terminal result when its attempts run out.
-    result = await velo.gas.waitForResult(identity, { timeoutMs: 90_000, maxAttempts: 20 });
-  }
+  const result = await submitSponsored(velo.gas, signedXdr, {
+    idempotencyKey: key,
+    onRetry: (attempt, error) => {
+      console.log(`${step.padEnd(15)} velo    sponsor retry ${attempt}/3 after ${(error as VeloError).code ?? 'provider error'}`);
+    },
+    onUncertainHandoff: (error) => {
+      console.log(
+        `${step.padEnd(15)} velo    hand-off uncertain (${error instanceof Error ? error.constructor.name : 'error'}); ` +
+          'reading status by identity',
+      );
+    },
+  });
   console.log(
     `${step.padEnd(15)} velo    ${result.status.padEnd(9)} outer=${result.outerTransactionHash ?? '-'} ` +
       `inner=${result.transactionHash} fee=${result.actualFeeStroops ?? 'unknown'} stroops`,
   );
   if (result.status !== 'succeeded') {
     throw new Error(
-      `${step}: Gas Station status ${result.status}; recover with getStatus({ requestId: ${identity.requestId}, ` +
-        `transactionHash: ${identity.transactionHash} }), never by resubmitting`,
+      `${step}: Gas Station status ${result.status}; recover with getStatus({ requestId: ${result.requestId}, ` +
+        `transactionHash: ${result.transactionHash} }), never by resubmitting`,
     );
   }
 }
 
 async function run(step: string, signer: Keypair, op: NoirOperation): Promise<void> {
-  await submit(step, op, await signedNoirCall(signer, op));
+  await submit(step, op, await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE));
 }
 
 async function main(): Promise<void> {

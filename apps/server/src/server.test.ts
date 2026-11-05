@@ -48,8 +48,8 @@ describe('server cache headers', () => {
   });
 });
 
-describe('@tapat/shared from apps/api', () => {
-  it('formats 350 PHP from @tapat/shared in apps/api', () => {
+describe('@tapat/shared from apps/server', () => {
+  it('formats 350 PHP from @tapat/shared in apps/server', () => {
     expect(formatPhp(350_000_000n)).toBe('₱350.00');
   });
 });

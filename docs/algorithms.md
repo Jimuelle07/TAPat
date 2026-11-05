@@ -4,7 +4,7 @@ Exact specifications for the five algorithms behind TAPat's automatic decisions,
 
 Last updated: 2026-11-05
 
-Owner: Dev2. Consumers: the intake service (names, matcher, CRC), the Tranche Agent (BOCPD), the Freeze Agent (CMS, MIDAS-F), and the fixture generators.
+Owner: Dev2. Consumers: the intake service (names, matcher, CRC), the Tranche Agent (BOCPD), the Freeze Agent (CMS, MIDAS-F), and the fixture generators. The algorithms themselves live in `packages/agent/src/algorithms/**` (`@tapat/agent`, pure); the services that call them live in `apps/server/src/services/**`.
 
 Read with [system-design.md](./system-design.md) §6 for how each algorithm is called, and [api-and-data.md](./api-and-data.md) §5 for the fixture file paths.
 
@@ -14,12 +14,12 @@ Read with [system-design.md](./system-design.md) §6 for how each algorithm is c
 
 | Rule | Detail |
 |---|---|
-| Location | `apps/api/src/algorithms/{names,matcher,crc,bocpd,cms,midas}.ts` |
+| Location | `packages/agent/src/algorithms/{names,matcher,crc,bocpd,cms,midas}.ts` (the `@tapat/agent` package) |
 | Purity | No I/O, no `process.env`, no SQLite, no network, no `Date.now()` default arguments. Data comes in as arguments; results go out as values. |
-| Dependency direction | `matcher` imports `names` and `crc`. `midas` imports `cms`. Nothing imports `chain/`, `db/`, `velo/`, or `agents/`. |
+| Dependency direction | `matcher` imports `names` and `crc`. `midas` imports `cms`. Nothing imports `db/`, `velo/`, `agents/` or `services/` — those live in `apps/server`, which imports this package, never the reverse. |
 | Determinism | Same input → identical output, on every run and every machine. No `Math.random()`, no locale-sensitive comparison (`String.prototype.localeCompare` is banned), no `Intl`. |
 | Numbers | Scores and probabilities are rounded to 6 decimals (`round6(x) = Math.round(x * 1e6) / 1e6`) before any comparison or storage. Money never appears here. |
-| Tests | Vitest, colocated as `apps/api/src/algorithms/<name>.test.ts`. The vectors in §12 are mandatory. |
+| Tests | Vitest, colocated as `packages/agent/src/algorithms/<name>.test.ts`. The vectors in §12 are mandatory. |
 
 The three published methods:
 
@@ -35,9 +35,9 @@ Jaro-Winkler and Count-Min Sketch are standard building blocks, written in-house
 
 ## 2. Deterministic randomness (generators only)
 
-Fixtures must be byte-reproducible, so every generator uses the same seeded PRNG. This module is used by `apps/api/scripts/*` and **never** by `apps/api/src/algorithms/*`.
+Fixtures must be byte-reproducible, so every generator uses the same seeded PRNG. This module is used by `apps/server/scripts/*` and **never** by `packages/agent/src/algorithms/*`.
 
-`apps/api/scripts/lib/rng.ts`:
+`apps/server/scripts/lib/rng.ts`:
 
 ```ts
 export function mulberry32(seed: number): () => number;
@@ -646,7 +646,7 @@ export interface EdgeEvent {
 }
 
 export interface MidasConfig {
-  threshold: number;      // from apps/api/config/midas.json
+  threshold: number;      // from apps/server/config/midas.json
   decay: number;          // 0.6
   sketch: SketchConfig;   // DEFAULT_SKETCH
 }
@@ -708,12 +708,12 @@ Notes that matter:
 
 ### 8.3 Threshold calibration
 
-`apps/api/scripts/calibrate-midas.ts`:
+`apps/server/scripts/calibrate-midas.ts`:
 
 1. For `seed = 1..50`: generate an honest stream with `gen-taps.ts` (`--mode honest --seed <seed> --ticks 60`), replay it through `stepMidas` with `threshold = Infinity` (so nothing is filtered and the background stays clean), and record the maximum `score` over the stream.
 2. `maxHonestScore = max over the 50 seeds`.
 3. `threshold = round2(1.25 * maxHonestScore)` — a 25% margin over the worst honest stream.
-4. Write `apps/api/config/midas.json`:
+4. Write `apps/server/config/midas.json`:
 
 ```json
 {
@@ -748,12 +748,12 @@ MIDAS-F is one of three triggers; the other two are the LGU's plain-English rule
 
 ## 9. Fixture generators
 
-All three scripts live in `apps/api/scripts/`, import `lib/rng.ts`, and write into `fixtures/`. Run them with `pnpm --filter api tsx scripts/<name>.ts`; every generated fixture records its `source` (always `"simulated"`) and its seed so a reviewer can reproduce it.
+All three scripts live in `apps/server/scripts/`, import `lib/rng.ts`, and write into `fixtures/`. Run them with `pnpm --filter server tsx scripts/<name>.ts`; every generated fixture records its `source` (always `"simulated"`) and its seed so a reviewer can reproduce it.
 
 ### 9.1 `gen-prices.ts`
 
 ```
-pnpm --filter api tsx scripts/gen-prices.ts --seed 3 --out fixtures/prices/doe-diesel-sim.json
+pnpm --filter server tsx scripts/gen-prices.ts --seed 3 --out fixtures/prices/doe-diesel-sim.json
 ```
 
 Algorithm (draw order is contractual):
@@ -789,7 +789,7 @@ Exactly 45 entries, `idx` 1..45, `price_php` a 2-decimal number. The Tranche Age
 ### 9.2 `gen-calibration.ts`
 
 ```
-pnpm --filter api tsx scripts/gen-calibration.ts --seed 42 --out fixtures/calibration/labeled.json
+pnpm --filter server tsx scripts/gen-calibration.ts --seed 42 --out fixtures/calibration/labeled.json
 ```
 
 Composition — 400 pairs, drawn in this order (320 genuine, then 60 ghosts, then 20 hard negatives, so the rng stream is stable if a count later changes at the end):
@@ -829,8 +829,8 @@ The CRC loader computes `score = 1 - pairProbability(a, b)` and `genuine = label
 ### 9.3 `gen-taps.ts`
 
 ```
-pnpm --filter api tsx scripts/gen-taps.ts --mode honest --seed 7 --ticks 60 --out fixtures/taps/honest-history.json
-pnpm --filter api tsx scripts/gen-taps.ts --mode burst  --seed 11 --out fixtures/taps/burst.json
+pnpm --filter server tsx scripts/gen-taps.ts --mode honest --seed 7 --ticks 60 --out fixtures/taps/honest-history.json
+pnpm --filter server tsx scripts/gen-taps.ts --mode burst  --seed 11 --out fixtures/taps/burst.json
 ```
 
 **Honest mode** (used by the Freeze Agent warm-up with seed 7, and by `calibrate-midas.ts` with seeds 1..50):
@@ -916,7 +916,7 @@ Two renames happen only at the persistence boundary, never inside these modules:
 
 ## 12. Mandatory test vectors
 
-Vitest, in `apps/api/src/algorithms/`. Each row is one `it(...)`.
+Vitest, in `packages/agent/src/algorithms/`. Each row is one `it(...)`.
 
 ### 12.1 `names.test.ts`
 

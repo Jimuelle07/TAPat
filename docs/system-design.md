@@ -41,8 +41,8 @@ flowchart LR
         Funnel["tailscaled Funnel"]
         Caddy["Caddy 127.0.0.1:8080<br/>basic auth; /api/* vs everything else"]
         Web["apps/web . Next.js 127.0.0.1:3000<br/>dashboard, intake, enroll, station, demo"]
-        API["apps/api . Fastify 127.0.0.1:4000<br/>REST, SSE, agents, Telegram poller"]
-        DB[("SQLite<br/>apps/api/data/tapat.db")]
+        API["apps/server . Fastify 127.0.0.1:4000<br/>REST, SSE, agents, Telegram poller"]
+        DB[("SQLite<br/>apps/server/data/tapat.db")]
         Funnel --> Caddy
         Caddy -->|"/api/*"| API
         Caddy -->|"everything else"| Web
@@ -89,21 +89,21 @@ One HTTPS origin serves both the phone (Web NFC needs a secure context) and Velo
 | Component | Owns | Must never |
 |---|---|---|
 | `apps/web` (Next.js, App Router) | Rendering, Web NFC reads, form input, SSE subscription | Sign a transaction, read a secret, call Soroban/Velo/Telegram directly |
-| `apps/api` HTTP layer | REST per `docs/api-and-data.md`, SSE, multipart uploads | Contain algorithm math inline (it lives in `apps/api/src/algorithms/`) |
-| `apps/api/src/chain/` | One calling convention for every contract method, gas sponsorship, key handling | Be bypassed by another module (no ad-hoc `NoirAgentClient` or Soroban RPC calls elsewhere) |
-| `apps/api/src/algorithms/` | Pure functions: names, matcher, CRC, BOCPD, CMS, MIDAS-F | Perform I/O, read env, touch SQLite |
-| `apps/api/src/velo/` | Checkout sessions, intent polling, webhook verification | Mark a tap paid (Velo cannot do that; see §3.2) |
-| `apps/api/src/agents/` | Tranche, Freeze, Settlement, Sweep runners | Hold a design decision that is not written to `agent_decisions` |
-| `apps/api/src/bot/` | Telegram long poll, linking, receipts, evidence requests | Send a message that is not in the exact-string table in §7 |
+| `apps/server` HTTP layer | REST per `docs/api-and-data.md`, SSE, multipart uploads | Contain algorithm math inline (it lives in `packages/agent/src/algorithms/`) |
+| `packages/agent` (`@tapat/agent`: `src/chain/`, `src/algorithms/`) | One calling convention for every contract method, gas sponsorship, key handling, and the pure algorithm functions. TS source, no build step; `apps/server` depends on it with `"workspace:*"` | Read env, touch SQLite or HTTP, persist `chain_txs` or run the reconciler (those stay in `apps/server`); be bypassed by another module (no ad-hoc `NoirAgentClient` or Soroban RPC calls elsewhere) |
+| `packages/agent/src/algorithms/` | Pure functions: names, matcher, CRC, BOCPD, CMS, MIDAS-F | Perform I/O, read env, touch SQLite |
+| `apps/server/src/velo/` | Checkout sessions, intent polling, webhook verification | Mark a tap paid (Velo cannot do that; see §3.2) |
+| `apps/server/src/agents/` | Tranche, Freeze, Settlement, Sweep runners | Hold a design decision that is not written to `agent_decisions` |
+| `apps/server/src/bot/` | Telegram long poll, linking, receipts, evidence requests | Send a message that is not in the exact-string table in §7 |
 | SQLite `data/tapat.db` | All app state, secret ciphertext, decisions, `chain_txs` | Store a plaintext secret |
-| `packages/shared` (`@tapat/shared`) | Types, zod schemas, `money.ts`, constants. Exports TS source (`main: ./src/index.ts`); `next.config.ts` lists it in `transpilePackages`, `apps/api` imports it through `tsx`. Both apps declare `"@tapat/shared": "workspace:*"`. | Import Node-only modules (it is imported by the browser); hold a secret; read `process.env` |
+| `packages/shared` (`@tapat/shared`) | Types, zod schemas, `money.ts`, constants. Exports TS source (`main: ./src/index.ts`); `next.config.ts` lists it in `transpilePackages`, `apps/server` imports it through `tsx`. Both apps declare `"@tapat/shared": "workspace:*"`. | Import Node-only modules (it is imported by the browser); hold a secret; read `process.env` |
 
 ### 1.3 Trust boundaries
 
 | Boundary | Rule |
 |---|---|
 | Browser ↔ API | The browser holds no secret. It posts card UIDs, amounts, and file uploads; it never posts a signature, a Velo key, an agent secret, or a wallet secret. |
-| API ↔ chain | Only `apps/api/src/chain/` holds `Keypair` objects. Agent secrets are decrypted only inside that module, only for the one `authorize` it is about to sign. |
+| API ↔ chain | Signers are loaded in `apps/server` (`config.ts`, or decrypted from `cards.agent_secret_enc`) and passed as `Keypair`s into `packages/agent/src/chain/`. Agent secrets are decrypted only for the one `authorize` it is about to sign, and no other module signs. |
 | Velo ↔ API | The webhook body is verified with HMAC (`VELO_WEBHOOK_SECRET`) over the **raw** body before any JSON parse is trusted, and every `x-velo-delivery` is deduped. |
 | Phone ↔ API | The station phone sees `displayName` (first name + last initial), `uidLast4`, an 8-hex `deviceHashPrefix`, and the tap result. It never receives a full name, a full `deviceHash`, a birthdate, or a Telegram chat id. |
 | Telegram ↔ API | Inbound chat ids are matched to `beneficiaries.link_code` / `telegram_chat_id` only. An unknown chat gets no data. |
@@ -203,7 +203,7 @@ Card agent keypairs are created at enrollment, friendbot-funded, and encrypted w
 
 Seed enrolls D1, D2, D3, D5. The Tranche Agent funds D1, D2, D5 — "funds three escrows", 3 × ₱1,500 = ₱4,500.
 
-`seed-demo.ts --d3-expiry-offset=<seconds>` sets D3's offset from seed time (default `600`). The value **must be greater than 0**: `register_agent` panics `InvalidPolicy=4` when `expires_at != 0 && expires_at <= ledger now`, so a past or negative offset can never be enrolled. `pnpm demo:e2e` uses `--d3-expiry-offset=30` and waits until D3 is expired before starting the tranche. Scripts are always invoked as `pnpm --filter api tsx scripts/<name>.ts`.
+`seed-demo.ts --d3-expiry-offset=<seconds>` sets D3's offset from seed time (default `600`). The value **must be greater than 0**: `register_agent` panics `InvalidPolicy=4` when `expires_at != 0 && expires_at <= ledger now`, so a past or negative offset can never be enrolled. `pnpm demo:e2e` uses `--d3-expiry-offset=30` and waits until D3 is expired before starting the tranche. Scripts are always invoked as `pnpm --filter server tsx scripts/<name>.ts`.
 
 ### 2.6 Honesty labels (D7)
 
@@ -277,7 +277,7 @@ sequenceDiagram
 
 Rules:
 
-* `asset: "native"` — the handbook's checkout example (Builder Handbook, Nov 5). One constant, `VELO_CHECKOUT_ASSET`, in `apps/api/src/velo/checkout.ts`. The crediting check still accepts `intent.asset` `'native'` or `'XLM'`, because Velo may echo either spelling.
+* `asset: "native"` — the handbook's checkout example (Builder Handbook, Nov 5). One constant, `VELO_CHECKOUT_ASSET`, in `apps/server/src/velo/checkout.ts`. The crediting check still accepts `intent.asset` `'native'` or `'XLM'`, because Velo may echo either spelling.
 * `amount` is XLM as a string with exactly two decimals: `stroopsToXlmString(stroops)`.
 * `successUrl = ${PUBLIC_BASE_URL}/?budget=success`, `cancelUrl = ${PUBLIC_BASE_URL}/?budget=cancel`.
 * `idempotencyKey = budget:${programId}:${seq}` so a double click cannot create two sessions for the same deposit.
@@ -493,23 +493,61 @@ The docs and the judge Q&A say this plainly. Do not imply the Freeze Agent can r
 ### 4.1 Layout and dependency direction
 
 ```
-apps/api/src/chain/
-  noir.ts      one NoirAgentClient + write(): reads, checkPayment, typed wrappers
-  gas.ts       submit(): Velo Gas Station sponsor + submit, direct fallback, reconciler
-  keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot
+packages/agent/                    @tapat/agent — pure: no env, no SQLite, no HTTP
+  src/chain/
+    noir.ts      createNoirClient(), signNoirCall(), submitDirect(), reads + checkPayment
+    gas.ts       submitSponsored(): Velo sponsor → one submit → status recovery
+    keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot   (planned, C2)
+  src/algorithms/ names, matcher, crc, bocpd, cms, midas (planned, NM/MT/BOC/MIDAS)
+  src/index.ts   the public API below
+apps/server/                       the only caller: config, chain_txs, reconciler, services, HTTP
 ```
 
-`noir.ts` imports `gas.ts`. Nothing else in the API touches `@noirx402/agent-sdk`, and nothing else holds a `Keypair`. Every Noir call goes through `@noirx402/agent-sdk@0.3.0` on the three deployed IDs — that is handbook requirement 2 (Builder Handbook, Nov 5): calling the contracts any other way does not count as Noir integration. `@stellar/stellar-sdk` stays only for `Keypair`, `TransactionBuilder.fromXDR` and signing, and as the SDK's peer; invoke, read, ScVal encoding and error parsing are the SDK's job, so there is no local Soroban client left to keep in sync with the contract ABI.
+Neither module imports the other; both are **pure** — they take the config and the Velo client as arguments and never read `process.env`, open SQLite, or build HTTP themselves (the Noir SDK and the Velo client do the network). `apps/server` is the only caller: `src/config.ts` builds the client with `createNoirClient({ rpcUrl, networkPassphrase, contracts: { deviceRegistry, agentRegistry, paymentEscrow } })`, passes `velo.gas` in, and owns everything stateful — the `chain_txs` rows, the 5 s reconciler and the services (§6). Nothing else in `apps/server` touches `@noirx402/agent-sdk`, and every signature is produced inside `signNoirCall` from a `Keypair` the caller supplies.
 
-Pin `@noirx402/agent-sdk@0.3.0`, `@stellar/stellar-sdk` v16 and `@carts1024/velo-sdk@1.0.0` exactly.
+The public API (`packages/agent/src/index.ts`):
 
-### 4.2 `noir.ts` — the client and the write path
+```ts
+createNoirClient(cfg: { rpcUrl: string; networkPassphrase: string; contracts: { deviceRegistry: string; agentRegistry: string; paymentEscrow: string } }): NoirAgentClient
+signNoirCall(noir: NoirAgentClient, signer: Keypair, op: NoirOperation, networkPassphrase: string): Promise<string>   // signed XDR
+submitDirect(noir: NoirAgentClient, signedXdr: string, op: NoirOperation): Promise<string>                           // tx hash
+submitSponsored(gas: Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>, signedXdr: string, opts: SubmitSponsoredOptions): Promise<GasSubmitResult>   // §4.5
+
+// SDK pass-throughs: re-exported unchanged so `apps/server` needs no direct SDK dependency
+export { Velo, VeloError } from '@carts1024/velo-sdk'
+export { NoirContractError, type NoirOperation } from '@noirx402/agent-sdk'
+```
+
+Every Noir call goes through `@noirx402/agent-sdk@0.3.0` on the three deployed IDs — that is handbook requirement 2 (Builder Handbook, Nov 5): calling the contracts any other way does not count as Noir integration. `@stellar/stellar-sdk` stays only for `Keypair`, `TransactionBuilder.fromXDR` and signing, and as the SDK's peer; invoke, read, ScVal encoding and error parsing are the SDK's job, so there is no local Soroban client left to keep in sync with the contract ABI. `@carts1024/velo-sdk` supplies the `GasApi`/`GasSubmitResult` types the package consumes; `apps/server` keeps its own dependency on it for checkout and webhooks (C5).
+
+Pin `@noirx402/agent-sdk@0.3.0`, `@carts1024/velo-sdk@1.0.0` and `@stellar/stellar-sdk` `^16.4.1` exactly in `packages/agent/package.json`. `apps/server` depends on `@tapat/agent` with `"workspace:*"`.
+
+### 4.2 `noir.ts` — the client and the signing path
 
 ```ts
 import { NoirAgentClient } from '@noirx402/agent-sdk';
 
-export const noir = new NoirAgentClient({ network: 'testnet', rpcUrl: STELLAR_RPC_URL });
+export type NoirClientConfig = Pick<NoirNetworkConfig, 'rpcUrl' | 'networkPassphrase' | 'contracts'>;
+// contracts: { deviceRegistry: string; agentRegistry: string; paymentEscrow: string }
 
+export function createNoirClient(cfg: NoirClientConfig): NoirAgentClient;
+export async function signNoirCall(
+  noir: NoirAgentClient, signer: Keypair, op: NoirOperation, networkPassphrase: string,
+): Promise<string>;   // signed XDR
+export async function submitDirect(
+  noir: NoirAgentClient, signedXdr: string, op: NoirOperation,
+): Promise<string>;   // tx hash
+```
+
+**Contract check.** `createNoirClient` compares the SDK's built-in `TESTNET.contracts` (`device_registry`, `agent_registry`, `payment_escrow`) and `TESTNET.networkPassphrase` against the `cfg` passed in, and throws `Error('Noir SDK <name> differs from the configured contract ID')` for a contract mismatch or `Error('Noir SDK network passphrase differs from the configured passphrase')`; otherwise it returns `new NoirAgentClient({ network: 'testnet', rpcUrl })`. `apps/server` calls it once at boot with the `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE` values and **refuses to start** when it throws. The handbook only counts calls to the deployed contract IDs, so a client pointing at other IDs must never start.
+
+**Signing.** `signNoirCall` = `noir.prepare(signer.publicKey(), op)` → `keypairSigner(signer.secret()).signTransaction(xdr, { networkPassphrase })` → the signed XDR string. The output is one `invokeHostFunction` op with source = signer and exactly one signature.
+
+**Errors.** Every contract rejection arrives as the SDK's `NoirContractError { contract, code, errorName, method }` — `contract` is the contract that was invoked, and `errorName` is looked up in **that** contract's error table (e.g. `AgentNotAuthorized`, `InsufficientBalance`). Its `message` is synthesized as `<contract>.<method> failed: <Name> (#<code>)`; the raw RPC diagnostic is not retained. `chain_txs.error` therefore stores that synthesized message plus the code and method. That is the whole of the error parsing; there is no local regex over diagnostic events.
+
+**The write pipeline lives in `apps/server`** (`src/services/`), because it writes `chain_txs`:
+
+```ts
 export type ChainKind =
   | 'register' | 'register_agent' | 'fund_escrow' | 'authorize'
   | 'claim' | 'revoke_agent' | 'sweep_on_revoke' | 'revoke_device';
@@ -524,30 +562,24 @@ export interface ChainTxResult {
   errorCode: string | null;
   error: string | null;
 }
-
-export async function write(signer: Keypair, op: NoirOperation, kind: ChainKind): Promise<ChainTxResult>;
 ```
 
-**Boot assertion.** `noir.ts` compares the SDK's built-in `TESTNET.contracts` (`device_registry`, `agent_registry`, `payment_escrow`) and `TESTNET.networkPassphrase` against `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID` and `STELLAR_NETWORK_PASSPHRASE`, and **refuses to boot** on any mismatch. The handbook only counts calls to the deployed contract IDs, so a client pointing at other IDs must never start.
+The server-side pipeline (one function per `ChainKind`, in `src/services/`) behaves as follows:
 
-**Errors.** Every contract rejection arrives as the SDK's `NoirContractError { contract, code, errorName, method }` — `contract` is the contract that was invoked, and `errorName` is looked up in **that** contract's error table (e.g. `AgentNotAuthorized`, `InsufficientBalance`). Its `message` is synthesized as `<contract>.<method> failed: <Name> (#<code>)`; the raw RPC diagnostic is not retained. `chain_txs.error` therefore stores that synthesized message plus the code and method. That is the whole of the error parsing; there is no local regex over diagnostic events.
-
-`write` semantics:
-
-* Throws `NoirContractError` when the SDK's simulation fails inside `prepare()`. In that case no transaction was submitted, and the `chain_txs` row is left `status='failed'`, `error_code='CONTRACT_<CODE_NAME>'`.
+* Throws `NoirContractError` when the SDK's simulation fails inside `prepare()` (i.e. inside `signNoirCall`). In that case no transaction was submitted, and the `chain_txs` row is left `status='failed'`, `error_code='CONTRACT_<CODE_NAME>'`.
 * Returns `ChainTxResult` for everything else, including `submission_unknown`.
-* Throws a plain `Error` only for programmer faults (missing env, mismatched ID, malformed operation).
+* Throws a plain `Error` only for programmer faults (malformed operation, a config the package rejects).
 
-`write` steps:
+Steps:
 
 1. `id = randomUUID()`; insert `chain_txs` (`kind`, `contract_id`, `method`, `source_public`, `status='pending'`, `gas_mode` per `GAS_MODE`, `created_at`, `updated_at`).
-2. `const unsigned = await noir.prepare(signer.publicKey(), op)` — the SDK simulates, attaches the footprint and sets the resource fee. On throw → mark the row failed with `CONTRACT_<errorName>` → rethrow the `NoirContractError`.
-3. `const tx = TransactionBuilder.fromXDR(unsigned, STELLAR_NETWORK_PASSPHRASE); tx.sign(signer)` — the SDK never signs; the acting account does. `innerHash = tx.hash().toString('hex')`.
-4. `const outcome = await submit(tx.toXDR(), id, kind)` from `gas.ts`.
+2. `const signedXdr = await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE)` — the SDK simulates, attaches the footprint and sets the resource fee; the acting account signs. On throw → mark the row failed with `CONTRACT_<errorName>` → rethrow the `NoirContractError`.
+3. `const innerHash = TransactionBuilder.fromXDR(signedXdr, networkPassphrase).hash().toString('hex')` — the SDK never signs or submits; the caller does both.
+4. `GAS_MODE=velo` → `const result = await submitSponsored(velo.gas, signedXdr, { idempotencyKey: id })` from `@tapat/agent`; `GAS_MODE=direct` → `const hash = await submitDirect(noir, signedXdr, op)`. A pre-dispatch throw from `submitSponsored` is handled by the fallback rule in §4.5.
 5. Update `chain_txs` with `status`, `gas_mode`, `inner_hash`, `outer_hash`, `velo_request_id`, `error_code`, `error`, `updated_at`; set `ledger` from the result (also kept in `outputs_json` of the decision and in the SSE payload). Emit SSE `chain_tx` with the row.
 6. Return `ChainTxResult`.
 
-`NoirAgentClient.execute()` is not used: it signs and submits itself, and every write must go through `gas.ts` so Velo sponsors it.
+`NoirAgentClient.execute()` is not used: it signs and submits itself, and every write must go through `submitSponsored`/`submitDirect` so Velo sponsors it.
 
 Reads are the SDK's own methods (§4.6): they need no signer and never write `chain_txs`.
 
@@ -557,7 +589,7 @@ One case is genuinely nested and must be handled by table knowledge rather than 
 
 ### 4.3 Argument types
 
-Arguments are the SDK's typed values, not ScVal; nothing in `apps/api` builds `xdr.ScVal` by hand any more.
+Arguments are the SDK's typed values, not ScVal; nothing in `apps/server` builds `xdr.ScVal` by hand any more.
 
 | Value | Type |
 |---|---|
@@ -610,50 +642,71 @@ Amounts are `bigint` end to end. A `number` reaching an amount is a bug.
 
 Collision spot-check: `#2` is `InsufficientBalance` in the escrow, `DeviceNotFound` in the device registry, and `AgentNotFound` in the agent registry; `#4` is `NotDeviceOwner` / `AlreadyRegistered` / `InvalidPolicy` respectively; `#3` is `AgentNotAuthorized` / `NotOwner` / `AlreadyRegistered`. Never infer a meaning from the number alone.
 
-### 4.5 `gas.ts`
+### 4.5 `gas.ts` — Velo sponsorship
+
+```ts
+import type { GasApi, GasSubmitResult } from '@carts1024/velo-sdk';
+
+export interface SubmitSponsoredOptions {
+  idempotencyKey: string;
+  sponsorAttempts?: number;                              // default 4, attempts in total
+  retryDelayMs?: number;                                 // default 10_000, linear backoff
+  wait?: { timeoutMs?: number; maxAttempts?: number };   // default 90_000 / 20
+  onRetry?: (attempt: number, error: unknown) => void;
+  onUncertainHandoff?: (error: unknown) => void;
+}
+
+export async function submitSponsored(
+  gas: Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>,
+  signedXdr: string,
+  opts: SubmitSponsoredOptions,
+): Promise<GasSubmitResult>;
+```
+
+`GasSubmitResult` is the type exported by `@carts1024/velo-sdk`; the package returns it **as-is**, may return a non-terminal one, and never throws for a non-success status — the caller decides. `apps/server` maps it onto its own row result:
 
 ```ts
 export type GasOutcome =
-  | { status: 'succeeded'; gasMode: 'velo'; outerHash: string; ledger: number | null }
+  | { status: 'succeeded'; gasMode: 'velo'; outerHash: string | null; ledger: number | null }
   | { status: 'failed';    gasMode: 'velo' | 'direct'; errorCode: string; error: string }
   | { status: 'submission_unknown'; gasMode: 'velo'; veloRequestId: string };
-
-export async function submit(signedXdr: string, chainTxId: string, kind: ChainKind): Promise<GasOutcome>;
-export async function reconcileOnce(now: number): Promise<void>;
 ```
 
-`GAS_MODE=velo` (default):
+`submitSponsored` steps:
 
-1. `const sponsored = await velo.gas.sponsor(signedXdr, { idempotencyKey: chainTxId, correlationId: chainTxId })` → `{ requestId, transactionHash }`. A `VeloProviderError` is retried with the **same XDR and the same key** (3 attempts, 2 s apart); nothing else is retried here.
-2. Exactly one `velo.gas.submit({ requestId, transactionHash, transactionXdr })`.
-3. From here the XDR is out of our hands: read `velo.gas.getStatus(identity)` and map the status.
+1. `const sponsored = await gas.sponsor(signedXdr, { idempotencyKey: opts.idempotencyKey })` → `{ requestId, transactionHash }`. A `VeloProviderError` is retried with the **same XDR and the same key**, up to `sponsorAttempts` attempts in total (default 4) with `retryDelayMs` between them (default 10 s, linear); `onRetry(attempt, error)` fires on each retry. **Any other error rethrows untouched.**
+2. **Exactly one** `gas.submit({ requestId, transactionHash, transactionXdr: signedXdr })`. **Any** failure of that call — thrown, or a lost response — means `getStatus(identity)`; never a second `submit`. `onUncertainHandoff(error)` fires.
+3. If the status is `claimed` / `submitted` / `submission_unknown`, call `waitForResult(identity, opts.wait)` (default 90 s / 20 attempts).
+4. Return the final `GasSubmitResult`, which may still be non-terminal.
 
-| Velo status | Our outcome |
+From there the XDR is out of our hands; `apps/server` maps what comes back:
+
+| Velo status | `GasOutcome` / `chain_txs` |
 |---|---|
-| `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`), the inner hash (`transactionHash`) and `ledger` |
+| `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`, **nullable**), the inner hash (`transactionHash`) and `ledger` |
 | `failed` | `failed`, `errorCode = 'GAS_FAILED'` |
 | `cancelled` | `failed`, `errorCode = 'GAS_CANCELLED'` |
 | `claimed`, `submitted`, `submission_unknown` | `submission_unknown`, `veloRequestId = requestId`; the reconciler owns it |
 
 `GAS_MODE=direct` always takes the direct path.
 
-Exception mapping inside `submit`:
+Exception mapping (the package handles the first row; `apps/server` handles the rest because only it knows about `GAS_FALLBACK_DIRECT`):
 
 | Thrown | Meaning | Action |
 |---|---|---|
-| `VeloProviderError` from `sponsor()` | Gas Station upstream failure; nothing was handed off | Retry with the same XDR and key; after the last attempt, direct path if `GAS_FALLBACK_DIRECT=true`, else `failed` with `errorCode='GAS_UNAVAILABLE'` |
-| `VeloAuthError` from `sponsor()` | Bad or missing `VELO_GAS_API_KEY` | Pre-dispatch, no retry. Direct path if `GAS_FALLBACK_DIRECT=true`; else `failed` with `errorCode='VELO_AUTH'` |
-| `VeloValidationError` from `sponsor()` | Envelope rule violated (wrong op count, wrong source, more than one signature, contract not on the allow-list) | Pre-dispatch, no retry → direct path if `GAS_FALLBACK_DIRECT=true`; also log loudly, because it means our envelope is wrong |
-| `VeloRateLimitError` from `sponsor()` | Over 50 XLM/day or 300 requests/wallet/hour | Pre-dispatch, no retry → direct path if `GAS_FALLBACK_DIRECT=true` |
-| Anything thrown by `velo.gas.submit(...)`, or a non-terminal `getStatus` | The XDR may or may not have been dispatched | `submission_unknown`; store the identity; **never resubmit**; the reconciler owns it. `GAS_FALLBACK_DIRECT` does **not** apply here — a fallback would be a second submission of the same intent |
+| `VeloProviderError` from `sponsor()` | Gas Station upstream failure; nothing was handed off | `submitSponsored` retries the same XDR and key up to `sponsorAttempts`; after the last attempt it rethrows, and `apps/server` takes the direct path if `GAS_FALLBACK_DIRECT=true`, else records `failed` with `errorCode='GAS_UNAVAILABLE'` |
+| `VeloAuthError` from `sponsor()` | Bad or missing `VELO_GAS_API_KEY` | Pre-dispatch, no retry: rethrown. `apps/server` → direct path if `GAS_FALLBACK_DIRECT=true`; else `failed` with `errorCode='VELO_AUTH'` |
+| `VeloValidationError` from `sponsor()` | Envelope rule violated (wrong op count, wrong source, more than one signature, contract not on the allow-list) | Pre-dispatch, no retry: rethrown → direct path if `GAS_FALLBACK_DIRECT=true`; also log loudly, because it means our envelope is wrong |
+| `VeloRateLimitError` from `sponsor()` | Over 50 XLM/day or 300 requests/wallet/hour | Pre-dispatch, no retry: rethrown → direct path if `GAS_FALLBACK_DIRECT=true` |
+| Anything thrown by `gas.submit(...)`, or a non-terminal `getStatus` | The XDR may or may not have been dispatched | `submitSponsored` recovers with `getStatus`/`waitForResult` and returns a non-terminal result; `apps/server` records `submission_unknown` + the identity. **Never** a second `submit`; `GAS_FALLBACK_DIRECT` does **not** apply here — a fallback would be a second submission of the same intent |
 
 `GAS_FALLBACK_DIRECT=true` is therefore only ever consulted **before** a successful `sponsor()`: once sponsorship returned, the sponsor/submit pair is the only path, and a broken hand-off is recovered by identity, never by sending the XDR again.
 
 Whenever the direct path is used, set `chain_txs.gas_mode='direct'` so the dashboard and CSV show that the demo borrowed the fallback.
 
-Direct path: `noir.submit(signedXdr)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. A throw is `failed` with the error text.
+Direct path: `submitDirect(noir, signedXdr, op)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. A throw is `failed` with the error text.
 
-Reconciler (`reconcileOnce`, every 5 s):
+Reconciler (`reconcileOnce`, in `apps/server`, every 5 s):
 
 * Select `chain_txs` where `status='submission_unknown'` and `updated_at > now - 120000`.
 * `velo.gas.getStatus(identity)` → map with the table above → update the row.
@@ -664,7 +717,7 @@ Envelope rule the Gas Station enforces, and which our builder must therefore sat
 
 ### 4.6 `noir.ts`
 
-Every wrapper takes an explicit acting account; none reads env. One row per SDK `NoirOperation` kind, then the reads.
+Every wrapper takes an explicit acting account; none reads env, and each is a thin call over `signNoirCall` → `submitSponsored`/`submitDirect` in `apps/server` (the package itself exposes only §4.1's four functions). One row per SDK `NoirOperation` kind, then the reads.
 
 | Wrapper | SDK operation | Contract | Acting account (signer) | `chain_txs.kind` |
 |---|---|---|---|---|
@@ -719,7 +772,7 @@ export async function fundWithFriendbot(publicKey: string, opts?: { attempts?: n
 
 * AES-256-GCM, 12-byte random IV, 16-byte auth tag, key = `Buffer.from(KEY_ENCRYPTION_SECRET, 'hex')` (must be 64 hex chars). Decryption failure is fatal for that operation and surfaces as `500 INTERNAL` with a logged cause — never a silent fallback.
 * `fundWithFriendbot` calls `https://friendbot.stellar.org?addr=<publicKey>`, retries 3× with 2 s backoff, treats an already-funded account as success.
-* Station secrets are encrypted at bootstrap (`scripts/bootstrap-accounts.ts`) and decrypted only inside `chain/` and `velo/`.
+* Station secrets are encrypted at bootstrap (`apps/server/scripts/bootstrap-accounts.ts`). At use time `apps/server` decrypts one (`src/velo/` for checkout, or a card's agent secret for one `authorize`) and passes the resulting `Keypair` into `packages/agent/src/chain/`; the package never sees the ciphertext or the env var.
 
 ### 4.8 `chain_txs` lifecycle
 
@@ -976,7 +1029,7 @@ Errors: `404 NOT_FOUND` (no program), `502 CHAIN_ERROR` (a claim failed; the rem
    3. `balanceBefore = 0` → `cards.status='swept'`, `returned_stroops=0`, decision `SKIPPED` with `reason='EMPTY_ESCROW'`, **no sweep transaction**. `sweep_on_revoke` would return `0` without panicking, so this is an optimisation that saves a sponsored transaction and a useless line in the audit trail, not a correctness guard.
    4. Else `sweepOnRevoke(XLM_SAC_ID, deviceHash, agentPublic)`; on success `cards.status='swept'`, `returned_stroops = balanceBefore`, decision `SWEPT`. On failure the card stays `active`, `outputs_json.error` records the code and the SDK's synthesized message from `chain_txs.error` (a nested `device_registry` panic surfaces as the escrow table's own name, so the text does not identify the nested frame), and the loop continues with the next card.
 3. `program.status='ended'`; one `agent_decisions` row (`agent='sweep'`, `decision='PROGRAM_ENDED'`) with the returned total; SSE `sweep`.
-4. `device_registry.revoke` is **not** called here. `scripts/reset-demo.ts` calls `revokeDevice` for every card of the previous program so the same physical cards can enroll again. Run it as `pnpm --filter api tsx scripts/reset-demo.ts`.
+4. `device_registry.revoke` is **not** called here. `scripts/reset-demo.ts` calls `revokeDevice` for every card of the previous program so the same physical cards can enroll again. Run it as `pnpm --filter server tsx scripts/reset-demo.ts`.
 
 Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status='draft'`), `502 CHAIN_ERROR` (a sweep failed; that card keeps its `status` and `reason`, the rest still run).
 
@@ -1115,7 +1168,7 @@ The event set is closed; payload shapes are owned by [api-and-data.md](api-and-d
 
 ## 9. Security notes
 
-1. **Secrets are server-only.** `VELO_API_KEY`, `VELO_GAS_API_KEY`, `VELO_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, `PROGRAM_WALLET_SECRET`, `STATION_*_SECRET`, `KEY_ENCRYPTION_SECRET` exist only in `apps/api/.env`. `apps/web/.env.example` is committed and holds `API_ORIGIN` (required) plus the commented, optional `WEB_BASIC_AUTH` (a `user:password` credential, never a key); each developer copies it to `apps/web/.env.local` (Next.js convention), which is git-ignored.
+1. **Secrets are server-only.** `VELO_API_KEY`, `VELO_GAS_API_KEY`, `VELO_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, `PROGRAM_WALLET_SECRET`, `STATION_*_SECRET`, `KEY_ENCRYPTION_SECRET` exist only in `apps/server/.env`. `apps/web/.env.example` is committed and holds `API_ORIGIN` (required) plus the commented, optional `WEB_BASIC_AUTH` (a `user:password` credential, never a key); each developer copies it to `apps/web/.env.local` (Next.js convention), which is git-ignored.
 2. **Config fails closed.** A zod config loader validates every variable at boot; the process exits printing the missing names. It also asserts `KEY_ENCRYPTION_SECRET` is 64 hex characters and that the three contract IDs are 56-character `C...` addresses.
 3. **Webhooks.** HMAC over the raw body, checked before parsing; dedupe on `x-velo-delivery` primary key. A replayed delivery is a no-op, and budget is credited exactly once even if both the webhook and the poller fire.
 4. **Custodial keys (stated limitation).** The demo custodies the Program Wallet, both station secrets, and every card agent secret. Production requires the owner's device or a wallet to sign, plus an HSM or KMS for operator keys.
@@ -1162,7 +1215,7 @@ Testnet IDs (verbatim; also in `docs/api-and-data.md` as `NOIR_*_ID`):
 
 Error codes, events, and the mandated safe order are in §4.4 and §3.8.
 
-SDK: `@noirx402/agent-sdk@0.3.0` (pinned exactly in `apps/api`, the only way TAPat reaches Noir — Builder Handbook, Nov 5), engines `^22.23.4 || ^24.22.1 || >=26.12.1`, peer `@stellar/stellar-sdk ^16.0.1`. Its built-in `TESTNET` IDs are exactly the three above, and `noir.ts` refuses to boot if they ever diverge from `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE`.
+SDK: `@noirx402/agent-sdk@0.3.0` (pinned exactly in `packages/agent/package.json`, the only way TAPat reaches Noir — Builder Handbook, Nov 5), engines `^22.23.4 || ^24.22.1 || >=26.12.1`, peer `@stellar/stellar-sdk ^16.0.1`. Its built-in `TESTNET` IDs are exactly the three above, and `createNoirClient` throws if they ever diverge from the configured IDs / passphrase, so `apps/server` refuses to boot.
 
 ## Appendix B — Velo integration reference
 
@@ -1175,4 +1228,4 @@ SDK: `@noirx402/agent-sdk@0.3.0` (pinned exactly in `apps/api`, the only way TAP
 | Gas status | `velo.gas.getStatus(identity)` | Only `succeeded` is success; `claimed`/`submitted`/`submission_unknown` are still running; `failed`/`cancelled` are terminal. The only path after a failed submit |
 | Webhook verify | `Velo.webhooks.verify({payload, signature, secret})` | Raw body; header `x-velo-signature`; dedupe `x-velo-delivery`; a failed verify answers `400 WEBHOOK_SIGNATURE_INVALID` |
 
-SDK: `@carts1024/velo-sdk@1.0.0` (pinned exactly: 1.0.0 is the current `latest` and is what the handbook's "use the latest" means now, so there is no reason to chase `@alpha`), ESM-only, server-only, testnet-only. Every machine and the VM run Node 22 at ≥ 22.23.4 (the Noir SDK's engine floor; Velo needs only ≥ 22.6, so the higher floor wins) — the check is `node --version` printing v22.23.4 or a later v22. Gas Station base URL `VELO_GAS_BASE_URL=https://www.velo-build.dev`, key prefix `tg_test_`. The Gas Station allow-list (`allowedContractIds`, max 20, set by the project owner from linked contracts) must contain the three Noir contract IDs; the account needs a funded managed relayer per the dashboard.
+SDK: `@carts1024/velo-sdk@1.0.0` (pinned exactly in `packages/agent/package.json`; `apps/server` adds its own copy when C5 lands: 1.0.0 is the current `latest` and is what the handbook's "use the latest" means now, so there is no reason to chase `@alpha`), ESM-only, server-only, testnet-only. Every machine and the VM run Node 22 at ≥ 22.23.4 (the Noir SDK's engine floor; Velo needs only ≥ 22.6, so the higher floor wins) — the check is `node --version` printing v22.23.4 or a later v22. Gas Station base URL `VELO_GAS_BASE_URL=https://www.velo-build.dev`, key prefix `tg_test_`. The Gas Station allow-list (`allowedContractIds`, max 20, set by the project owner from linked contracts) must contain the three Noir contract IDs; the account needs a funded managed relayer per the dashboard.

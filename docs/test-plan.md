@@ -8,28 +8,28 @@ Last updated: 2026-11-05
 
 | Command | Scope | When |
 |---|---|---|
-| `pnpm test` | All Vitest suites in `packages/shared`, `apps/api`, and `apps/web` | Before every push |
-| `pnpm --filter api tsx scripts/smoke-testnet.ts` | Live testnet reads and one sponsored write | After any env var or contract ID change; at T-60 |
+| `pnpm test` | All Vitest suites in `packages/shared`, `packages/agent`, `apps/server`, and `apps/web` | Before every push |
+| `pnpm --filter server tsx scripts/smoke-testnet.ts` | Live testnet reads and one sponsored write | After any env var or contract ID change; at T-60 |
 | `pnpm demo:e2e` | The 7 demo beats headlessly through the API against testnet, asserting the totals — run **on the VM**, in `/opt/tapat` | Nov 6 EOD gate, both Nov 7 rehearsals (07:00–09:00) |
 
 A failure is a bug with a repro, filed against the task id in `docs/build-schedule.md`. Do not "fix" a red algorithmic test by changing α, β, the calibration fixture, or a weight — fix the code or the fixture rows (`fixtures/masterlist/*.csv`), per the plan.
 
-## 2. Unit tests (Vitest, `apps/api` and `apps/web`)
+## 2. Unit tests (Vitest, `packages/*`, `apps/server` and `apps/web`)
 
 ### 2.1 Algorithms
 
 | File | Test | Exact expectation |
 |---|---|---|
-| `src/algorithms/names.test.ts` | Normalization | `"Dela Cruz"`, `"De la Cruz"`, `"Delacruz"` all normalize to `delacruz`; `"Ma. Teresa Santos"` → `maria teresa santos` (token map `ma`→`maria`), and `"Sto. Nino"` → `santo nino`; `ñ` → `n`; `"Juan Dela Cruz Jr"` extracts suffix `jr` |
+| `packages/agent/src/algorithms/names.test.ts` | Normalization | `"Dela Cruz"`, `"De la Cruz"`, `"Delacruz"` all normalize to `delacruz`; `"Ma. Teresa Santos"` → `maria teresa santos` (token map `ma`→`maria`), and `"Sto. Nino"` → `santo nino`; `ñ` → `n`; `"Juan Dela Cruz Jr"` extracts suffix `jr` |
 | | Required vector | The Dela Cruz triple for `Juan`, `1980-03-02` → pairwise `p ≥ 0.9` |
 | | Negative vector | `"Juan Dela Cruz Jr"` vs `"Juan Dela Cruz Sr"`, **same** birthdate → `p < 0.5` |
-| `src/algorithms/matcher.test.ts` | Genuineness | First row `s = 1`; a later exact duplicate of row 1 has `s = 1 − p` |
+| `packages/agent/src/algorithms/matcher.test.ts` | Genuineness | First row `s = 1`; a later exact duplicate of row 1 has `s = 1 − p` |
 | | Rules | `UNDERAGE` blocks age < 18 at program start; `PLATE_MULTI_NAME` rejects all records sharing a plate with `p < 0.5`; `DUPLICATE_PLATE` keeps the first and rejects later rows with `p ≥ 0.5` |
-| `src/algorithms/crc.test.ts` | Thresholds | On `fixtures/calibration/labeled.json` (n = 400: 320 genuine, 60 ghost, 20 hard negative), empirical wrongful-denial ≤ α = 0.05 and ghost admission ≤ β = 0.02 |
+| `packages/agent/src/algorithms/crc.test.ts` | Thresholds | On `fixtures/calibration/labeled.json` (n = 400: 320 genuine, 60 ghost, 20 hard negative), empirical wrongful-denial ≤ α = 0.05 and ghost admission ≤ β = 0.02 |
 | | Monotonicity | If `λ_lo > λ_hi`, the implementation clamps `λ_lo = λ_hi` and decisions are still `approve | reject | uncertain` only |
-| `src/algorithms/bocpd.test.ts` | Fire | `doe-diesel-sim.json` fires at an index in **[33, 36]** |
+| `packages/agent/src/algorithms/bocpd.test.ts` | Fire | `doe-diesel-sim.json` fires at an index in **[33, 36]** |
 | | No false fire | The day-15 spike (index 15) does **not** fire: `cpRecent < 0.9` or MAP run length < 3 |
-| `src/algorithms/midas.test.ts` | Honest | Every honest seed 1–50 stays below `config/midas.json.threshold` |
+| `packages/agent/src/algorithms/midas.test.ts` | Honest | Every honest seed 1–50 stays below `apps/server/config/midas.json.threshold` |
 | | Burst | `fixtures/taps/burst.json` crosses the threshold within its 30 edges |
 | | χ² | Zero counts → score 0; `s = 0` or `t ≤ 1` → score 0 (no division by zero) |
 
@@ -37,44 +37,44 @@ A failure is a bug with a repro, filed against the task id in `docs/build-schedu
 
 | File | Test | Exact expectation |
 |---|---|---|
-| `src/chain/noir.test.ts` | Boot assert | The SDK's `TESTNET.contracts` or `networkPassphrase` differing from `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE` makes boot refuse: exit 1, the mismatch named, the listener never started |
+| `packages/agent/src/chain/noir.test.ts` | Contract check | The SDK's `TESTNET.contracts` or `networkPassphrase` differing from the configured `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE` makes `createNoirClient` throw the mismatch-naming `Error`; `apps/server` turns that into exit 1 with the listener never started |
 | | Error mapping | A `NoirContractError{contract, code, errorName, method}` is mapped through the per-contract tables in [system-design.md §4.4](system-design.md); device code `4` → `AlreadyRegistered`. The SDK does the encoding: amounts are bigint stroops, `deviceHash` is 64 hex, `expiresAt` is a `Date` |
-| `src/chain/gas.test.ts` | Sponsor retry | `velo.gas.sponsor(xdr, {idempotencyKey})` is retried **only** on `VeloProviderError`, with the same XDR and the same idempotency key |
+| `packages/agent/src/chain/gas.test.ts` | Sponsor retry | `velo.gas.sponsor(xdr, {idempotencyKey})` is retried **only** on `VeloProviderError`, with the same XDR and the same idempotency key |
 | | Single hand-off | Exactly one `velo.gas.submit({requestId, transactionHash, transactionXdr})` per operation |
-| | Submission unknown | Any failure of that `submit` (including a lost response) records `submission_unknown`, stores the identity, and the reconciler recovers with `getStatus(identity)` every 5 s up to 2 min — **never** a second `submit` |
+| | Submission unknown | Any failure of that `submit` (including a lost response) is followed by `getStatus(identity)` — **never** a second `submit`; the result stays non-terminal, so `apps/server` records `submission_unknown` and its reconciler re-polls every 5 s up to 2 min |
 | | Status mapping | `succeeded` → `succeeded`; `failed` and `cancelled` → `failed`; `claimed`/`submitted`/`submission_unknown` → non-terminal, owned by the reconciler |
-| | Fallback | Direct only after a `sponsor()` failure (nothing was handed off): with `GAS_FALLBACK_DIRECT=true` the **same** XDR goes through `noir.submit` and the row records `gas_mode='direct'`; with the flag false it fails without sending, and a failure after `submit` never falls back |
-| `src/services/tap.test.ts` | Frozen station | Frozen station → 423 `STATION_FROZEN`, and **no** `chain_txs` row is created |
+| | Fallback | Direct only after a `sponsor()` failure (nothing was handed off): with `GAS_FALLBACK_DIRECT=true` the **same** XDR goes through `submitDirect` and `apps/server` records the row as `gas_mode='direct'`; with the flag false it fails without sending, and a failure after `submit` never falls back |
+| `apps/server/src/services/tap.test.ts` | Frozen station | Frozen station → 423 `STATION_FROZEN`, and **no** `chain_txs` row is created |
 | | Unknown card | Unknown `device_hash` → 404 `CARD_NOT_ENROLLED` |
 | | Reason mapping | A mocked `NoirContractError` #3 (`AgentNotAuthorized`) on `authorize` → `checkPayment` reason `expired` → `EXPIRED`, `over_limit` → `OVER_CAP`, `no_agent`/`wrong_agent`/`wrong_asset`/`invalid_amount` → `POLICY_DENIED`; `#2` (`InsufficientBalance`) → `INSUFFICIENT_ESCROW` |
 | | Other codes | Mocked code 6 (`DuplicateAuth`), 8 (`DeviceNotRegistered`), 9, 10 → tap `failed`, `reasonCode = null`, the SDK's synthesized message (`<contract>.<method> failed: <Name> (#<code>)`) kept in `chain_txs.error` with the code and method, response `502 CHAIN_ERROR` |
 | | Message | `TapResponse.message` is non-empty for both outcomes and contains the peso amount and the cap sentence on an `OVER_CAP` decline |
 | | Nonce | `nonce = max(Date.now(), last_nonce + 1)`, persisted **before** submit; a failed submit keeps it and the next nonce is still strictly greater |
 | | No money on rejection | `rejected`/`refused` tap rows have `chain_tx_id = NULL`; a `failed` tap points at a `chain_txs` row whose status is `failed` |
-| `src/services/enroll.test.ts` | UID format | `04:a2:1f:9c:a1:b2` normalizes to `04A21F9CA1B2`; `TAPATVIRTUAL05` and `TAPATE2E04` pass `^[0-9A-Z]{4,32}$`; `ab_cd` (underscore), `a` (too short), 40 chars (too long) → 400 `VALIDATION_ERROR` |
+| `apps/server/src/services/enroll.test.ts` | UID format | `04:a2:1f:9c:a1:b2` normalizes to `04A21F9CA1B2`; `TAPATVIRTUAL05` and `TAPATE2E04` pass `^[0-9A-Z]{4,32}$`; `ab_cd` (underscore), `a` (too short), 40 chars (too long) → 400 `VALIDATION_ERROR` |
 | | Photo check | `samplePhoto=d4-photo.jpg` with a mismatching plate **or** TODA → 422 `PHOTO_MISMATCH`; matching → `photoCheck = {source:'precomputed', plate, toda, matched:true}`; uploaded photo without `officerConfirmed` → 422 `PHOTO_CONFIRMATION_REQUIRED`; with it → `source:'officer_confirmed'`, `plate:null`, `toda:null` |
 | | Retry | A forced `register_agent` failure leaves one `cards` row `failed`; retrying the same `uid` reuses that row id and keypair, and when `get_owner` returns the Program Wallet the retry issues only `register_agent` |
 | | Duplicate | A second `uid` matching an existing `active` card → 409 `CARD_ALREADY_ENROLLED`; a `failed` card's UID does **not** trigger 409 |
-| `src/services/dashboard.test.ts` | Counts | Status buckets are disjoint: `approved` excludes `enrolled`; after the seeded+scripted state `enrolled = 5`, `beneficiaries = 12`, and `beneficiaries − approved − uncertain − enrolled` equals the rejected row count (2) |
+| `apps/server/src/services/dashboard.test.ts` | Counts | Status buckets are disjoint: `approved` excludes `enrolled`; after the seeded+scripted state `enrolled = 5`, `beneficiaries = 12`, and `beneficiaries − approved − uncertain − enrolled` equals the rejected row count (2) |
 | | Budget badge | `budget.state` is `none` with no `velo_intents` row, `waiting` with an unpaid row (and that row's `checkoutUrl`), `verified` after credit; `remainingStroops = verified - funded` |
 | | Cards | `Dashboard.cards` returns one `CardSummary` per card with `displayName` in "Juan D." format, `deviceHashPrefix` exactly 8 hex chars, and no `deviceHash` and no full beneficiary name anywhere in the JSON |
-| | Series | `midasThreshold` equals `config/midas.json.threshold`; `recentTaps` newest first, max 50 |
-| `src/services/budget.test.ts` | Webhook idempotency | The same `x-velo-delivery` delivered twice credits `budget_verified_stroops` **once**; a second delivery with a new id but the same `paymentIntentId` also credits once |
+| | Series | `midasThreshold` equals `apps/server/config/midas.json.threshold`; `recentTaps` newest first, max 50 |
+| `apps/server/src/services/budget.test.ts` | Webhook idempotency | The same `x-velo-delivery` delivered twice credits `budget_verified_stroops` **once**; a second delivery with a new id but the same `paymentIntentId` also credits once |
 | | Signature | A bad `x-velo-signature` → 400 `WEBHOOK_SIGNATURE_INVALID`, nothing stored as paid |
 | | Poller | A `paymentIntents.retrieve` that turns `paid` credits once even if the webhook never arrives |
-| `src/services/tranche.test.ts` | Eligibility | An expired card (D3) is skipped with a reason; a program with `tranche_fired = 1` does not fire again |
+| `apps/server/src/services/tranche.test.ts` | Eligibility | An expired card (D3) is skipped with a reason; a program with `tranche_fired = 1` does not fire again |
 | | Budget guard | Remaining budget < tranche → stop, log `BUDGET_EXHAUSTED`, fund nothing further |
 | | Decision log | Exactly one `agent_decisions` row per fire, containing price, segment mean, threshold, cp probability, MAP run length, budget before/after, and per-card funded/skipped reasons with tx ids |
-| `src/services/settlement.test.ts` | Freeze hold | Frozen station with pending > 0 → one `HELD` decision with the amount and zero txs; active station → one `claim` |
-| `src/services/freeze.test.ts` | Burst precondition | `POST /api/agents/freeze/burst` with **no `authorized` Station-B tap at all** → 409 `INVALID_STATE`, `message = "Tap D2 at Station B first"`, zero burst rows written |
+| `apps/server/src/services/settlement.test.ts` | Freeze hold | Frozen station with pending > 0 → one `HELD` decision with the amount and zero txs; active station → one `claim` |
+| `apps/server/src/services/freeze.test.ts` | Burst precondition | `POST /api/agents/freeze/burst` with **no `authorized` Station-B tap at all** → 409 `INVALID_STATE`, `message = "Tap D2 at Station B first"`, zero burst rows written |
 | | Gate accepts a simulated tap | One `POST /api/taps` with `{stationId:'B', amountPhp:480, cardId:'card_D2', simulated:true}` (a real `authorize`) is enough for burst to return 202 — the gate reads `taps.status='authorized'`, not `taps.simulated` |
 | | Scored re-emit | After scoring, `taps.midas_score`/`tick` are set and a second SSE `tap` with the **same id** is emitted (clients upsert) |
-| `src/services/sse.test.ts` | Payload shapes | Each emitted `data` parses against the §3 type for its event: `price`→`PricePoint`, `tranche`/`settlement`/`sweep`/`intake`→`AgentDecision`, `enroll`→`Card`, `tap`→`Tap`, `freeze`→`FreezeEvent` (flat `stationId`/`stationStatus`), `budget`→`Program`, `chain_tx`→`ChainTx` |
-| `src/services/intake.test.ts` | Calibration shape | `GET /api/intake/calibration` returns exactly `{alpha, beta, lambdaLo, lambdaHi, n, wrongfulDenialRate, ghostAdmissionRate, feasible}` |
+| `apps/server/src/services/sse.test.ts` | Payload shapes | Each emitted `data` parses against the §3 type for its event: `price`→`PricePoint`, `tranche`/`settlement`/`sweep`/`intake`→`AgentDecision`, `enroll`→`Card`, `tap`→`Tap`, `freeze`→`FreezeEvent` (flat `stationId`/`stationStatus`), `budget`→`Program`, `chain_tx`→`ChainTx` |
+| `apps/server/src/services/intake.test.ts` | Calibration shape | `GET /api/intake/calibration` returns exactly `{alpha, beta, lambdaLo, lambdaHi, n, wrongfulDenialRate, ghostAdmissionRate, feasible}` |
 | | Summary buckets | After the demo upload (seeded program: D1/D2/D3/D5 already `enrolled`) `IntakeResponse.summary` deep-equals `{ total: 12, approved: 4, rejected: 2, uncertain: 2, enrolled: 4 }`, and `approved + rejected + uncertain + enrolled === total`; the 4 `enrolled` rows are D1/D2/D3/D5 and keep `status='enrolled'` |
 | | Evidence states | `request-evidence` succeeds from `uncertain` and `rejected`, fails 409 from `approved`, `enrolled`, `evidence_requested`; success sets status `evidence_requested` |
 | | Deep link | `Beneficiary.telegramDeepLink` equals `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${link_code}` for every row |
-| `src/services/sweep.test.ts` | Order | Per card: `revoke_agent` only while the policy is active, then `sweep_on_revoke`; `device_registry.revoke` is **not** called; `returned_stroops` sums to ₱3,190 on the seeded demo |
+| `apps/server/src/services/sweep.test.ts` | Order | Per card: `revoke_agent` only while the policy is active, then `sweep_on_revoke`; `device_registry.revoke` is **not** called; `returned_stroops` sums to ₱3,190 on the seeded demo |
 | | Zero escrow | A card with `balance_of` = 0 (D3, D4) is marked `swept` with `returned_stroops = 0` and **no** `sweep_on_revoke` tx (the contract would return 0; skipping saves a sponsored tx) |
 | `packages/shared/money.test.ts` | Conversions | 350 PHP → 35 XLM → `350000000n` stroops → `"₱350.00"`; `PHP_PER_XLM = 10`; no float drift on 480 and 1,500 |
 | `packages/shared/index.test.ts` | Package surface | `import { formatPhp, TAP_REASON_LABELS } from '@tapat/shared'` resolves (package `name: "@tapat/shared"`, `main: ./src/index.ts`, no build step); the entry re-exports `money.ts`, `types.ts`, `schemas.ts`, `constants.ts`; importing it in a browser-safe context touches no `node:` module |
@@ -82,7 +82,7 @@ A failure is a bug with a repro, filed against the task id in `docs/build-schedu
 | `apps/web/middleware.test.ts` | Unset env | With `WEB_BASIC_AUTH` unset, a request to `/` passes unchanged (no-op: local dev, the VM's web behind Caddy) |
 | | 401 paths | With `WEB_BASIC_AUTH=user:pass` set: no `Authorization` header → `401` + `WWW-Authenticate: Basic realm="TAPat"`; wrong credentials → `401`; the correct `Basic base64(user:pass)` → passes |
 | | Exempt paths | `/api/webhooks/velo` and `/api/health` pass with **no** header even when the env var is set |
-| `apps/api/src/server.test.ts` | Cache headers | `GET /api/dashboard` → `Cache-Control: no-store`; `GET /api/stream` → `text/event-stream` with `no-cache` in `Cache-Control` (never `no-store`) |
+| `apps/server/src/server.test.ts` | Cache headers | `GET /api/dashboard` → `Cache-Control: no-store`; `GET /api/stream` → `text/event-stream` with `no-cache` in `Cache-Control` (never `no-store`) |
 
 The two rows above are unit-only and never gate the demo: `middleware.ts` is inert without `WEB_BASIC_AUTH`, and `no-store` is harmless through Caddy. Their live proof is the optional Vercel checklist in [deployment.md §9.4](deployment.md), run only if that front end is switched on.
 
@@ -91,7 +91,7 @@ The two rows above are unit-only and never gate the demo: `middleware.ts` is ine
 ### 3.1 `scripts/smoke-testnet.ts` (manual, Jim)
 
 1. `noir.getPolicy` on a random 32-byte hash → `null` (the SDK treats `agent_registry`'s `AgentNotFound` #2 as "no policy"), and `noir.checkPayment` on it → `{ ok: false, reason: 'no_agent' }` (expected; proves RPC, contract ID and the SDK read path).
-2. One sponsored `registerDevice` of a throwaway hash through `chain/gas.ts` with `GAS_MODE=velo` (`noir.prepare` → sign → `sponsor` → one `submit`) → `chain_txs` row `succeeded` with `gas_mode='velo'`; the tx opens on Stellar Expert.
+2. One sponsored `registerDevice` of a throwaway hash through `packages/agent/src/chain/gas.ts` with `GAS_MODE=velo` (`noir.prepare` → sign → `sponsor` → one `submit`) → `chain_txs` row `succeeded` with `gas_mode='velo'`; the tx opens on Stellar Expert.
 3. One `checkout.sessions.create` of 1 XLM → returns `{checkoutUrl, paymentIntentId}`; the intent is retrievable with status `created`.
 
 ### 3.2 `pnpm demo:e2e` (the Nov 6 EOD gate)
@@ -152,7 +152,7 @@ Run in order at T-60 on show day. Every line is a pass/fail.
 
 **State**
 
-- [ ] On the VM: `sudo -H -u tapat pnpm -C /opt/tapat --filter api tsx scripts/reset-demo.ts` then `... scripts/seed-demo.ts` completes without error; second run of both also succeeds (same physical cards, no `AlreadyRegistered`).
+- [ ] On the VM: `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` then `... scripts/seed-demo.ts` completes without error; second run of both also succeeds (same physical cards, no `AlreadyRegistered`).
 - [ ] D3's policy `expires_at_s` is ~600 s after seed — confirm from the card list on `/` (data from `GET /api/dashboard`), not from the wall clock.
 - [ ] Budget checkout paid; badge **Velo verified ✓**; `budget_verified_stroops` = 10000000000.
 - [ ] Dashboard shows five zeroed money tiles (funded / spent / held / pending / returned) and the invariant line **OK** before the run.
