@@ -194,7 +194,7 @@ export interface TrancheState {
 export interface Dashboard {
   program: Program;
   phpPerXlm: number;            // demo rate, for formatPhp()
-  midasThreshold: number;       // from apps/api/config/midas.json; the freeze line on the edge chart
+  midasThreshold: number;       // from apps/server/config/midas.json; the freeze line on the edge chart
   fundedStroops: Stroops;       // = program.budget_funded_stroops (chain_txs has no amount column)
   spentStroops: Stroops;        // Σ authorized taps already covered by a succeeded claim (§5.2 #18)
   heldStroops: Stroops;         // unclaimed taps at frozen stations, same rule

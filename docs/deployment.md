@@ -54,7 +54,7 @@ flowchart LR
         Funnel["tailscaled<br/>Funnel :443<br/>tapat.&lt;tailnet&gt;.ts.net"] --> Caddy["Caddy 127.0.0.1:8080<br/>basic auth, router"]
         Caddy -->|"/api/*"| API["tapat-api<br/>Fastify 127.0.0.1:4000"]
         Caddy -->|"everything else"| Web["tapat-web<br/>next start 127.0.0.1:3000"]
-        API --> DB[("SQLite<br/>apps/api/data/tapat.db")]
+        API --> DB[("SQLite<br/>apps/server/data/tapat.db")]
     end
 
     API -->|outbound| RPC["Soroban RPC / Noir"]
@@ -78,7 +78,7 @@ So TAPat has two **env profiles**. They use the same variable names ([api-and-da
 | | **prod** | **dev** |
 |---|---|---|
 | Runs on | the VM (or Jim's laptop only in the §10 fallback) | every teammate laptop, Jim's laptop day to day |
-| `apps/api/.env` holder | Jim only; one backup copy on USB | Jim sends it to teammates privately |
+| `apps/server/.env` holder | Jim only; one backup copy on USB | Jim sends it to teammates privately |
 | Accounts | the setup.md stage 2 accounts (Program Wallet = Velo project owner) | a **second** `bootstrap-accounts.ts` run, made in a separate clone so it cannot overwrite prod |
 | Telegram | the demo bot | a second bot from @BotFather, e.g. `@tapat_dev_bot` |
 | `PUBLIC_BASE_URL` | `https://tapat.<tailnet>.ts.net` (set once, and never changed for the optional Vercel frontend, §9) | `https://localhost:3000`, which satisfies the `https:` rule. When testing the phone, use your own quick-tunnel URL. |
@@ -100,10 +100,11 @@ No changes to the money path or to any request/response shape. Only these files:
 | Path | Content |
 |---|---|
 | root `package.json` | `"packageManager": "pnpm@9.12.0"`, so corepack and the units resolve a pinned pnpm rather than the newest release. The same file already carries the `dev`, `test` and `demo:e2e` scripts from M0 ([build-schedule.md](build-schedule.md) §4) |
-| `apps/api/package.json` script | `"start": "tsx src/server.ts"` (same entry as `dev`, without watch) |
+| `apps/server/package.json` script | `"start": "tsx src/server.ts"` (same entry as `dev`, without watch) |
+| `.env.example` (root) | Every variable, no real values: the server section (header "copy to `apps/server/.env`") and the web section (header "copy to `apps/web/.env.local`"). The per-app `apps/server/.env.example` and `apps/web/.env.example` stay — they are what the setup copies — and a test in `apps/server` keeps the three files in sync |
 | `apps/web/package.json` scripts | `"dev": "next dev -H 127.0.0.1 -p 3000"`, `"build": "next build"`, `"start": "next start -H 127.0.0.1 -p 3000"` |
-| `apps/api/src/server.ts` | `listen({ port: config.PORT, host: '127.0.0.1' })`. The API never listens on a LAN interface, locally or in prod |
-| `apps/api/src/server.ts` + the `/api/*` route hooks | `Cache-Control: no-store` on every `/api/*` response except `/api/stream`, which keeps `no-cache` ([api-and-data.md §1](api-and-data.md)). Required because the optional Vercel rewrite (§9) honours upstream cache headers; harmless on the Funnel path |
+| `apps/server/src/server.ts` | `listen({ port: config.PORT, host: '127.0.0.1' })`. The API never listens on a LAN interface, locally or in prod |
+| `apps/server/src/server.ts` + the `/api/*` route hooks | `Cache-Control: no-store` on every `/api/*` response except `/api/stream`, which keeps `no-cache` ([api-and-data.md §1](api-and-data.md)). Required because the optional Vercel rewrite (§9) honours upstream cache headers; harmless on the Funnel path |
 | `apps/web/middleware.ts` | HTTP basic auth **only** when the optional web env var `WEB_BASIC_AUTH` is set: exempts `/api/webhooks/velo` and `/api/health`, constant-time compare, `401` with `WWW-Authenticate: Basic realm="TAPat"`. Unset (local dev, the VM's web behind Caddy) → no-op. Needed only for §9; Jim reviews changes |
 | `deploy/Caddyfile` | §5.1 |
 | `deploy/tapat-api.service`, `deploy/tapat-web.service` | §5.2 |
@@ -151,7 +152,7 @@ Wants=network-online.target
 
 [Service]
 User=tapat
-WorkingDirectory=/opt/tapat/apps/api
+WorkingDirectory=/opt/tapat/apps/server
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/env pnpm start
 Restart=always
@@ -179,7 +180,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-The API reads `apps/api/.env` exactly as it does locally. `apps/api/src/server.ts` loads `apps/api/.env` itself (dotenv, unconditionally, before the zod parse); the units deliberately set no `EnvironmentFile=`. `DATABASE_PATH=./data/tapat.db` resolves to `/opt/tapat/apps/api/data/tapat.db`. A restart mid-transaction is covered by the existing `submission_unknown` reconciler ([SDD §4](system-design.md)).
+The API reads `apps/server/.env` exactly as it does locally. `apps/server/src/server.ts` loads `apps/server/.env` itself (dotenv, unconditionally, before the zod parse); the units deliberately set no `EnvironmentFile=`. `DATABASE_PATH=./data/tapat.db` resolves to `/opt/tapat/apps/server/data/tapat.db`. A restart mid-transaction is covered by the existing `submission_unknown` reconciler ([SDD §4](system-design.md)).
 
 ## 6. One-time provisioning (`deploy/provision.sh`, ~45 min)
 
@@ -229,11 +230,11 @@ sudo systemctl restart caddy                # with `admin off`, only a restart r
 
 ### 6.3 Secrets and first start (Jim, Nov 6 PM)
 
-1. Copy the **prod** `.env` onto the VM: `scp apps/api/.env <ssh-user>@<ip>:/tmp/api.env`. Then `sudo install -o tapat -m 600 /tmp/api.env /opt/tapat/apps/api/.env && rm /tmp/api.env`.
-2. In that file, set `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` (edit it as `tapat`: `sudo -H -u tapat nano /opt/tapat/apps/api/.env`).
+1. Copy the **prod** `.env` onto the VM: `scp apps/server/.env <ssh-user>@<ip>:/tmp/api.env`. Then `sudo install -o tapat -m 600 /tmp/api.env /opt/tapat/apps/server/.env && rm /tmp/api.env`.
+2. In that file, set `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` (edit it as `tapat`: `sudo -H -u tapat nano /opt/tapat/apps/server/.env`).
 3. Write `/opt/tapat/apps/web/.env.local` with `API_ORIGIN=http://127.0.0.1:4000` (still required by the web build; [api-and-data.md §7.2](api-and-data.md)).
 4. Install and build as the service user: `sudo -H -u tapat pnpm -C /opt/tapat install --frozen-lockfile && sudo -H -u tapat pnpm -C /opt/tapat --filter web build`.
-5. Create the SQLite directory before the first start (SQLite creates the file, never its folder): `sudo install -d -o tapat -g tapat /opt/tapat/apps/api/data`.
+5. Create the SQLite directory before the first start (SQLite creates the file, never its folder): `sudo install -d -o tapat -g tapat /opt/tapat/apps/server/data`.
 6. `sudo systemctl enable --now tapat-api tapat-web`.
 7. **Cut-over:** stop every other API using the prod `.env`, including Jim's laptop. In the Velo dashboard, set the webhook endpoint once to `https://tapat.<tailnet>.ts.net/api/webhooks/velo` (unverified — follow dashboard labels). From now on Jim's laptop uses the dev profile.
 
@@ -257,11 +258,11 @@ sudo systemctl restart tapat-api tapat-web
 
 | Task | Command on the VM (as `<ssh-user>`; repo commands use `sudo -H -u tapat`) |
 |---|---|
-| Reset + seed for a demo run | `sudo -H -u tapat pnpm -C /opt/tapat --filter api tsx scripts/reset-demo.ts` then `sudo -H -u tapat pnpm -C /opt/tapat --filter api tsx scripts/seed-demo.ts` |
-| Smoke test | `sudo -H -u tapat pnpm -C /opt/tapat --filter api tsx scripts/smoke-testnet.ts` |
+| Reset + seed for a demo run | `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` then `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/seed-demo.ts` |
+| Smoke test | `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/smoke-testnet.ts` |
 | End-to-end gate | `sudo -H -u tapat pnpm -C /opt/tapat demo:e2e` |
 | Logs | `sudo journalctl -u tapat-api -f`, `sudo journalctl -u tapat-web -f` |
-| DB backup before the pitch | `sudo -H -u tapat sqlite3 /opt/tapat/apps/api/data/tapat.db ".backup /opt/tapat/apps/api/data/pre-pitch.db"` |
+| DB backup before the pitch | `sudo -H -u tapat sqlite3 /opt/tapat/apps/server/data/tapat.db ".backup /opt/tapat/apps/server/data/pre-pitch.db"` |
 | Funnel status | `sudo tailscale funnel status` |
 | Change basic-auth credentials | edit `/etc/caddy/tapat-users`, then `sudo systemctl restart caddy` |
 
@@ -273,7 +274,7 @@ sudo systemctl restart tapat-api tapat-web
 | Concern | Control |
 |---|---|
 | Public URL with money buttons | Caddy basic auth on everything except `/api/webhooks/velo` (HMAC-verified) and `/api/health`. Credentials go to the team and, in the submission, to judges |
-| Secrets | Only in `/opt/tapat/apps/api/.env` (mode 600, owner `tapat`) and Jim's USB backup. Never in the repo, `deploy/`, or `apps/web` |
+| Secrets | Only in `/opt/tapat/apps/server/.env` (mode 600, owner `tapat`) and Jim's USB backup. Never in the repo, `deploy/`, or `apps/web` |
 | Exposure | API and Next bind `127.0.0.1`. Caddy binds `127.0.0.1`. Only Funnel (outbound) publishes, and only port 8080. Inbound: SSH only |
 | Cross-instance clashes | Prod and dev profiles (§4); one live API per profile |
 | Card/agent keys | Unchanged: AES-256-GCM in SQLite under `KEY_ENCRYPTION_SECRET` ([SDD §9](system-design.md)) |
@@ -302,7 +303,7 @@ sudo systemctl restart tapat-api tapat-web
 1. Import the GitHub repo into Vercel (Hobby): **Root Directory** `apps/web`, framework Next.js. pnpm comes from the lockfile and the workspace package `@tapat/shared` is included. The repo must be importable by the Hobby account — public, or owned by Jim [INFERENCE].
 2. Production branch `main`; previews per PR.
 3. Environment variables for **Production and Preview**: `API_ORIGIN`, `WEB_BASIC_AUTH`. Before the VM exists, `API_ORIGIN=http://127.0.0.1:4000` is fine for mock-only previews.
-4. Nothing to change on the VM: leave `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` in `/opt/tapat/apps/api/.env`. It is what Velo's webhook and the checkout redirect use; only the browser's entry URL changes, and the Vercel rewrite reaches the same API.
+4. Nothing to change on the VM: leave `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` in `/opt/tapat/apps/server/.env`. It is what Velo's webhook and the checkout redirect use; only the browser's entry URL changes, and the Vercel rewrite reaches the same API.
 
 ### 9.3 Turning it off
 
@@ -357,7 +358,7 @@ Baseline only. If the optional Vercel frontend (§9) is on, add its own checklis
 
 - [ ] `https://tapat.<tailnet>.ts.net/` asks for basic auth; `/api/health` and `/api/webhooks/velo` do not. `curl -u <user>:<password> https://tapat.<tailnet>.ts.net/` returns the app, not `401`.
 - [ ] `/api/health` → `ok:true`, `gasMode:"velo"`.
-- [ ] `ls -l /opt/tapat/apps/api/data/tapat.db` exists and is owned by `tapat`.
+- [ ] `ls -l /opt/tapat/apps/server/data/tapat.db` exists and is owned by `tapat`.
 - [ ] Velo test delivery → `200`; a real budget checkout flips the badge to **Velo verified ✓** within 3 s.
 - [ ] Phone (Chrome, Android) reads all four tags on `/station/A` over the Funnel URL.
 - [ ] Laptop dashboard and `/demo` update live (SSE) over the Funnel URL.

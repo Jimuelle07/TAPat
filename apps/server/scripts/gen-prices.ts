@@ -1,6 +1,6 @@
 /**
  * docs/algorithms.md §6.5 + §9.1: the simulated DOE diesel price series for the Tranche Agent.
- *   pnpm --filter api tsx scripts/gen-prices.ts --seed 3 --out fixtures/prices/doe-diesel-sim.json
+ *   pnpm --filter server tsx scripts/gen-prices.ts --seed 3 --out fixtures/prices/doe-diesel-sim.json
  */
 import { parseArgs } from 'node:util';
 import { intFlag, requiredFlag, writeFixture } from './lib/fixture-file';

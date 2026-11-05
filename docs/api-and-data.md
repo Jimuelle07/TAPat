@@ -23,10 +23,10 @@ Related docs: [SDD](system-design.md) (why these calls happen, in what order) ·
 | Idempotency | Any endpoint that changes money is safe to call twice: budget credit is keyed on `paymentIntentId`, `fund_escrow`/`authorize`/`claim`/`sweep` are keyed on a `chain_txs` row created before submit. |
 | Secrets never leave the server | Never serialized: `program.salt`, `cards.agent_secret_enc`, `stations.secret_enc`, `beneficiaries.telegram_chat_id` (exposed as `telegramLinked: boolean` instead), Velo keys, Telegram token. `cards.agent_public` and `stations.public_key` are public keys and may be exposed. |
 | Card identity in the UI | The web never receives a full `device_hash`. Every screen and the CSV show only `deviceHashPrefix` (first 8 hex chars) and `uidLast4`. Stations and pickers label a card with `displayName` ("Juan D.") + `uidLast4` — never a full beneficiary name. |
-| Shared package | `packages/shared` is published inside the workspace as **`@tapat/shared`** and exports TypeScript source (no build step). §1.3. |
+| Workspace packages | `apps/server` (`"name": "server"`), `apps/web` (`"name": "web"`), `packages/shared` (published inside the workspace as **`@tapat/shared`**) and `packages/agent` (**`@tapat/agent`**: the chain module and the algorithms). Both packages export TypeScript source (no build step); §1.3, [system-design.md §4](system-design.md). |
 | CORS | The API registers `@fastify/cors` with `origin: 'http://localhost:3000'` (GET methods suffice). This exists only for the manual SSE fallback `/?sse=direct`, which points the laptop at `http://localhost:4000/api/stream` when the Next.js rewrite buffers. Everything else goes through the rewrite locally and through Caddy in prod, so CORS is never involved in a deployed request. |
 | Listen host | The API and Next.js bind `127.0.0.1` only — `listen({ port: config.PORT, host: '127.0.0.1' })`, `"dev": "next dev -H 127.0.0.1 -p 3000"` in `apps/web/package.json`, and `next start -H 127.0.0.1 -p 3000`, locally and on the VM. Nothing binds a LAN interface; the only public surface is Caddy behind the Funnel in prod, or a laptop's quick tunnel for its own phone test. See [deployment.md §5](deployment.md). |
-| Cache headers | Every `/api/*` response carries `Cache-Control: no-store`, **except** `GET /api/stream`, which keeps `no-cache` next to its `text/event-stream`. One hook in `apps/api/src/server.ts` sets it; no route sets its own. Required because the optional Vercel rewrite honours upstream cache headers ([deployment.md §9](deployment.md)); harmless through Caddy. |
+| Cache headers | Every `/api/*` response carries `Cache-Control: no-store`, **except** `GET /api/stream`, which keeps `no-cache` next to its `text/event-stream`. One hook in `apps/server/src/server.ts` sets it; no route sets its own. Required because the optional Vercel rewrite honours upstream cache headers ([deployment.md §9](deployment.md)); harmless through Caddy. |
 | Simulation labels | Rows created from fixtures carry `simulated = 1`, or `source = 'ocr_precomputed'`, or `velo_intents.purpose = 'budget'` for real money. The UI must render the label it reads; it must never infer "real" from absence of a flag. |
 
 ### 1.1 Money helpers (`packages/shared/money.ts`)
@@ -92,7 +92,7 @@ Wiring:
 | Consumer | Dependency | Compile path |
 |---|---|---|
 | `apps/web` | `"@tapat/shared": "workspace:*"` | `next.config.ts` sets `transpilePackages: ['@tapat/shared']` so Next compiles the TS source |
-| `apps/api` | `"@tapat/shared": "workspace:*"` | `tsx` imports the `.ts` entry directly; no build, no path aliases |
+| `apps/server` | `"@tapat/shared": "workspace:*"` | `tsx` imports the `.ts` entry directly; no build, no path aliases |
 
 `packages/shared` must stay browser-safe: no `node:` imports, no `better-sqlite3`, no secrets, no `process.env` reads. It carries types, zod schemas, the money helpers and the constants only.
 
@@ -100,7 +100,7 @@ Wiring:
 
 ## 2. SQLite schema
 
-File: `apps/api/src/db/schema.sql`. Loaded by `better-sqlite3` (fallback: `node:sqlite`) on every API boot with `PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;`.
+File: `apps/server/src/db/schema.sql`. Loaded by `better-sqlite3` (fallback: `node:sqlite`) on every API boot with `PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;`.
 
 ```sql
 -- TAPat schema. Amounts: integer stroops. Times: unix ms unless the column ends in _at_s.
@@ -476,7 +476,7 @@ export interface TrancheState {
 export interface Dashboard {
   program: Program;
   phpPerXlm: number;            // demo rate, for formatPhp()
-  midasThreshold: number;       // from apps/api/config/midas.json; the freeze line on the edge chart
+  midasThreshold: number;       // from apps/server/config/midas.json; the freeze line on the edge chart
   fundedStroops: Stroops;       // = program.budget_funded_stroops (chain_txs has no amount column)
   spentStroops: Stroops;        // Σ authorized taps already covered by a succeeded claim (§5.2 #18)
   heldStroops: Stroops;         // unclaimed taps at frozen stations, same rule
@@ -908,7 +908,7 @@ Errors: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `404 CARD_NOT_ENROLLED`, `423 S
 
 No body. Response 202: `{ "accepted": true, "edges": 30, "tickMs": 100 }`. Replays `fixtures/taps/burst.json` (20 virtual `card_ref`s → Station B, 30 edges, emitted 100 ms apart). Each edge is written directly by the burst service (it does not go through `POST /api/taps`) as a `taps` row with `simulated=1`, `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `chain_tx_id=NULL` — the virtual card refs are synthetic, so no `authorize` is attempted and **no money moves**; only the anomaly pattern is real. Those rows still feed the Freeze Agent's scorer exactly like authorized taps (edge key `card_ref|station_id`).
 
-Freezing happens when MIDAS-F crosses `apps/api/config/midas.json.threshold` or `NEAR_CAP_STREAK`/`VOLUME_SPIKE` fires; the freeze writes a `freeze/FROZEN` decision (`midas_score`, `threshold`, `rule`) and SSE `freeze` (`FreezeEvent`).
+Freezing happens when MIDAS-F crosses `apps/server/config/midas.json.threshold` or `NEAR_CAP_STREAK`/`VOLUME_SPIKE` fires; the freeze writes a `freeze/FROZEN` decision (`midas_score`, `threshold`, `rule`) and SSE `freeze` (`FreezeEvent`).
 
 - The 2 D2 taps at ₱480 are **not** part of this fixture; they come through `POST /api/taps` before the burst (runbook order). The gate is **at least one `authorized` tap at Station B**, whatever its origin: a tap made with **Read card** or with **Simulate tap** counts, because a Simulate-tap tap is a real on-chain `authorize` (`simulated` only records how the UID was supplied). Until such a tap exists, burst returns `409 INVALID_STATE` with `message: "Tap D2 at Station B first"` (the `/demo` button renders that message verbatim).
 - Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (no prior authorized Station-B tap, or already frozen), `500 INTERNAL`.
@@ -1174,7 +1174,7 @@ Every `Tap` in those files includes `cardRef` (null for real cards). The mocks c
 
 ## 6. Chain call map
 
-Every write goes through `apps/api/src/chain/noir.ts` → `gas.ts`, and every Noir call is an operation of `@noirx402/agent-sdk@0.3.0` (pinned exactly; its built-in `TESTNET` IDs are asserted equal to `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID` and `STELLAR_NETWORK_PASSPHRASE` at boot, and the API refuses to start on a mismatch). Signers are `Keypair`s loaded from env or decrypted from `cards.agent_secret_enc` ([SDD §3](system-design.md)).
+Every write goes through `signNoirCall` then `submitSponsored`/`submitDirect` in the `@tapat/agent` package (`packages/agent/src/chain/`), orchestrated by `apps/server`. Every Noir call is an operation of `@noirx402/agent-sdk@0.3.0` (pinned exactly in `packages/agent`). The SDK's built-in `TESTNET` IDs and `networkPassphrase` are checked against `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID` and `STELLAR_NETWORK_PASSPHRASE` when `createNoirClient` is called, and `apps/server` refuses to start on a mismatch. The package is pure: `apps/server` passes the config and the Velo client in, and records every tx in `chain_txs`. Signers are `Keypair`s loaded from env or decrypted from `cards.agent_secret_enc` ([SDD §3](system-design.md)).
 
 | TAPat action | SDK operation | Contract method | Signer | Args (in order) |
 |---|---|---|---|---|
@@ -1192,7 +1192,7 @@ Every write goes through `apps/api/src/chain/noir.ts` → `gas.ts`, and every No
 | settlement, stations | (no read) | — | — | unclaimed totals come from our own tables (#16), not a chain read |
 | `smoke-testnet.ts` only | `getPendingBalance(merchant)` (read) | `payment_escrow.pending_balance` | — | `i128` (all tokens) — availability check for the settlement path |
 
-Arguments are the SDK's typed values: amounts are `bigint` stroops (`i128`), `deviceHash` is a 64-hex string (`BytesN<32>`), `expiresAt` is a `Date` or `null`, `nonce` is a `bigint`. No `xdr.ScVal` is built anywhere in `apps/api`.
+Arguments are the SDK's typed values: amounts are `bigint` stroops (`i128`), `deviceHash` is a 64-hex string (`BytesN<32>`), `expiresAt` is a `Date` or `null`, `nonce` is a `bigint`. No `xdr.ScVal` is built anywhere in `apps/server` or `packages/agent`.
 
 Contract errors arrive as `NoirContractError` and map to `CHAIN_ERROR`; `chain_txs.error_code` holds `CONTRACT_<errorName>` (e.g. `CONTRACT_AgentNotAuthorized`) and `chain_txs.error` keeps the SDK's raw message, using the tables below.
 
@@ -1233,8 +1233,8 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 |---|---|---|
 | `velo.checkout.sessions.create({ amount, asset, description, successUrl, cancelUrl }, { idempotencyKey })` | `POST /api/program/budget-checkout` | `amount` is an XLM decimal string (`"1000.00"`), `asset` is `"native"`; returns `{ checkoutUrl, paymentIntentId }` |
 | `velo.paymentIntents.retrieve(paymentIntentId)` | webhook `payment.succeeded`, 3 s poller | returns `status`, `receiverAddress`, `payerAddress`; `paid` requires a classic `payment` op to the project `ownerAddress` with the exact asset and amount |
-| `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
-| `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
+| `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `packages/agent/src/chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
+| `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `packages/agent/src/chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
 | `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s for ≤ 2 min, then the row stays `submission_unknown` for the logs; `claimed`/`submitted`/`submission_unknown` are still running, `failed`/`cancelled` terminal |
 | `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
 
@@ -1244,9 +1244,9 @@ Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/v
 
 ## 7. Environment variables
 
-Two files: 24 API variables in `apps/api/.env` and 2 web variables in `apps/web/.env.local`. The API refuses to boot if any API variable below is missing or malformed, and prints the missing names.
+Two copies: 24 server variables in `apps/server/.env` and 2 web variables in `apps/web/.env.local`. The committed root `.env.example` mirrors both (a server section and a web section, no real values) and is what reviewers read. The server refuses to boot if any server variable below is missing or malformed, and prints the missing names.
 
-### 7.1 `apps/api/.env.example`
+### 7.1 `apps/server/.env.example`
 
 ```dotenv
 # --- server ---
@@ -1299,7 +1299,7 @@ FREEZE_TICK_MS=1000
 
 ### 7.2 `apps/web/.env.example`
 
-`apps/web/.env.example` is committed; each developer copies it to `apps/web/.env.local` (Next.js convention, git-ignored). These two file names are the only ones used anywhere in the docs.
+`apps/web/.env.example` is committed; each developer copies it to `apps/web/.env.local` (Next.js convention, git-ignored). These file names — plus the root `.env.example` that mirrors both templates — are the only ones used anywhere in the docs.
 
 ```dotenv
 # Where Next.js rewrites /api/:path* to. The browser never sees the API port directly.
@@ -1311,7 +1311,7 @@ API_ORIGIN=http://localhost:4000
 # WEB_BASIC_AUTH=officer:change-me
 ```
 
-### 7.3 Boot rule (`apps/api/src/config.ts`)
+### 7.3 Boot rule (`apps/server/src/config.ts`)
 
 `zod` parses `process.env` once at boot:
 
@@ -1322,7 +1322,7 @@ API_ORIGIN=http://localhost:4000
 | `PUBLIC_BASE_URL` | URL, `https:` required |
 | `STELLAR_RPC_URL` | URL |
 | `STELLAR_NETWORK_PASSPHRASE` | literal `Test SDF Network ; September 2015` |
-| `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID`, `XLM_SAC_ID` | `/^C[A-Z2-7]{55}$/`; after parsing, `chain/noir.ts` asserts the three Noir IDs equal the SDK's built-in `TESTNET` contracts and that `STELLAR_NETWORK_PASSPHRASE` equals its `networkPassphrase`, and refuses to boot on a mismatch (only the deployed IDs count for the hackathon) |
+| `NOIR_DEVICE_REGISTRY_ID`, `NOIR_AGENT_REGISTRY_ID`, `NOIR_PAYMENT_ESCROW_ID`, `XLM_SAC_ID` | `/^C[A-Z2-7]{55}$/`; after parsing, `apps/server` calls `createNoirClient` (`@tapat/agent`), which throws unless the three Noir IDs equal the SDK's built-in `TESTNET` contracts and `STELLAR_NETWORK_PASSPHRASE` equals its `networkPassphrase`; the server refuses to boot on a mismatch (only the deployed IDs count for the hackathon) |
 | `PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET` | `/^S[A-Z2-7]{55}$/` |
 | `KEY_ENCRYPTION_SECRET` | `/^[0-9a-f]{64}$/` |
 | `GAS_MODE` | enum `velo` \| `direct` |
@@ -1349,7 +1349,7 @@ On failure: `console.error` the zod issues (variable name + rule, never the valu
 
 ## 8. Cross-references
 
-- Why each call exists and in what order: [system-design.md](system-design.md) §2 (money flow), §3 (chain module), §5 (service behaviors).
+- Why each call exists and in what order: [system-design.md](system-design.md) §3 (money flow), §4 (chain module), §6 (service behaviours).
 - Every threshold and score formula cited above: [algorithms.md](algorithms.md).
 - Where each env value comes from, in order: [setup.md](setup.md) §2–§7.
 - Who writes which file, and when: [build-schedule.md](build-schedule.md).

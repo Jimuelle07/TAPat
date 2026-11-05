@@ -16,8 +16,8 @@ New to the project? Read `docs/PRD.md` (why), then `docs/system-design.md` (how)
 |---|---|---|---|
 | [`prerequisites.md`](prerequisites.md) | Laptop checklist: hardware, accounts, software to install, phone setup, final check | BegB | **First, before any task** — install once, then never again |
 | [`PRD.md`](PRD.md) | Problem, users, F1–F6 with acceptance criteria, hackathon fit, demo metrics | Jim | Before the deck, the pitch, or any scope question |
-| [`system-design.md`](system-design.md) | SDD: architecture, money flow D1, chain/gas/keys modules, service behaviors, SSE, Telegram, security | Jim | Before touching anything in `apps/api` |
-| [`algorithms.md`](algorithms.md) | Exact specs and test vectors for name matching, CRC, BOCPD, MIDAS-F | Dev2 | Before writing or debugging `apps/api/src/algorithms/**` or any agent decision |
+| [`system-design.md`](system-design.md) | SDD: architecture, money flow D1, chain/gas/keys modules, service behaviors, SSE, Telegram, security | Jim | Before touching anything in `apps/server` or `packages/agent` |
+| [`algorithms.md`](algorithms.md) | Exact specs and test vectors for name matching, CRC, BOCPD, MIDAS-F | Dev2 | Before writing or debugging `packages/agent/src/algorithms/**` or any agent decision |
 | [`api-and-data.md`](api-and-data.md) | SQLite schema, REST endpoints, error codes, contract call map, env vars, fixtures | Jim | Before any endpoint, table, env var, or UI data change |
 | [`setup.md`](setup.md) | One-time manual setup: accounts, Freighter, Velo project + Gas key, public HTTPS origin (prod Funnel / dev quick tunnel), Telegram bot, cards | Jim | Day 1, and any time an env var looks wrong |
 | [`deployment.md`](deployment.md) | Free deployment design: the always-free VM, Caddy, Tailscale Funnel URL, the prod/dev env profiles, provisioning, ops, fallback ladder, judging period, and the **optional** Vercel frontend (§9) | Jim | When provisioning the VM, on demo day, and for judge access |
@@ -35,7 +35,7 @@ New to the project? Read `docs/PRD.md` (why), then `docs/system-design.md` (how)
 
 ## 3. Planned repository layout
 
-Built from the plan. What is on disk today: `apps/api` (`src/config.ts`, `src/server.ts`, `src/db/`, `scripts/`), `apps/web`, `packages/shared`, `fixtures/` and `deploy/`. `apps/api/src/chain/`, `src/algorithms/` and `src/services/` are planned (tasks C/NM/MT/BOC), and `docs/` describes the target each of them fills.
+Built from the plan. What is on disk today: `apps/server` (`src/config.ts`, `src/server.ts`, `src/db/`, `scripts/`), `apps/web`, `packages/agent` (`src/chain/noir.ts`, `src/chain/gas.ts` and their tests), `packages/shared`, `fixtures/` and `deploy/`. `packages/agent/src/algorithms/`, `apps/server/src/services/`, `src/routes/` and `src/velo/` are planned (tasks NM/MT/BOC/C1–C5), and `docs/` describes the target each of them fills. Chain and algorithm logic lives in `packages/agent`; persistence, the reconciler, services and HTTP live in `apps/server`.
 
 ```text
 TAPat/
@@ -62,22 +62,26 @@ TAPat/
 │  │  ├─ mocks/                mock JSON for mock-first development (BegA, Nov 5); file list in api-and-data §5.6
 │  │  └─ .env.example          API_ORIGIN (required) + commented WEB_BASIC_AUTH (optional);
 │  │                           copied to .env.local (git-ignored)
-│  └─ api/                     Fastify 5 + tsx — every secret, every chain write
+│  └─ server/                  Fastify 5 + tsx — every secret, every chain write, the services, SQLite
 │     ├─ src/
-│     │  ├─ chain/             noir.ts (NoirAgentClient + wrappers), gas.ts, keys.ts
-│     │  ├─ algorithms/        names, matcher, crc, bocpd, cms, midas (pure functions)
+│     │  ├─ config.ts          zod env loader; refuses to boot and names the missing variables
 │     │  ├─ services/          intake, enroll, tap, tranche, freeze, settlement, sweep,
-│     │  │                     budget, dashboard, telegram, sse
+│     │  │                     budget, dashboard, telegram, sse — owns chain_txs + the 5 s reconciler
 │     │  ├─ routes/            one file per endpoint group in api-and-data.md §5
+│     │  ├─ velo/              checkout sessions, intent polling, webhook verification
 │     │  ├─ db/                schema.sql + the driver (better-sqlite3, node:sqlite fallback)
 │     │  └─ server.ts          boots config, db, routes, agents
-│     ├─ scripts/              bootstrap-accounts, smoke-testnet, seed-demo, reset-demo,
-│     │                        gen-prices, gen-taps, gen-calibration, calibrate-midas
+│     ├─ scripts/              bootstrap-accounts, smoke-testnet, spike-authorize, seed-demo,
+│     │                        reset-demo, gen-prices, gen-taps, gen-calibration, calibrate-midas
 │     ├─ config/midas.json     calibrated MIDAS-F threshold (written by calibrate-midas.ts)
-│     └─ .env.example          every env var; the API refuses to boot without them
+│     └─ .env.example          every server env var; the server refuses to boot without them
 ├─ packages/
+│  ├─ agent/                   @tapat/agent — pure: no env, no SQLite, no HTTP; TS source
+│  │  ├─ src/chain/            noir.ts (createNoirClient + sign/submit wrappers), gas.ts
+│  │  │                        (sponsor → submit → recover), keys.ts (planned C2)
+│  │  └─ src/algorithms/       names, matcher, crc, bocpd, cms, midas (pure functions; planned)
 │  └─ shared/                  @tapat/shared — types, zod schemas, money.ts, constants; TS source
-│                              (main: ./src/index.ts), transpilePackages in next.config; used by web + api
+│                              (main: ./src/index.ts), transpilePackages in next.config; used by web + server
 ├─ fixtures/                   precomputed model output and simulated streams (labelled)
 │  ├─ masterlist/              scanned-list.png + .ocr.json, masterlist.csv
 │  ├─ calibration/             labeled.json (CRC calibration set)
@@ -88,22 +92,25 @@ TAPat/
 ├─ deploy/                     PROTECTED (Jim only): Caddyfile, tapat-api.service, tapat-web.service,
 │                              provision.sh, update.sh — the VM's routing, systemd units, and scripts
 ├─ docs/                       this set
-├─ pnpm-workspace.yaml         apps/*, packages/* — workspace package names: `apps/api/package.json`
-│                              has `"name": "api"`, `apps/web/package.json` has `"name": "web"`, so
-│                              every `--filter api` / `--filter web` resolves
-├─ package.json                root scripts: dev (`pnpm -r --parallel --filter api --filter web dev`),
+├─ pnpm-workspace.yaml         apps/*, packages/* — workspace package names: `apps/server/package.json`
+│                              has `"name": "server"`, `apps/web/package.json` has `"name": "web"`, so
+│                              every `--filter server` / `--filter web` resolves
+├─ package.json                root scripts: dev (`pnpm -r --parallel --filter server --filter web dev`),
 │                              test (`pnpm -r test`), demo:e2e
+├─ .env.example                every variable, no real values: server section → apps/server/.env,
+│                              web section → apps/web/.env.local
 └─ AGENTS.md, README.md
 ```
 
 Folder responsibilities:
 
 - `apps/web` is presentation only. It talks to `/api/*` through the Next.js rewrite and never holds a Velo, Telegram, or agent key.
-- `apps/api` owns every secret, every contract write, every agent decision, and SQLite. Agents run inside this process.
-- `packages/shared` (published inside the workspace as `@tapat/shared`) is the only place money is formatted (`PHP_PER_XLM`, `money.ts`). It exports TS source: `apps/web` consumes it via `transpilePackages: ['@tapat/shared']` in `next.config.ts`, `apps/api` via `tsx`; both declare `"@tapat/shared": "workspace:*"`. The API stores bigint stroops; the UI never does arithmetic on pesos.
+- `apps/server` owns every secret, every contract write, every agent decision, and SQLite. Agents run inside this process.
+- `packages/agent` (`@tapat/agent`) is the chain module (`src/chain/**`: the Noir SDK calls and Velo gas) and the algorithms (`src/algorithms/**`). It is pure — no env reads, no SQLite, no HTTP: `apps/server` passes the config and clients in, and owns the `chain_txs` persistence and the 5 s reconciler.
+- `packages/shared` (published inside the workspace as `@tapat/shared`) is the only place money is formatted (`PHP_PER_XLM`, `money.ts`). It exports TS source: `apps/web` consumes it via `transpilePackages: ['@tapat/shared']` in `next.config.ts`, `apps/server` via `tsx`; both declare `"@tapat/shared": "workspace:*"`. The API stores bigint stroops; the UI never does arithmetic on pesos.
 - `apps/web/lib/api.ts` is the single fetch module (mock JSON in UI1, `/api/*` in UI2); `apps/web/lib/sse.ts` `useStream(onEvent)` is the single SSE entry point. Pages hold no fetch calls of their own.
 - `fixtures/` feeds the precomputed and simulated paths. Their consumers are listed in `docs/api-and-data.md` §4.
-- `apps/api/scripts/` holds the one-shot operational scripts; they are not part of the request path.
+- `apps/server/scripts/` holds the one-shot operational scripts; they are not part of the request path.
 - `deploy/` is the free-deployment surface described in `docs/deployment.md` §5: the Caddyfile that routes `/api/*` to Fastify and adds basic auth, the two systemd units, and `provision.sh` / `update.sh`. It holds no secret. It is a protected path — only Jim edits it, and it is never a place for `.env` values.
 
 ## 4. Glossary

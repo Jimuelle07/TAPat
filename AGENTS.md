@@ -15,10 +15,10 @@ Do not start editing from a prompt alone. If the prompt contradicts the docs, th
 
 ## 2. Never touch
 
-- `apps/api/src/chain/**` and `apps/api/src/velo/**` — only **Jim**. These files move money; a wrong nonce or a resent `submission_unknown` tx breaks the demo.
+- `packages/agent/src/chain/**` (the `@tapat/agent` chain/gas module) and `apps/server/src/velo/**` — only **Jim**. These files move money; a wrong nonce or a resent `submission_unknown` tx breaks the demo.
 - `apps/web/middleware.ts` — changes need **Jim's review**. It is HTTP basic auth for the optional Vercel front end: a wrong exemption list or a non-constant-time compare exposes the money buttons. Inert (no-op) unless the optional web env var `WEB_BASIC_AUTH` is set. Design: `docs/deployment.md` §9.
 - `deploy/**` — only **Jim**. `Caddyfile`, the systemd units, `provision.sh`, and `update.sh` decide what the public Funnel URL serves; a wrong route or a removed basic-auth block exposes money buttons, and a wrong `ExecStart` stops the demo. Design and ownership: `docs/deployment.md` §5.
-- Any `.env*` file, and anything containing a secret — only **Jim**. Never put a secret in `apps/web`, in `packages/shared`, in a fixture, or in a commit. `VELO_API_KEY`, `VELO_GAS_API_KEY`, `VELO_WEBHOOK_SECRET`, `PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET`, `KEY_ENCRYPTION_SECRET`, `TELEGRAM_BOT_TOKEN` are server-only.
+- Any `.env*` file, and anything containing a secret — only **Jim**. Never put a secret in `apps/web`, in `packages/*`, in a fixture, or in a commit. `VELO_API_KEY`, `VELO_GAS_API_KEY`, `VELO_WEBHOOK_SECRET`, `PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET`, `KEY_ENCRYPTION_SECRET`, `TELEGRAM_BOT_TOKEN` are server-only.
 - `docs/AGENTS.MD` — its standing instruction ("read docs first; read index.md") stays valid.
 - `docs/TAPat Hackathon Build Plan.pdf` and `docs/hackathon-context.md` — historical inputs. Correct them in the PRD/SDD, not in place.
 
@@ -46,7 +46,7 @@ Do not start editing from a prompt alone. If the prompt contradicts the docs, th
 - Render tap reasons only through `TAP_REASON_LABELS` in `@tapat/shared` (`packages/shared/constants.ts`); the station page shows the server's `TapResponse.message` verbatim.
 - A rejected or refused tap writes **no** chain tx. Never "fix" a rejection by lowering the cap, changing `expires_at`, or retrying with a different nonce.
 - Never resubmit a `chain_txs` row in `submission_unknown`. Recover with `velo.gas.getStatus(identity)`; the reconciler owns it.
-- Noir contract calls go only through `@noirx402/agent-sdk` — never invoke a contract directly (hackathon submission requirement).
+- Noir contract calls go only through `@noirx402/agent-sdk` — never invoke a contract directly (hackathon submission requirement). They live in `packages/agent` (**`@tapat/agent`**: `src/chain/**`, `src/algorithms/**`), which is pure — no env reads, no SQLite, no HTTP. `apps/server` passes the config and clients in, and owns the `chain_txs` persistence, the reconciler, and the services.
 
 ## 5. Honesty labels
 

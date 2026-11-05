@@ -86,7 +86,7 @@ git --version; node --version; pnpm --version; cloudflared --version
 | `9.…` | must start with `9` |
 | `cloudflared version …` | BegB only; others may see "not recognized" — that's fine |
 
-✅ All required lines match → you're ready. Continue with [test-guide.md](test-guide.md) §1 (get the code) and §2: Jim sends you the **dev** `.env` privately, never the prod one.
+✅ All required lines match → you're ready. Continue with [test-guide.md](test-guide.md) §1 (get the code) and §2: Jim sends you the **dev** `.env` privately, never the prod one. The committed root `.env.example` lists every variable (server and web sections) with placeholders only — read it, never put a real value in it.
 
 ## 6. If something goes wrong
 

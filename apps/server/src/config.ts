@@ -1,4 +1,4 @@
-// Boot rule, docs/api-and-data.md §7.3: apps/api/.env is loaded unconditionally, then every variable is
+// Boot rule, docs/api-and-data.md §7.3: apps/server/.env is loaded unconditionally, then every variable is
 // zod-parsed. The returned object is the only way the API reads configuration; nothing else reads process.env.
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
@@ -70,6 +70,9 @@ const RULES: Record<VariableName, string> = {
 
 export type ConfigResult = { ok: true; config: Config } | { ok: false; errors: string[] };
 
+/** Every variable this module parses, in schema order. The root .env.example must document all of them. */
+export const CONFIG_VARIABLES = Object.keys(RULES) as VariableName[];
+
 /** Parses an environment map. Empty values count as missing. Errors name the variable and its rule only. */
 export function parseConfig(env: Readonly<Record<string, string | undefined>>): ConfigResult {
   const input: Record<string, string | undefined> = {};
@@ -88,7 +91,7 @@ export function parseConfig(env: Readonly<Record<string, string | undefined>>): 
   return { ok: false, errors };
 }
 
-/** Loads apps/api/.env (existing process variables win), parses it, and exits 1 listing every failing name. */
+/** Loads apps/server/.env (existing process variables win), parses it, and exits 1 listing every failing name. */
 export function loadConfig(): Config {
   loadDotenv({ path: ENV_PATH, quiet: true });
   const result = parseConfig(process.env);

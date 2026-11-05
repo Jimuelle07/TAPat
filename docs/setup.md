@@ -19,10 +19,10 @@ Work from the repo root (`C:\Users\jomalyne\TAPat`) in **PowerShell**. Two Windo
 - `.env` values are **never quoted** and never contain `#`. The Stellar passphrase has semicolons (`Test SDF Network ; September 2015`) — keep it on one line, unquoted, and never wrap it in quotes in PowerShell.
 - When you set a variable in PowerShell for a one-off command, use single quotes: `$env:GAS_MODE = 'direct'`. Double quotes are fine here too, but single quotes protect the semicolons.
 
-At the end of every stage, confirm the value is in `apps/api/.env` (created by copying `apps/api/.env.example`). The API refuses to boot and prints any missing variable names — see [api-and-data.md §7.3](api-and-data.md).
+At the end of every stage, confirm the value is in `apps/server/.env` (created by copying `apps/server/.env.example`). The API refuses to boot and prints any missing variable names — see [api-and-data.md §7.3](api-and-data.md). The committed root `.env.example` lists the same variables in one place, with no real values: its server section is the copy source for `apps/server/.env`, its web section for `apps/web/.env.local`.
 
 ```powershell
-Copy-Item apps/api/.env.example apps/api/.env
+Copy-Item apps/server/.env.example apps/server/.env
 Copy-Item apps/web/.env.example apps/web/.env.local
 ```
 
@@ -54,7 +54,7 @@ cloudflared --version
 Notes:
 
 - Node **22 LTS** at **≥ 22.23.4** is the recorded demo config: `@noirx402/agent-sdk@0.3.0` declares engines `^22.23.4 || ^24.22.1 || >=26.12.1`, and Node 24/26 below those floors (e.g. 26.4) is not supported. `better-sqlite3` prebuilds are verified on 22, `@carts1024/velo-sdk@1.0.0` needs only Node ≥ 22.6, and [prerequisites.md](prerequisites.md) §3/§6 says to use it exactly. The install line above pins `OpenJS.NodeJS.22`, which installs the latest 22.x (the unpinned LTS package id would install a newer major). If `node --version` prints a v22 lower than v22.23.4, or anything other than a v22, run `winget upgrade OpenJS.NodeJS.22`, close and reopen the terminal (PATH changes do not reach an open shell) and, if it still does not, check `where.exe node` for a second Node on PATH — do not continue on a newer version.
-- **Noir SDK.** Noir is reached only through `@noirx402/agent-sdk@0.3.0`, pinned in `apps/api`, with `@stellar/stellar-sdk` v16 as its peer. It talks to the three contracts over Soroban RPC with the config in `.env.example`; there is no Noir server, account or API key to create — nothing in this doc sets one up.
+- **Noir SDK.** Noir is reached only through `@noirx402/agent-sdk@0.3.0`, pinned in `packages/agent` (`@tapat/agent`), with `@stellar/stellar-sdk` v16 as its peer. It talks to the three contracts over Soroban RPC with the config in `.env.example`; there is no Noir server, account or API key to create — nothing in this doc sets one up.
 - If `npm install -g pnpm@9` is blocked by policy, use `corepack enable` and then `pnpm --version` (Corepack ships with Node 22 and downloads pnpm on first use).
 - If `winget install Cloudflare.cloudflared` fails, download `cloudflared-windows-amd64.exe` from https://github.com/cloudflare/cloudflared/releases, rename it `cloudflared.exe`, put it in `C:\Users\jomalyne\bin`, and add that folder to PATH.
 - `better-sqlite3` needs build tools only as a fallback. If `pnpm install` fails on it, the API switches to `node:sqlite` (see the SDD); nothing in this doc changes.
@@ -70,17 +70,17 @@ Done when `node --version` prints v22.23.4 or a later v22 and `pnpm --version` p
 | **URL** | none — the script calls `https://friendbot.stellar.org?addr=<public key>` |
 | **Env vars** | `PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET` (written automatically); Program Wallet and Budget Office **public keys** are printed for stage 3 and 4 |
 
-The script must exist at `apps/api/scripts/bootstrap-accounts.ts` (Jim, Nov 5 PM). Run:
+The script must exist at `apps/server/scripts/bootstrap-accounts.ts` (Jim, Nov 5 PM). Run:
 
 ```powershell
-pnpm --filter api tsx scripts/bootstrap-accounts.ts
+pnpm --filter server tsx scripts/bootstrap-accounts.ts
 ```
 
 What it does, in order, and what it prints:
 
 | Account | Role | Key handling |
 |---|---|---|
-| Program Wallet | Velo project owner; owner of every card; signs funding and sweeps | secret written to `apps/api/.env` as `PROGRAM_WALLET_SECRET`; **public key printed** |
+| Program Wallet | Velo project owner; owner of every card; signs funding and sweeps | secret written to `apps/server/.env` as `PROGRAM_WALLET_SECRET`; **public key printed** |
 | Budget Office | pays the budget checkout from Freighter | **secret printed only** — never written to `.env` (it must not exist on the server); import it into Freighter in stage 3, then treat the printed value as the app's spending wallet |
 | Station A `Petron San Roque` | honest merchant | secret written as `STATION_A_SECRET`; public key printed |
 | Station B `Rotonda Fuels` | anomalous merchant | secret written as `STATION_B_SECRET`; public key printed |
@@ -88,7 +88,7 @@ What it does, in order, and what it prints:
 Then it:
 
 1. Calls friendbot for each of the four accounts and waits for `successful: true`.
-2. Writes/replaces the three secret lines in `apps/api/.env` **in place** (it never deletes your other lines).
+2. Writes/replaces the three secret lines in `apps/server/.env` **in place** (it never deletes your other lines).
 3. Prints a copy-paste block (labels are printed text, not env vars — none of these go into `.env`; the three server secrets were already written by step 2):
 
 ```
@@ -107,9 +107,9 @@ Copy that block into your password manager or the demo kit note. `BUDGET_OFFICE_
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Paste that 64-character hex string into `apps/api/.env` as `KEY_ENCRYPTION_SECRET`. An empty value fails the API's boot check, which is intentional. **Back it up.** Every card agent secret is encrypted with it; changing it makes every enrolled card unusable and forces `reset-demo.ts` plus a re-seed.
+Paste that 64-character hex string into `apps/server/.env` as `KEY_ENCRYPTION_SECRET`. An empty value fails the API's boot check, which is intentional. **Back it up.** Every card agent secret is encrypted with it; changing it makes every enrolled card unusable and forces `reset-demo.ts` plus a re-seed.
 
-Done when `apps/api/.env` contains all four lines (`PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET`, `KEY_ENCRYPTION_SECRET`) and the public keys are saved somewhere outside the repo.
+Done when `apps/server/.env` contains all four lines (`PROGRAM_WALLET_SECRET`, `STATION_A_SECRET`, `STATION_B_SECRET`, `KEY_ENCRYPTION_SECRET`) and the public keys are saved somewhere outside the repo.
 
 **Two profiles, two runs.** These four accounts are the **prod** set: they are the ones the VM runs with. Every teammate laptop uses the **dev** profile, which is a **second** `bootstrap-accounts.ts` run made in a **separate clone** so it cannot overwrite the prod `.env` — different Program Wallet, different stations, a second bot. The two profiles never share an account, and only one API per profile may run at a time. Full comparison: [deployment.md §4](deployment.md).
 
@@ -124,7 +124,7 @@ Done when `apps/api/.env` contains all four lines (`PROGRAM_WALLET_SECRET`, `STA
 
 1. Install the Freighter extension in Chrome on the laptop and create/import a profile.
 2. **Import account → Secret key** → paste `BUDGET_OFFICE_SECRET` from stage 2. Name it `TAPat Budget Office`. This is the wallet that pays the programme budget checkout on stage.
-3. **Import account → Secret key** → paste `PROGRAM_WALLET_SECRET` (copy it from `apps/api/.env`). Name it `TAPat Program Wallet`. This account must be the one connected to Velo in stage 4, because Velo fixes the receiver address per project and the plan requires that receiver to be the Program Wallet.
+3. **Import account → Secret key** → paste `PROGRAM_WALLET_SECRET` (copy it from `apps/server/.env`). Name it `TAPat Program Wallet`. This account must be the one connected to Velo in stage 4, because Velo fixes the receiver address per project and the plan requires that receiver to be the Program Wallet.
 4. Switch the network selector to **Testnet** and keep it there. Mainnet must never be selected.
 5. Copy each account's `G...` address and confirm it matches the public keys printed in stage 2 (Freighter shows the address under the account name). A mismatch means you imported the wrong secret — stop and fix it now, because stage 4 binds the Velo project owner permanently.
 
@@ -144,7 +144,7 @@ Done when both accounts appear in Freighter, both show a nonzero testnet XLM bal
 1. Open https://velo-build.dev and sign in. If sign-in is wallet-based, connect **Freighter** and pick `TAPat Program Wallet` (unverified — follow dashboard labels).
 2. Create a project named **`TAPat`** (unverified — follow dashboard labels). Confirm the project's `ownerAddress` / receiver address is the **Program Wallet public key** from stage 2. This is the only address Velo will accept a classic `payment` to, so it must be the Program Wallet.
    - If the project already exists from an earlier attempt, delete it and re-create rather than editing the owner.
-3. Create a **general / project API key**: **API Keys → Generate key → API access: General project API**. The dashboard issues it with the prefix `tk_live_` (older keys may read `tk_test_`; both are accepted, and Velo checkout still runs on Stellar Testnet only). Paste it into `apps/api/.env` as `VELO_API_KEY`. This key is used for `checkout.sessions.create` and `paymentIntents.retrieve`.
+3. Create a **general / project API key**: **API Keys → Generate key → API access: General project API**. The dashboard issues it with the prefix `tk_live_` (older keys may read `tk_test_`; both are accepted, and Velo checkout still runs on Stellar Testnet only). Paste it into `apps/server/.env` as `VELO_API_KEY`. This key is used for `checkout.sessions.create` and `paymentIntents.retrieve`.
 4. Create a **Gas Station · Testnet key** (unverified — follow dashboard labels). It is prefixed `tg_test_`. Paste it as `VELO_GAS_API_KEY`. Also confirm `VELO_GAS_BASE_URL=https://www.velo-build.dev` (already set in `.env.example`).
 5. **Link the 3 Noir contracts** to the Gas Station allow-list (`allowedContractIds`, max 20). Paste them exactly:
 
@@ -182,7 +182,7 @@ The phone needs HTTPS for Web NFC, and Velo needs a public HTTPS URL to deliver 
 
 ```powershell
 # terminal 1
-pnpm --filter api dev          # Fastify on PORT=4000, bound to 127.0.0.1
+pnpm --filter server dev          # Fastify on PORT=4000, bound to 127.0.0.1
 
 # terminal 2
 pnpm --filter web dev          # Next.js on 3000, bound to 127.0.0.1 (`next dev -H 127.0.0.1 -p 3000`)
@@ -195,7 +195,7 @@ cloudflared tunnel --url http://localhost:3000
 
 Then, for either profile:
 
-1. Put the origin into `apps/api/.env` as `PUBLIC_BASE_URL` (bare origin: `https://`, no trailing slash, no path) and restart the API so the value is loaded. Prod sets it to `https://tapat.<tailnet>.ts.net`; a laptop dev profile may use `https://localhost:3000` (the value only has to satisfy the `https:` rule) or its quick-tunnel URL for phone tests. `apps/web/.env.local` is not involved — the browser uses relative `/api/*` URLs.
+1. Put the origin into `apps/server/.env` as `PUBLIC_BASE_URL` (bare origin: `https://`, no trailing slash, no path) and restart the API so the value is loaded. Prod sets it to `https://tapat.<tailnet>.ts.net`; a laptop dev profile may use `https://localhost:3000` (the value only has to satisfy the `https:` rule) or its quick-tunnel URL for phone tests. `apps/web/.env.local` is not involved — the browser uses relative `/api/*` URLs.
 2. In Velo, create **one** webhook endpoint (unverified — follow dashboard labels) with URL:
 
    ```
@@ -203,7 +203,7 @@ Then, for either profile:
    ```
 
    Subscribe to `payment.succeeded`, `payment.failed`, and `payment.created` (adding `contract.event` is optional; we store it and ignore it).
-3. Copy the endpoint's **signing secret** into `apps/api/.env` as `VELO_WEBHOOK_SECRET` and restart the API. Without it the webhook route answers a delivery with `400 WEBHOOK_SIGNATURE_INVALID` and the budget never verifies. This is the same secret in both profiles — dev simply receives no deliveries, because the Velo endpoint points at prod only and the dev 3 s poller credits the budget instead.
+3. Copy the endpoint's **signing secret** into `apps/server/.env` as `VELO_WEBHOOK_SECRET` and restart the API. Without it the webhook route answers a delivery with `400 WEBHOOK_SIGNATURE_INVALID` and the budget never verifies. This is the same secret in both profiles — dev simply receives no deliveries, because the Velo endpoint points at prod only and the dev 3 s poller credits the budget instead.
 4. Open `${PUBLIC_BASE_URL}/api/health` and confirm it returns `"ok": true`. On prod Caddy answers `/api/health` without basic auth, so `curl` works; every other path returns `401` until you log in with the Caddy credentials ([deployment.md §5.1](deployment.md)).
 
 **The Velo endpoint is registered once, against prod.** A laptop never needs it: the 3 s `paymentIntents.retrieve` poller credits a missed webhook anyway, so a stale endpoint costs time, not money. Do not repoint the prod webhook at a laptop — the dev profile would then receive the prod program's deliveries into a database that has never heard of that intent. If a stable laptop URL is ever unavoidable, create a named tunnel on a Cloudflare account instead of a quick tunnel ([deployment.md §10](deployment.md) step 3 shows the `tailscale funnel` laptop variant).
@@ -222,7 +222,7 @@ Done when `curl.exe https://tapat.<tailnet>.ts.net/api/health` (or your dev quic
 | **Env vars** | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` |
 
 1. In Telegram, open **@BotFather** → `/newbot` → name it `TAPat` and set a username ending in `bot`, e.g. `tapat_demo_bot`. BotFather replies with an HTTP API token shaped `123456789:AA...`.
-2. Paste the token into `apps/api/.env` as `TELEGRAM_BOT_TOKEN` and the username **without the leading `@`** as `TELEGRAM_BOT_USERNAME=tapat_demo_bot`.
+2. Paste the token into `apps/server/.env` as `TELEGRAM_BOT_TOKEN` and the username **without the leading `@`** as `TELEGRAM_BOT_USERNAME=tapat_demo_bot`.
 3. Restart the API. It uses **long polling** (`getUpdates`) inside the API process — do **not** call `setWebhook`; a webhook would break polling and needs another public URL.
 4. On the team demo phone, install Telegram, open the bot, press **Start**, and send anything. The API logs `telegram chat <id> seen`. This chat will be linked to D1 during the demo (or pre-linked by the seed) — nothing to configure here.
 5. Send `/start` once from the demo phone so the bot conversation sits at the top of the chat list and the receipt is visible on stage.
@@ -241,7 +241,7 @@ Done when `GET /api/health` reports `"telegram": "ok"` and a message you send to
 | **Env vars** | reads everything above; writes nothing new |
 
 ```powershell
-pnpm --filter api tsx scripts/smoke-testnet.ts
+pnpm --filter server tsx scripts/smoke-testnet.ts
 ```
 
 It performs exactly three checks and prints a PASS/FAIL line for each:
@@ -290,7 +290,7 @@ Done when each of the four tags shows its `…last4` on the enrollment page at `
 
 ## Env var → stage map
 
-Every variable in [api-and-data.md §7](api-and-data.md), where it comes from, and whether `.env.example` already has a usable default:
+Every variable in [api-and-data.md §7](api-and-data.md), where it comes from, and whether the committed templates already have a usable default (`apps/server/.env.example` for the server, `apps/web/.env.example` for the web app — the root `.env.example` mirrors both with no real values):
 
 | Env var | Filled in | Source |
 |---|---|---|
@@ -324,7 +324,7 @@ Every variable in [api-and-data.md §7](api-and-data.md), where it comes from, a
 ## Boot checklist
 
 - [ ] `node --version` → v22.23.4 or a later v22, `pnpm --version` → 9.x, `cloudflared --version` → any
-- [ ] `apps/api/.env` has all 24 API variables; `apps/web/.env.local` has the 1 required web variable, `API_ORIGIN` (the optional `WEB_BASIC_AUTH` exists only in the Vercel project, if that front end is on)
+- [ ] `apps/server/.env` has all 24 API variables; `apps/web/.env.local` has the 1 required web variable, `API_ORIGIN` (the optional `WEB_BASIC_AUTH` exists only in the Vercel project, if that front end is on)
 - [ ] You know which profile this `.env` is: **prod** (VM only, one copy on Jim's USB) or **dev** (laptop, second accounts + second bot) — [deployment.md §4](deployment.md)
 - [ ] Both secrets wallets imported into Freighter on Testnet with a testnet XLM balance
 - [ ] Velo project `TAPat` owned by the Program Wallet; sponsorship active; 3 contracts allow-listed

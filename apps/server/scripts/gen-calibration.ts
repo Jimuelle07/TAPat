@@ -1,7 +1,7 @@
 /**
  * docs/algorithms.md §5.5 + §9.2: the labeled CRC calibration set, 400 pairs drawn in this order:
  * 320 genuine, then 60 ghosts, then 20 hard negatives (so a later count change at the end keeps the stream).
- *   pnpm --filter api tsx scripts/gen-calibration.ts --seed 42 --out fixtures/calibration/labeled.json
+ *   pnpm --filter server tsx scripts/gen-calibration.ts --seed 42 --out fixtures/calibration/labeled.json
  */
 import { parseArgs } from 'node:util';
 import { generateCalibration } from './lib/calibration';
