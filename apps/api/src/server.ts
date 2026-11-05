@@ -3,15 +3,10 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
-import type { ErrorCode } from '@tapat/shared';
 import { loadConfig } from './config';
 import { openDb } from './db/index';
 
 const STREAM_PATH = '/api/stream';
-
-function errorBody(code: ErrorCode, message: string) {
-  return { error: { code, message } };
-}
 
 /** The Fastify app with CORS, the /api/* cache rule and the NOT_FOUND envelope; routes are registered by callers. */
 export async function buildServer(options: FastifyServerOptions = {}): Promise<FastifyInstance> {
@@ -30,7 +25,7 @@ export async function buildServer(options: FastifyServerOptions = {}): Promise<F
 
   app.setNotFoundHandler((request, reply) => {
     const path = request.url.split('?', 1)[0];
-    void reply.code(404).send(errorBody('NOT_FOUND', `No route for ${request.method} ${path}`));
+    void reply.code(404).send({ error: { code: 'NOT_FOUND', message: `No route for ${request.method} ${path}` } });
   });
 
   return app;

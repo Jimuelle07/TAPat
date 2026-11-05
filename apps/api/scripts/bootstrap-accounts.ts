@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Keypair } from '@stellar/stellar-sdk';
+import { readEnvValue, upsertEnv } from './lib/env-file';
 
 const ENV_PATH = fileURLToPath(new URL('../.env', import.meta.url));
 const FRIENDBOT_URL = 'https://friendbot.stellar.org';
@@ -20,17 +21,6 @@ async function friendbot(label: string, publicKey: string): Promise<void> {
   if (!res.ok || body?.successful !== true) {
     throw new Error(`friendbot failed for ${label} (${publicKey}): HTTP ${res.status} ${body?.detail ?? ''}`.trim());
   }
-}
-
-/** Replace `NAME=...` in place, or append it; every other line is kept as is. */
-function setEnvLine(lines: string[], name: string, value: string): void {
-  const index = lines.findIndex((line) => line.startsWith(`${name}=`));
-  if (index === -1) lines.push(`${name}=${value}`);
-  else lines[index] = `${name}=${value}`;
-}
-
-function readEnvValue(lines: string[], name: string): string | undefined {
-  return lines.find((line) => line.startsWith(`${name}=`))?.slice(name.length + 1);
 }
 
 async function main(): Promise<void> {
@@ -50,21 +40,19 @@ async function main(): Promise<void> {
   }
 
   const original = readFileSync(ENV_PATH, 'utf8');
-  const eol = original.includes('\r\n') ? '\r\n' : '\n';
-  const lines = original.split(/\r?\n/);
-  if (lines.at(-1) === '') lines.pop();
-
-  setEnvLine(lines, 'PROGRAM_WALLET_SECRET', accounts.programWallet.secret());
-  setEnvLine(lines, 'STATION_A_SECRET', accounts.stationA.secret());
-  setEnvLine(lines, 'STATION_B_SECRET', accounts.stationB.secret());
+  const updates: Record<string, string> = {
+    PROGRAM_WALLET_SECRET: accounts.programWallet.secret(),
+    STATION_A_SECRET: accounts.stationA.secret(),
+    STATION_B_SECRET: accounts.stationB.secret(),
+  };
 
   let newKeyEncryptionSecret: string | null = null;
-  if (!KEY_ENCRYPTION_SECRET_RULE.test(readEnvValue(lines, 'KEY_ENCRYPTION_SECRET') ?? '')) {
+  if (!KEY_ENCRYPTION_SECRET_RULE.test(readEnvValue(original, 'KEY_ENCRYPTION_SECRET') ?? '')) {
     newKeyEncryptionSecret = randomBytes(32).toString('hex');
-    setEnvLine(lines, 'KEY_ENCRYPTION_SECRET', newKeyEncryptionSecret);
+    updates.KEY_ENCRYPTION_SECRET = newKeyEncryptionSecret;
   }
 
-  writeFileSync(ENV_PATH, lines.join(eol) + eol);
+  writeFileSync(ENV_PATH, upsertEnv(original, updates));
 
   console.log(`Funded 4 testnet accounts; wrote PROGRAM_WALLET_SECRET, STATION_A_SECRET, STATION_B_SECRET to ${ENV_PATH}`);
   if (newKeyEncryptionSecret) {

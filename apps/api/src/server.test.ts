@@ -1,6 +1,7 @@
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { formatPhp } from '@tapat/shared';
 import { buildServer } from './server';
 
 let app: FastifyInstance | undefined;
@@ -44,5 +45,11 @@ describe('server cache headers', () => {
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'No route for GET /api/nope' } });
     expect(response.headers['cache-control']).toBe('no-store');
+  });
+});
+
+describe('@tapat/shared from apps/api', () => {
+  it('formats 350 PHP from @tapat/shared in apps/api', () => {
+    expect(formatPhp(350_000_000n)).toBe('₱350.00');
   });
 });
