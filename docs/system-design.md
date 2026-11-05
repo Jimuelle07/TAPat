@@ -502,7 +502,7 @@ apps/api/src/chain/
 
 `soroban.ts` imports `gas.ts`. `noir.ts` imports `soroban.ts`. Nothing else in the API imports `@stellar/stellar-sdk`, and nothing else holds a `Keypair`. `@noirx402/agent-sdk` is deliberately **not** used: it lacks register/register_agent/fund/revoke/sweep helpers and hard-codes its own testnet IDs.
 
-Pin `@stellar/stellar-sdk` v16 and `@carts1024/velo-sdk@0.1.0-alpha.4` exactly.
+Pin `@stellar/stellar-sdk` v16 and `@carts1024/velo-sdk@1.0.0` exactly.
 
 ### 4.2 `soroban.ts`
 
@@ -1192,4 +1192,4 @@ Error codes, events, and the mandated safe order are in §4.4 and §3.8.
 | Gas recovery | `velo.gas.getStatus(identity)` | The only path after `VeloGasSubmissionUnknownError` |
 | Webhook verify | `Velo.webhooks.verify({payload, signature, secret})` | Raw body; header `x-velo-signature`; dedupe `x-velo-delivery` |
 
-SDK: `@carts1024/velo-sdk@0.1.0-alpha.4`, ESM-only, server-only, testnet-only, Node ≥ 18. Gas Station base URL `VELO_GAS_BASE_URL=https://www.velo-build.dev`, key prefix `tg_test_`. The Gas Station allow-list (`allowedContractIds`, max 20, set by the project owner from linked contracts) must contain the three Noir contract IDs; the account needs a funded managed relayer per the dashboard.
+SDK: `@carts1024/velo-sdk@1.0.0` (pinned exactly; Velo's `latest`, replacing the earlier `0.1.0-alpha.4` pin), ESM-only, server-only, testnet-only, Node ≥ 22.6. Gas Station base URL `VELO_GAS_BASE_URL=https://www.velo-build.dev`, key prefix `tg_test_`. The Gas Station allow-list (`allowedContractIds`, max 20, set by the project owner from linked contracts) must contain the three Noir contract IDs; the account needs a funded managed relayer per the dashboard.
