@@ -125,7 +125,9 @@ export async function runSettlement(deps: SettlementDeps): Promise<SettlementRes
       continue;
     }
 
-    // Active: one `claim(XLM_SAC, station)` for everything pending, signed by the station's own key.
+    // Active: one `claim(XLM_SAC, station)` for everything pending, signed by the station's own key. The signer must
+    // be the key behind `stations.public_key`: `claimBoundary` finds this claim by `source_public` (SDD §6.7), so a
+    // mismatched signer would make the next run re-claim the same taps.
     let chainTxId: string | null = null;
     let claimed = false;
     let error: string | null = null;
