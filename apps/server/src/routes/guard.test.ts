@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
 import { buildServer } from '../server';
-import { createSession, ensureOfficer, SESSION_COOKIE, SESSION_TTL_MS, signup } from '../services/auth';
+import { createSession, ensureOfficer, hashPassword, SESSION_COOKIE, SESSION_TTL_MS, signup } from '../services/auth';
 import { registerOfficerGuard } from './auth';
 
 /** The `/api/taps` stand-in, spied so a bypass test can prove its handler never ran. */
@@ -50,8 +50,12 @@ async function officerCookie(): Promise<string> {
 }
 
 async function viewerCookie(): Promise<string> {
-  const user = await signup(db, VIEWER);
-  return cookieFor(createSession(db, user.id).token);
+  const id = 'usr_viewer000001';
+  db.prepare(
+    `INSERT INTO users (id, email, display_name, role, password_hash, created_at)
+     VALUES (?, ?, ?, 'viewer', ?, ?)`,
+  ).run(id, VIEWER.email, VIEWER.displayName, await hashPassword(VIEWER.password), Date.now());
+  return cookieFor(createSession(db, id).token);
 }
 
 function post(url: string, cookie?: string) {
@@ -95,6 +99,13 @@ describe('registerOfficerGuard', () => {
 
   it('lets the officer reach the handler', async () => {
     const response = await post('/api/taps', await officerCookie());
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true });
+  });
+
+  it('lets a freshly signed-up account reach the handler', async () => {
+    const user = await signup(db, VIEWER);
+    const response = await post('/api/taps', cookieFor(createSession(db, user.id).token));
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ ok: true });
   });

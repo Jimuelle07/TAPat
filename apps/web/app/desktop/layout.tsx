@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { AuthProvider } from "../(app)/_components/Auth";
+import { AuthProvider, RequireLogin } from "../(app)/_components/Auth";
 import { Sidebar } from "./_components/Sidebar";
 
 export default function DesktopLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -11,7 +11,9 @@ export default function DesktopLayout({ children }: Readonly<{ children: ReactNo
         <Suspense fallback={null}>
           <Sidebar />
         </Suspense>
-        {children}
+        <Suspense fallback={null}>
+          <RequireLogin>{children}</RequireLogin>
+        </Suspense>
       </div>
     </AuthProvider>
   );

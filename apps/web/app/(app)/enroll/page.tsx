@@ -1,17 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
-import type { Beneficiary, Dashboard, EnrollResponse } from "@tapat/shared";
+import { VIRTUAL_UID_PREFIX, type Beneficiary, type Dashboard, type EnrollResponse } from "@tapat/shared";
 import { ApiClientError, getBeneficiaries, getDashboard, getProgram, postEnroll } from "@/lib/api";
 import { dateTime, fullName, php, shortHash, shortName } from "@/lib/format";
 import { txLookup } from "@/lib/feed";
 import { NfcReadError, readUid, type NfcErrorCode } from "@/lib/nfc";
 import { errorMessage } from "@/lib/use-dashboard";
+import { useStagedLabel, withMinDuration } from "@/lib/staged";
 import { Icon } from "../_components/Icon";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, KeyValues, ListCard, NoProgram, Notice, SectionTitle, Skeleton, Stepper, TopBar } from "../_components/ui";
 import { OfficerNotice, useAuth } from "../_components/Auth";
-import { CheckDraw, Confetti, Ripple } from "../_components/motion";
+import { Confetti } from "../_components/motion";
+import { TapScene, type TapPhase } from "../_components/TapScene";
+
+const ENROLL_STEPS = ["Checking the photo", "Registering the card on-chain", "Setting the spending policy", "Almost done"] as const;
+const UID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const subscribeNever = () => () => {};
+
+/** `length` characters from [0-9A-Z], drawn with crypto.getRandomValues (modulo bias is irrelevant for a demo UID). */
+function randomSuffix(length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => UID_CHARS[byte % UID_CHARS.length]).join("");
+}
 
 const SAMPLE_PHOTO = "d4-photo.jpg";
 
@@ -81,6 +94,7 @@ function Pick({ onPick }: { onPick: (driver: Beneficiary) => void }) {
 function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () => void; onRead: (uid: string) => void }) {
   const [reading, setReading] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
+  const [simReading, setSimReading] = useState(false);
   const [error, setError] = useState<NfcReadError | null>(null);
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
@@ -89,6 +103,7 @@ function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () 
     const controller = new AbortController();
     abort.current = controller;
     setReading(true);
+    setUid(null);
     setError(null);
     try {
       setUid(await readUid({ signal: controller.signal }));
@@ -99,13 +114,31 @@ function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () 
     }
   };
 
+  // Decided after mount so the server render and the first client render agree.
+  const noNdef = useSyncExternalStore(subscribeNever, () => !("NDEFReader" in window), () => false);
+  // No NFC hardware: the card read is simulated; enrollment itself still calls the real API.
+  const simulate = async () => {
+    setReading(true);
+    setSimReading(true);
+    setUid(null);
+    setError(null);
+    await withMinDuration(Promise.resolve(), 1200);
+    setUid(VIRTUAL_UID_PREFIX + randomSuffix(6));
+    setSimReading(false);
+    setReading(false);
+  };
+  const isSim = uid?.startsWith(VIRTUAL_UID_PREFIX) === true;
+  const nfcMissing = error?.code === "NFC_UNSUPPORTED" || noNdef;
   const help = error === null ? null : NFC_HELP[error.code];
   const panelTitle = reading ? "Hold the card still" : uid !== null ? `Card …${uid.slice(-4)}` : "Read the blank card";
   const panelBody = reading
-    ? "Listening for up to 15 seconds."
+    ? simReading
+      ? "Simulating a card tap — no NFC hardware."
+      : "Listening for up to 15 seconds."
     : uid !== null
       ? "Only the last four characters are ever shown."
       : (help?.hint ?? "Press Read card, then hold the card to the back of the phone.");
+  const scenePhase: TapPhase = reading ? "reading" : uid !== null ? "done" : error !== null ? "error" : "idle";
 
   return (
     <>
@@ -118,10 +151,10 @@ function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () 
             {error.code}: {error.message}
           </Notice>
         ) : null}
-        <Card className={`relative items-center gap-3 py-8 text-center ${uid !== null ? "pop-in" : ""}`}>
-          <Ripple active={reading} rings={3} />
-          {uid !== null ? <CheckDraw size={34} /> : <Icon name="tap" />}
+        <Card className={`relative items-center gap-3 py-6 text-center ${uid !== null ? "pop-in" : ""}`}>
+          <TapScene phase={scenePhase} simulated={isSim} last4={uid?.slice(-4)} />
           <h2 className="text-h2">{panelTitle}</h2>
+          {uid?.startsWith(VIRTUAL_UID_PREFIX) ? <Chip>simulated</Chip> : null}
           <p className="text-small">{panelBody}</p>
         </Card>
       </Body>
@@ -129,14 +162,26 @@ function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () 
         {uid !== null ? (
           <>
             <Button onClick={() => onRead(uid)}>Continue</Button>
-            <Button look="secondary" onClick={() => void read()}>
-              Read again
+            {nfcMissing ? null : (
+              <Button look="secondary" onClick={() => void read()}>
+                Read again
+              </Button>
+            )}
+            <Button look="secondary" onClick={() => void simulate()}>
+              {nfcMissing ? "Simulate again" : "Simulate card"}
             </Button>
           </>
         ) : (
-          <Button loading={reading} disabled={error?.code === "NFC_UNSUPPORTED"} onClick={() => void read()}>
-            {reading ? "Reading" : "Read card"}
-          </Button>
+          <>
+            {!nfcMissing ? (
+              <Button loading={reading} disabled={simReading} onClick={() => void read()}>
+                {reading && !simReading ? "Reading" : "Read card"}
+              </Button>
+            ) : null}
+            <Button look={nfcMissing ? "primary" : "secondary"} disabled={reading} loading={simReading} onClick={() => void simulate()}>
+              {simReading ? "Reading" : "Simulate card"}
+            </Button>
+          </>
         )}
       </Actions>
     </>
@@ -180,6 +225,7 @@ function Photo({
   const [mismatch, setMismatch] = useState(false);
   const [chainFailed, setChainFailed] = useState(false);
   const { isOfficer } = useAuth();
+  const stagedLabel = useStagedLabel(busy, ENROLL_STEPS, 2500);
 
   const enroll = async () => {
     // Enrolling is officer-only; a stale render must not reach the POST either.
@@ -187,10 +233,13 @@ function Photo({
     setBusy(true);
     setError(null);
     try {
-      const response = await postEnroll(
-        useUpload && file !== null
-          ? { beneficiaryId: driver.id, uid, photo: file, officerConfirmed: confirmed }
-          : { beneficiaryId: driver.id, uid, samplePhoto: SAMPLE_PHOTO },
+      const response = await withMinDuration(
+        postEnroll(
+          useUpload && file !== null
+            ? { beneficiaryId: driver.id, uid, photo: file, officerConfirmed: confirmed }
+            : { beneficiaryId: driver.id, uid, samplePhoto: SAMPLE_PHOTO },
+        ),
+        1500,
       );
       onDone(response);
     } catch (cause) {
@@ -273,7 +322,7 @@ function Photo({
       </Body>
       <Actions>
         <Button loading={busy} disabled={mismatch || (useUpload && file === null)} onClick={() => void enroll()}>
-          {busy ? "Registering on-chain" : chainFailed ? "Retry enrollment" : "Enroll"}
+          {busy ? stagedLabel : chainFailed ? "Retry enrollment" : "Enroll"}
         </Button>
         {!useUpload ? (
           <Button
@@ -319,6 +368,7 @@ function Result({ response, onNext }: { response: EnrollResponse; onNext: () => 
                 ["Expires", dateTime(card.expiresAtS * 1000)],
               ]}
             />
+            {card.virtual ? <Chip>simulated</Chip> : null}
           </Card>
           <Card>
             <h2 className="text-label">Photo check</h2>

@@ -1,4 +1,4 @@
-// The dashboard's one activity feed: `recentTaps` + `recentDecisions`, newest first, capped at 50 (api-and-data §5.2 #18).
+// The dashboard's one activity feed: taps, decisions, fund txs and the budget row, newest first, capped at 50 with milestone rows pinned (api-and-data §5.2 #18).
 import { TAP_REASON_LABELS } from '@tapat/shared';
 import type { AgentDecision, CardSummary, ChainTx, Dashboard, Stroops, Tap } from '@tapat/shared';
 import { php, shortHash, txHash } from './format';
@@ -254,12 +254,84 @@ function decisionItem(decision: AgentDecision, dashboard: Dashboard, hashOf: Ret
   };
 }
 
+/** One row per tranche `fund` tx: the card and amount come from the tranche decision entry that carries the tx id. */
+function fundItem(tx: ChainTx, dashboard: Dashboard): FeedItem {
+  const entry = (dashboard.recentDecisions ?? [])
+    .filter((d) => d.agent === 'tranche')
+    .flatMap((d) => asList(d.outputs.funded))
+    .find((e) => e.chainTxId === tx.id);
+  const card = entry === undefined ? undefined : dashboard.cards.find((c) => c.id === entry.cardId);
+  const who = card === undefined ? 'Card' : cardLabel(card);
+  const amountStroops = entry === undefined ? null : asString(entry.amountStroops);
+  const amount = amountStroops === null ? null : php(amountStroops, dashboard.phpPerXlm);
+  const hash = txHash(tx);
+  const failed = tx.status === 'failed';
+  const done = tx.status === 'succeeded';
+  const word = failed ? 'Failed' : done ? 'Funded' : 'Pending';
+  return {
+    id: `fund_${tx.id}`,
+    createdAt: tx.createdAt,
+    title: `${who} funded`,
+    meta: `${word}${hash === null ? '' : ` · tx ${shortHash(hash)}`}`,
+    ...(amount === null ? {} : { value: amount }),
+    ...(failed ? { chip: 'Failed', tone: 'danger' as const } : {}),
+    detail: {
+      title: 'Card funded',
+      chip: word,
+      tone: failed ? 'danger' : done ? 'mint' : 'outline',
+      rows: [
+        ['Card', card === undefined ? 'Not recorded' : cardLabel(card)],
+        ['Amount', amount ?? 'Not recorded'],
+        ['Tx', hash === null ? 'Waiting for the chain' : shortHash(hash)],
+      ],
+      hash,
+    },
+  };
+}
+
+/** Shown once Velo has verified the budget; the dashboard carries no credit timestamp, so it sorts at the program's creation. */
+function budgetItems(dashboard: Dashboard): FeedItem[] {
+  if (dashboard.budget?.state !== 'verified') return [];
+  const amount = php(dashboard.budget.verifiedStroops, dashboard.phpPerXlm);
+  const intent = dashboard.budget.paymentIntentId;
+  return [
+    {
+      id: 'budget_verified',
+      createdAt: dashboard.program?.createdAt ?? 0,
+      title: 'Budget verified',
+      meta: 'Velo hosted checkout',
+      value: amount,
+      detail: {
+        title: 'Budget verified',
+        chip: 'Velo verified',
+        tone: 'mint',
+        rows: [
+          ['Verified', amount],
+          ['Payment intent', intent ?? 'Not recorded'],
+        ],
+        hash: null,
+      },
+    },
+  ];
+}
+
+/** Milestone rows that must never be cut by FEED_LIMIT: budget, per-card fund, tranche, claim/held and sweep/program end. */
+const PINNED_AGENTS: Record<string, true> = { tranche: true, settlement: true, sweep: true };
+const isPinned = (d: AgentDecision): boolean => PINNED_AGENTS[d.agent] === true;
+
 export function buildFeed(dashboard: Dashboard): FeedItem[] {
   const hashOf = txLookup(dashboard);
-  return [
+  const decisions = dashboard.recentDecisions ?? [];
+  const pinned: FeedItem[] = [
+    ...budgetItems(dashboard),
+    ...(dashboard.recentChainTxs ?? []).filter((tx) => tx.kind === 'fund').map((tx) => fundItem(tx, dashboard)),
+    ...decisions.filter(isPinned).map((d) => decisionItem(d, dashboard, hashOf)),
+  ];
+  const volume: FeedItem[] = [
     ...(dashboard.recentTaps ?? []).map((tap) => tapItem(tap, dashboard, hashOf)),
-    ...(dashboard.recentDecisions ?? []).map((decision) => decisionItem(decision, dashboard, hashOf)),
+    ...decisions.filter((d) => !isPinned(d)).map((d) => decisionItem(d, dashboard, hashOf)),
   ]
     .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, FEED_LIMIT);
+    .slice(0, Math.max(0, FEED_LIMIT - pinned.length));
+  return [...pinned, ...volume].sort((a, b) => b.createdAt - a.createdAt);
 }

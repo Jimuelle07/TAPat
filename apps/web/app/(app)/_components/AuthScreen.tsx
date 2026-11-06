@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiClientError } from "@/lib/api";
 import { errorMessage } from "@/lib/use-dashboard";
+import { safeNextPath } from "@/lib/next-path";
 import { useAuth } from "./Auth";
 import { Icon } from "./Icon";
 import { Button, LinkButton, Notice } from "./ui";
@@ -26,17 +27,10 @@ export function toAuthFailure(cause: unknown): AuthFailure {
   return { field: null, message };
 }
 
-/** Same-origin guard: resolve against our origin and keep only the path, so `/\\evil.com`, `//evil.com` and `https://evil.com` all collapse to `/`. */
+/** Post-login target from `?next=`, passed through `safeNextPath` (same-origin only, never protocol-relative). */
 export function nextPath(): string {
   const next = new URLSearchParams(window.location.search).get("next");
-  if (next === null || next === "") return "/";
-  try {
-    const url = new URL(next, window.location.origin);
-    if (url.origin !== window.location.origin) return "/";
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    return "/";
-  }
+  return safeNextPath(next, window.location.origin);
 }
 
 const TABS = [

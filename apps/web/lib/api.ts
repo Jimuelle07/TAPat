@@ -293,7 +293,7 @@ export async function getCoaCsv(): Promise<string> {
 
 // ---- #22–#25 accounts ------------------------------------------------------------------------------------
 
-/** #22 `POST /api/auth/signup`: always creates a `viewer` and logs in with a session cookie (201). */
+/** #22 `POST /api/auth/signup`: always creates an `officer` and logs in with a session cookie (201). */
 export function postSignup(body: SignupBody): Promise<AuthResponse> {
   return postJson<AuthResponse>('/auth/signup', body);
 }

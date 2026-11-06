@@ -92,7 +92,7 @@ function uniqueEmailViolation(error: unknown): boolean {
   return 'message' in error && typeof error.message === 'string' && error.message.includes('users.email');
 }
 
-/** #22: creates a `viewer` and returns it. A taken email is 409 `ACCOUNT_EXISTS`; signup never creates an officer. */
+/** #22: creates an `officer` and returns it. A taken email is 409 `ACCOUNT_EXISTS`; nothing here ever creates a viewer. */
 export async function signup(db: Db, body: SignupBody): Promise<AuthUser> {
   const email = normalizeEmail(body.email);
   const passwordHash = await hashPassword(body.password);
@@ -100,7 +100,7 @@ export async function signup(db: Db, body: SignupBody): Promise<AuthUser> {
     id: newUserId(),
     email,
     displayName: body.displayName,
-    role: 'viewer',
+    role: 'officer',
     createdAt: Date.now(),
   };
   try {

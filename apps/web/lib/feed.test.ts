@@ -102,4 +102,42 @@ describe('buildFeed', () => {
     expect(item).toMatchObject({ title: 'Tranche released', meta: 'Tranche Agent · 2 cards funded, 1 skipped', value: 'PHP 3,000.00' });
     expect(item?.detail.rows).toContainEqual(['Skipped', '…9C7E EXPIRED']);
   });
+
+  it('lists one fund row per fund tx with its hash, alongside the aggregate tranche row', () => {
+    const tx = { id: 'ctx_f1', kind: 'fund', status: 'succeeded', outerHash: 'ab12000000000000ef90', innerHash: null, createdAt: 150 } as ChainTx;
+    const other = { id: 'ctx_a', kind: 'authorize', status: 'succeeded', outerHash: 'cc', innerHash: null, createdAt: 160 } as ChainTx;
+    const feed = buildFeed(
+      dashboard({
+        recentChainTxs: [tx, other],
+        recentDecisions: [decision({ agent: 'tranche', decision: 'FUNDED', createdAt: 170, outputs: { funded: [{ cardId: 'card_D1', amountStroops: '1500000000', chainTxId: 'ctx_f1' }], skipped: [] } })],
+      }),
+    );
+    expect(feed.map((item) => item.id)).toEqual(['dec_1', 'fund_ctx_f1']);
+    expect(feed[1]).toMatchObject({ title: 'Juan D. …9C7E funded', meta: 'Funded · tx ab12…ef90', value: 'PHP 1,500.00' });
+    expect(feed[1]?.detail.hash).toBe('ab12000000000000ef90');
+  });
+
+  it('shows a budget row only once Velo verified it', () => {
+    const budget = (state: 'none' | 'waiting' | 'verified') => ({ state, verifiedStroops: '10000000000', fundedStroops: '0', remainingStroops: '0', checkoutUrl: null, paymentIntentId: 'pi_1' });
+    expect(buildFeed(dashboard({ budget: budget('waiting') }))).toHaveLength(0);
+    const [item] = buildFeed(dashboard({ budget: budget('verified'), program: { createdAt: 5 } as Dashboard['program'] }));
+    expect(item).toMatchObject({ id: 'budget_verified', title: 'Budget verified', value: 'PHP 10,000.00' });
+    expect(item?.detail.rows).toContainEqual(['Payment intent', 'pi_1']);
+  });
+
+  it('pins the budget, fund and claim rows when more than FEED_LIMIT other rows exist', () => {
+    const budget = { state: 'verified', verifiedStroops: '10000000000', fundedStroops: '0', remainingStroops: '0', checkoutUrl: null, paymentIntentId: 'pi_1' } as Dashboard['budget'];
+    const funds = Array.from({ length: 5 }, (_, i) => ({ id: `ctx_f${i}`, kind: 'fund', status: 'succeeded', outerHash: `ab${i}`.padEnd(20, '0'), innerHash: null, createdAt: 10 + i }) as ChainTx);
+    const taps = Array.from({ length: 80 }, (_, i) => tap({ id: `tap_${i}`, createdAt: 1000 + i }));
+    const edges = Array.from({ length: 45 }, (_, i) => decision({ id: `edge_${i}`, createdAt: 2000 + i }));
+    const claim = decision({ id: 'dec_claim', agent: 'settlement', decision: 'CLAIMED', createdAt: 3, outputs: { stationName: 'Petron San Roque', amountStroops: '350000000' } });
+    const feed = buildFeed(dashboard({ budget, program: { createdAt: 1 } as Dashboard['program'], recentChainTxs: funds, recentTaps: taps, recentDecisions: [...edges, claim] }));
+    expect(feed).toHaveLength(50);
+    const ids = feed.map((item) => item.id);
+    expect(ids).toContain('budget_verified');
+    expect(ids).toContain('dec_claim');
+    for (const tx of funds) expect(ids).toContain(`fund_${tx.id}`);
+    const times = feed.map((item) => item.createdAt);
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+  });
 });

@@ -1,7 +1,7 @@
 // POST /api/enroll (docs/api-and-data.md §5.2 #10): multipart in, EnrollResponse out.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Keypair } from '@stellar/stellar-sdk';
-import { enrollFieldsSchema } from '@tapat/shared';
+import { VIRTUAL_UID_PREFIX, enrollFieldsSchema } from '@tapat/shared';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import { ApiError } from '../errors';
@@ -73,7 +73,7 @@ export function registerEnrollRoutes(app: FastifyInstance, deps: EnrollRouteDeps
         ...(deps.fixturesDir === undefined ? {} : { fixturesDir: deps.fixturesDir }),
         ...(deps.fund === undefined ? {} : { fund: deps.fund }),
       },
-      { ...parsed, hasPhoto },
+      { ...parsed, hasPhoto, virtual: parsed.uid.startsWith(VIRTUAL_UID_PREFIX) },
     );
     return reply.code(201).send(response);
   });

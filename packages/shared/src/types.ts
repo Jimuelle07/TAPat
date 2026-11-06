@@ -287,13 +287,13 @@ export interface RequestEvidenceResponse {
 export interface BurstResponse { accepted: boolean; edges: number; tickMs: number }
 export interface TrancheStartResponse { started: boolean; points: number; tickMs: number }
 
-// Accounts (§5.2 #22–#25). Officer gating is in the web UI only; the API endpoints stay open behind Caddy basic auth.
+// Accounts (§5.2 #22–#25). The API guard enforces the officer role on writes; signup creates officers.
 export type UserRole = 'officer' | 'viewer';
 export interface AuthUser {
   id: string;                   // 'usr_…'
   email: string;                // lowercased
   displayName: string;
-  role: UserRole;               // signup always creates 'viewer'; seed-demo creates the one 'officer'
+  role: UserRole;               // signup creates 'officer'; 'viewer' only survives in older databases
   createdAt: UnixMs;
 }
 export interface AuthResponse { user: AuthUser }

@@ -40,11 +40,11 @@ async function signup(payload: Record<string, string> = ANA) {
 }
 
 describe('POST /api/auth/signup', () => {
-  it('creates a viewer, sets the 12-hour cookie, and never returns the hash', async () => {
+  it('creates an officer, sets the 12-hour cookie, and never returns the hash', async () => {
     const response = await signup({ ...ANA, email: 'ANA@Example.COM' });
     expect(response.statusCode).toBe(201);
     const body = response.json();
-    expect(body.user).toMatchObject({ email: 'ana@example.com', displayName: 'Ana', role: 'viewer' });
+    expect(body.user).toMatchObject({ email: 'ana@example.com', displayName: 'Ana', role: 'officer' });
     expect(body.user).not.toHaveProperty('password');
     expect(body.user).not.toHaveProperty('passwordHash');
     expect(setCookieHeader(response.headers)).toMatch(
@@ -57,7 +57,7 @@ describe('POST /api/auth/signup', () => {
       headers: { cookie: sessionCookie(response.headers) },
     });
     expect(me.statusCode).toBe(200);
-    expect(me.json().user).toMatchObject({ email: 'ana@example.com', role: 'viewer' });
+    expect(me.json().user).toMatchObject({ email: 'ana@example.com', role: 'officer' });
   });
 
   it('returns 409 ACCOUNT_EXISTS for a taken email', async () => {
@@ -105,7 +105,7 @@ describe('POST /api/auth/login', () => {
       payload: { email: ANA.email, password: ANA.password },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json().user).toMatchObject({ email: ANA.email, role: 'viewer' });
+    expect(response.json().user).toMatchObject({ email: ANA.email, role: 'officer' });
     const me = await app.inject({
       method: 'GET',
       url: '/api/auth/me',

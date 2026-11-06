@@ -95,6 +95,17 @@ describe('parseSeedArgs', () => {
   it('passes --officer-password through unchanged', () => {
     expect(parseSeedArgs(['--officer-password=hunter2hunter2']).officerPassword).toBe('hunter2hunter2');
   });
+
+  it('leaves --budget-intent unset by default and passes a valid intent id through', () => {
+    expect(parseSeedArgs([]).budgetIntent).toBeUndefined();
+    expect(parseSeedArgs(['--budget-intent=jx75a9kp5j9fm83vgy5a48h10s8hq4fp']).budgetIntent).toBe(
+      'jx75a9kp5j9fm83vgy5a48h10s8hq4fp',
+    );
+  });
+
+  it.each(['', 'has space', 'a/b', 'id;drop'])('rejects --budget-intent=%s, naming the flag', (value) => {
+    expect(() => parseSeedArgs([`--budget-intent=${value}`])).toThrow('--budget-intent');
+  });
 });
 
 describe('parseMasterlistCsv', () => {

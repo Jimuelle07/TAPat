@@ -10,3 +10,6 @@ export const TAP_REASON_LABELS: Record<TapReasonCode, string> = {
   CARD_NOT_ENROLLED: 'card not enrolled',
   SIMULATED_EDGE: 'simulated edge (no card)',
 };
+
+/** A simulated (no-hardware) card UID starts with this prefix; the server stores such a card with `virtual = 1`. */
+export const VIRTUAL_UID_PREFIX = 'TAPATVIRTUAL';

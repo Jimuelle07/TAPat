@@ -1,10 +1,10 @@
 "use client";
 
-// The client-side account state: one provider in the root layout, `useAuth` everywhere, and the officer gate.
-// Officer gating is UI-only by decision (§5.2 #22–#25): the API endpoints stay open behind Caddy basic auth.
+// The client-side account state: one provider per app layout, `useAuth` everywhere, and the officer gate.
+// The API guard enforces officer writes (§5.2 #22–#25); `RequireLogin` additionally sends logged-out visitors to /login.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { AuthUser } from "@tapat/shared";
 import { getMe, postLogout } from "@/lib/api";
 import { Notice } from "./ui";
@@ -66,6 +66,50 @@ export function useAuth(): AuthState {
   const context = useContext(AuthContext);
   if (context === null) throw new Error("useAuth must be used inside <AuthProvider>");
   return context;
+}
+
+const PUBLIC_PATHS = ["/login", "/signup", "/desktop/login", "/desktop/signup"];
+
+/** Where a logged-out visitor on `pathname` is sent: the matching login screen, carrying `?next=` unless at the root. */
+function loginTarget(pathname: string, search: string): string {
+  const desktop = pathname === "/desktop" || pathname.startsWith("/desktop/");
+  const login = desktop ? "/desktop/login" : "/login";
+  if (pathname === "/" || pathname === "/desktop") return login;
+  return `${login}?next=${encodeURIComponent(pathname + search)}`;
+}
+
+/**
+ * Sends a logged-out visitor to the login screen (`/login`, or `/desktop/login` under /desktop) on every route
+ * except the login and signup pages. While the session loads, `children` still render, invisible and inert, so the
+ * page segment is present during prerender.
+ */
+export function RequireLogin({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const isPublic = PUBLIC_PATHS.includes(pathname);
+  const blocked = !loading && user === null && !isPublic;
+
+  useEffect(() => {
+    if (!blocked) return;
+    router.replace(loginTarget(pathname, window.location.search));
+  }, [blocked, pathname, router]);
+
+  if (blocked) return null;
+  if (loading && !isPublic) {
+    return (
+      <div className="invisible" inert aria-hidden>
+        {children}
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
+/** Renders `children` only while someone is logged in. */
+export function SignedIn({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  return user === null ? null : <>{children}</>;
 }
 
 /** Renders `children` for the officer; nothing while the session loads; `fallback` (or the notice) otherwise. */

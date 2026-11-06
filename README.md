@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/tapat-logo.png" alt="TAPat logo" width="220">
+</p>
+
 # TAPat
 
 **TAPat lets an AI agent release, cap, and return fuel aid for tricycle drivers — Noir policies on Stellar, Velo for the budget and the fees.**
@@ -115,6 +119,10 @@ Velo does **not** verify per-tap payments: Velo marks an intent paid only for a 
 
 ## Testnet proof
 
+**End-to-end demo run (Nov 7):** Station A's settlement `claim` on the Noir payment escrow, signed by the station and confirmed on Stellar Testnet (ledger 5596077, status Successful): https://stellar.expert/explorer/testnet/tx/35a01b1204e63a2131b255d80615f1a06eb678d320a3ec106798697ac36b5792
+
+![Stellar Expert: claim transaction 35a01b12…b5792 on Stellar Testnet, status Successful](docs/assets/testnet-proof-claim-tx.png)
+
 SPK chain spike via `@noirx402/agent-sdk`, Nov 5 — one throwaway card, registered through the SDK, each call on Stellar Testnet:
 
 | Step | Transaction |
@@ -178,11 +186,11 @@ Docs:
 
 ## For judges
 
-Open the demo URL — the submission form has it. The site is public: browse freely, no password or login prompt to look around.
+Open the demo URL — the submission form has it.
 
-To act, press **Log in** in the top-right and use the **officer account**; its email and password are in the submission form. The officer unlocks every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program. **Create an account** makes a **viewer**: read-only dashboards, and every action shows "Officer login required".
+Opening the site asks for a login. Press **Create an account** to make an **officer** (or use the seeded officer account; its email and password are in the submission form). An officer can run every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program.
 
-Honesty note: this is enforced by the API, not just the UI. Every write endpoint requires the officer's session — `401 UNAUTHORIZED` without one, `403 FORBIDDEN` for a viewer — while reads stay public; only `/api/auth/*` and the HMAC-signed Velo webhook bypass the check. UI-only gating would be a demo; the server rule is the real boundary.
+Honesty note: this is enforced by the API, not just the UI. Every write endpoint requires an officer session — `401 UNAUTHORIZED` without one — while most reads stay public; only `/api/auth/*` and the HMAC-signed Velo webhook bypass the check. The login redirect is a UI convenience; the server rule is the real boundary.
 
 The officer account is created on a fresh demo by the seed: `seed-demo.ts --officer-email=… --officer-password=…` prints `Officer login: <email> / <password>`. Without `--officer-password` it generates one and prints it once; accounts survive `reset-demo`. On an existing deployment that is already seeded, `create-officer.ts --officer-email=… [--officer-password=…]` creates or promotes the officer without reseeding or touching the chain, and prints the same `Officer login:` line.
 

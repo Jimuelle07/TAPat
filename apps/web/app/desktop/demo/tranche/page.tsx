@@ -10,6 +10,7 @@ import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerNotice, OfficerOnly, useAuth } from "../../../(app)/_components/Auth";
 import { PriceChart } from "../../../(app)/_components/charts";
 import { CoinFlow, useValueChange } from "../../../(app)/_components/motion";
+import { TrancheReleasing, TrancheStatusCard } from "../../../(app)/_components/TrancheStatus";
 import { Button, Card, DemoRate, ErrorBlock, KeyValues, LinkButton, ListCard, Notice, Skeleton, type ListRow } from "../../../(app)/_components/ui";
 import { Gate, Page } from "../../_components/kit";
 
@@ -99,7 +100,10 @@ export default function TrancheAgent() {
                 </Notice>
               ) : null}
               <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start gap-6">
-                <PriceChart points={tranche.points} total={tranche.total} thresholdPhp={tranche.thresholdPhp} fired={tranche.fired} simulated={tranche.points.every((p) => p.simulated)} />
+                <div className="flex min-w-0 flex-col gap-4">
+                  <PriceChart points={tranche.points} total={tranche.total} thresholdPhp={tranche.thresholdPhp} fired={tranche.fired} simulated={tranche.points.every((p) => p.simulated)} />
+                  <TrancheStatusCard dashboard={dashboard} tranche={tranche} />
+                </div>
                 <div className="flex flex-col gap-4">
                   {tranche.fired ? (
                     <LinkButton look="secondary" href="/desktop/demo">
@@ -114,6 +118,7 @@ export default function TrancheAgent() {
                       </Button>
                     </OfficerOnly>
                   )}
+                  <TrancheReleasing dashboard={dashboard} tranche={tranche} />
                   {decision?.decision === "BUDGET_EXHAUSTED" ? (
                     <Notice title="Budget ran out">
                       BUDGET_EXHAUSTED: {php(String(decision.outputs.budgetAfterStroops ?? "0"), rate)} left is below one {php(dashboard.program.trancheStroops, rate)} tranche, so funding stopped.

@@ -58,6 +58,7 @@ function Account() {
 
 export function Sidebar() {
   const path = usePathname();
+  const { user } = useAuth();
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col gap-6 overflow-y-auto border-r-[1.5px] border-text bg-raised p-4">
       <Link href="/desktop" aria-label="TAPat home" className="block h-14 w-28 shrink-0 overflow-hidden">
@@ -65,7 +66,7 @@ export function Sidebar() {
         <Image src="/tapat-app-icon-1024.png" alt="" width={112} height={112} className="-mt-7 max-w-none mix-blend-darken" priority />
       </Link>
       <nav aria-label="Main" className="flex flex-1 flex-col gap-6">
-        {GROUPS.map((group) => (
+        {user !== null && GROUPS.map((group) => (
           <div key={group.label} className="flex flex-col gap-1">
             <h2 className="px-3 pb-1 text-caption text-muted">{group.label}</h2>
             {group.links.map((link) => {

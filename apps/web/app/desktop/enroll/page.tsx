@@ -6,7 +6,7 @@ export default function DesktopEnroll() {
   return (
     <Embedded
       title="Enroll driver"
-      notice={<Notice title="Reading a card needs a phone">Web NFC works only in Chrome on Android. Open TAPat on the enrollment phone to read the blank card.</Notice>}
+      notice={<Notice title="Simulate the card on a laptop">Use <strong>Simulate card</strong> to enroll from a laptop: it is a simulated tap, and the enrollment is still registered on-chain. <strong>Read card</strong> needs Chrome on Android.</Notice>}
     >
       <Enroll />
     </Embedded>

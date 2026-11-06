@@ -42,11 +42,11 @@ describe('hashPassword / verifyPassword', () => {
 });
 
 describe('signup', () => {
-  it('creates a viewer with a lowercased email and never returns the hash', async () => {
+  it('creates an officer with a lowercased email and never returns the hash', async () => {
     const db = testDb();
     const user = await signup(db, { ...ANA, email: 'ANA@Example.COM' });
     expect(user.email).toBe('ana@example.com');
-    expect(user.role).toBe('viewer');
+    expect(user.role).toBe('officer');
     expect(user.id).toMatch(/^usr_[0-9a-f]{12}$/);
     expect(user).not.toHaveProperty('password');
     expect(user).not.toHaveProperty('passwordHash');
@@ -56,7 +56,7 @@ describe('signup', () => {
       password_hash: string;
     }>(user.id);
     expect(row?.email).toBe('ana@example.com');
-    expect(row?.role).toBe('viewer');
+    expect(row?.role).toBe('officer');
     expect(await verifyPassword('secret123', row?.password_hash ?? '')).toBe(true);
   });
 

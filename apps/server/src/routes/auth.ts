@@ -81,7 +81,7 @@ export function registerOfficerGuard(app: FastifyInstance, deps: AuthRouteDeps):
 }
 
 export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): void {
-  // #22: always a `viewer`; the response is already logged in.
+  // #22: always an `officer`; the response is already logged in.
   app.post('/api/auth/signup', async (request, reply) => {
     const user = await signup(deps.db, signupBodySchema.parse(request.body));
     const session = createSession(deps.db, user.id);

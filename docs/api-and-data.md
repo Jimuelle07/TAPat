@@ -300,7 +300,7 @@ Retry rule: only a `failed` row is safe to retry — it is written only when the
 - `velo_intents.amount` is a string so `1000.00` stays exact. SQLite `REAL` would lose the trailing digits Velo compares.
 - One `program` row exists at a time in the demo build. `reset-demo.ts` deletes every row, then `seed-demo.ts` inserts one.
 - **Schema version 2 (accounts).** `PRAGMA user_version` is `2`. A v1 database is migrated in place at boot by creating only `users` and `sessions`; the v1 tables are unchanged. `reset-demo.ts` deletes the demo rows but **not** `users` or `sessions`, so the judges' officer login survives a demo reset; `seed-demo.ts` re-ensures the officer afterwards.
-- `users` holds the one officer (created by `seed-demo.ts`, §5.2 note after #25) and every signup viewer. `sessions.id` is `sha256(token)` hex — the raw cookie token is never stored, so a database read cannot mint a cookie. Passwords are scrypt (`scrypt$16384$8$1$<saltHex>$<hashHex>`), never plaintext.
+- `users` holds every account: the seeded officer and every signup, which also creates an `officer`; a `viewer` row can only exist in an older database (the guard still answers it 403). `sessions.id` is `sha256(token)` hex — the raw cookie token is never stored, so a database read cannot mint a cookie. Passwords are scrypt (`scrypt$16384$8$1$<saltHex>$<hashHex>`), never plaintext.
 - Seeded fixed values: program `per_tap_cap_stroops = 500000000` (₱500), `tranche_stroops = 1500000000` (₱1,500), `expires_at_s = 1796054399`, `price_threshold_php = 65.0`, `alpha = 0.05`, `beta = 0.02`. Stations `A` = `Petron San Roque`, `B` = `Rotonda Fuels`.
 
 ### 2.2 Decision vocabulary (`agent_decisions.decision`)
@@ -546,7 +546,7 @@ export interface Dashboard {
   stations: Station[];
   recentTaps: Tap[];            // newest first, max 50
   recentDecisions: AgentDecision[]; // newest first, max 20
-  recentChainTxs: ChainTx[];    // newest first, max 200; resolves the ctx_ ids in taps, decisions and enroll/settle responses to hashes
+  recentChainTxs: ChainTx[];    // newest first: the 200 newest plus every fund, claim and sweep tx of the program (deduped); resolves the ctx_ ids in taps, decisions and enroll/settle responses to hashes
 }
 
 // Response envelopes (one per endpoint that is not a bare list)
@@ -617,7 +617,7 @@ export interface AuthUser {
   id: string;                   // 'usr_…'
   email: string;                // lowercased
   displayName: string;
-  role: UserRole;               // signup always creates 'viewer'; seed-demo creates the one 'officer'
+  role: UserRole;               // signup creates 'officer'; 'viewer' only survives in older databases
   createdAt: UnixMs;
 }
 export interface AuthResponse { user: AuthUser }
@@ -693,7 +693,7 @@ Base path `/api`. Server: Fastify 5 on `PORT` (4000), listening on `127.0.0.1` o
 | 19 | GET | `/api/export/coa.csv` | COA audit export | PRD F6 |
 | 20 | GET | `/api/stream` | SSE: every state change | all |
 | 21 | POST | `/api/webhooks/velo` | Velo webhook receiver | PRD F3 |
-| 22 | POST | `/api/auth/signup` | create a viewer account + session | this doc |
+| 22 | POST | `/api/auth/signup` | create an officer account + session | this doc |
 | 23 | POST | `/api/auth/login` | authenticate + session cookie | this doc |
 | 24 | POST | `/api/auth/logout` | clear the cookie + delete the session | this doc |
 | 25 | GET | `/api/auth/me` | current user, or `null` | this doc |
@@ -861,7 +861,7 @@ Each call writes an `intake/EVIDENCE_REQUESTED` decision. Errors: `404 NOT_FOUND
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `beneficiaryId` | string | yes | must be `approved` |
-| `uid` | string | yes | the **normalized** UID from **Read card** / `readUid()` (`04A21F9CA1B2`) or a virtual UID; the server re-normalizes idempotently (colons removed, uppercased), then requires `^[0-9A-Z]{4,32}$` — alphanumeric so virtual UIDs like `TAPATVIRTUAL05` pass |
+| `uid` | string | yes | the **normalized** UID from **Read card** / `readUid()` (`04A21F9CA1B2`) or a virtual UID; the server re-normalizes idempotently (colons removed, uppercased), then requires `^[0-9A-Z]{4,32}$` — alphanumeric so virtual UIDs like `TAPATVIRTUAL05` pass; a UID starting with `TAPATVIRTUAL` is stored with `virtual = 1` |
 | `samplePhoto` | string | one of | the dropdown is hardcoded to `d4-photo.jpg` (the only committed sample); precomputed `{plate,toda}` |
 | `photo` | file (`image/jpeg`,`image/png`) | one of | an officer's live photo; no model runs |
 | `officerConfirmed` | `"true"` \| `"false"` | with `photo` | must be `"true"` when `photo` is used |
@@ -1079,7 +1079,7 @@ No request. Response 200: `Dashboard`. Snapshot after the demo's close (post-swe
 }
 ```
 
-(`recentTaps` holds up to 50 rows, `recentDecisions` up to 20 and `recentChainTxs` up to 200; the first two are truncated here and `recentChainTxs` is omitted. A tx hash is `outerHash ?? innerHash`, the same rule as the COA export. `cards` is in enrollment order and carries every card, whatever its status.)
+(`recentTaps` holds up to 50 rows and `recentDecisions` up to 20; `recentChainTxs` holds the 200 newest chain txs **plus every `fund`, `claim` and `sweep` tx of the program** (deduped, newest first), so the activity feed always has one fund row per funded card with its hash however many taps follow. The first two are truncated here and `recentChainTxs` is omitted. A tx hash is `outerHash ?? innerHash`, the same rule as the COA export. `cards` is in enrollment order and carries every card, whatever its status.)
 
 `counts` buckets are **disjoint**: `approved` counts only beneficiaries still awaiting enrollment, so the four beneficiary status buckets (`approved` + `uncertain` + `enrolled` + the rejected rows) sum to `beneficiaries` (12 = 5 + 0 + 5 + 2). After the scripted demo `enrolled` is **5** (D1, D2, D3, D5 seeded + D4 enrolled on stage).
 
@@ -1096,7 +1096,7 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 
 UI layout, from the TAPat Mobile App UI Figma file: `/` shows the budget row, the five tiles, the invariant line and links. The station strip is on `/stations`, the card list on `/cards`, the merged feed on `/activity`, system health on `/health`. `/demo` keeps the five buttons and the station strip; the price chart and tranche panel are on `/demo/tranche`, the edge chart on `/demo/freeze`, the settlement panel on `/demo/settlement`, the sweep on `/demo/end`. `/login` and `/signup` are the account pages behind the top bar's **Log in** / **Create an account** buttons; every state-changing control on the other pages is officer-only (§5.2 note after #25). When `program` is `null`, a page also offers **Create program**; a program created that way stays `draft` with no stations until `seed-demo.ts` runs.
 
-The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
+The activity feed is **one list**, newest first, capped at 50 rows. Milestone rows are pinned and never cut by the cap: `Budget verified`, one row per `fund` tx, and the tranche, settlement and sweep decisions. The cap applies to the remaining rows (taps, freeze and intake decisions).
 
 `midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves a `2.2` fallback — the calibrated threshold the Freeze Agent also uses — instead of failing.
 
@@ -1139,7 +1139,7 @@ Request body — `signupBodySchema` from `@tapat/shared`:
 
 `email` is trimmed and lowercased, must be a valid address and ≤ 254 chars; `password` is 8–200 chars; `displayName` is trimmed, 1–80 chars.
 
-Response 201: `{ "user": AuthUser }`, with `role: "viewer"` — signup never creates an officer. Also sets the session cookie (below).
+Response 201: `{ "user": AuthUser }`, with `role: "officer"` — signup always creates an officer. Also sets the session cookie (below).
 
 - Cookie: `tapat_session=<token>; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200` (12 h). Logout sets `Max-Age=0`. No `Secure` flag: TLS ends at the Funnel/Vercel edge, so the API sees plain http on `127.0.0.1`.
 - Token = `randomBytes(32).toString('base64url')`. The DB stores only `sha256(token)` hex as `sessions.id`; the raw token exists only in the cookie. `sessions.expires_at = now + 43200 s`.
@@ -1198,7 +1198,7 @@ Tap reason codes are **never** HTTP error codes. `EXPIRED`, `OVER_CAP`, `POLICY_
 
 ### 5.4 SSE — `GET /api/stream`
 
-`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, no compression (compression buffers events). The headers are flushed on connect. One JSON object per `data:` line — the **camelCase REST shape from §3**, never the DB row. Each frame also carries an `id:` line, a per-connection counter starting at 1 (diagnostic only: there is no replay, so `Last-Event-ID` is ignored).
+`Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`, `Connection: keep-alive`, no compression (compression buffers events; `no-transform` makes the Next.js rewrite's compression middleware skip the stream). The headers are flushed on connect. One JSON object per `data:` line — the **camelCase REST shape from §3**, never the DB row. Each frame also carries an `id:` line, a per-connection counter starting at 1 (diagnostic only: there is no replay, so `Last-Event-ID` is ignored).
 
 ```
 event: tap
@@ -1226,7 +1226,7 @@ Event types (closed set): `price`, `tranche`, `enroll`, `tap`, `freeze`, `settle
 
 Scored-tap re-emit: after the Freeze Agent scores a tap it writes `taps.midas_score`/`taps.tick` and emits a **second** `tap` event with the same `id`. Clients upsert by `id`, so the row updates in place instead of duplicating. `Dashboard.recentTaps` and SSE `tap` are the only sources of edge-chart points.
 
-Heartbeat: `: ping` every 15 s (a comment line, ignored by clients). On connect the server sends nothing historical; clients load `GET /api/dashboard` (and `GET /api/agents/tranche/state` for the price chart) first, then open the stream.
+Heartbeat: `: ping` every 15 s (a comment line, ignored by clients). An initial `: connected` comment is written right after the headers on open, so proxies (Caddy, the Next.js dev rewrite) forward the stream at once instead of waiting for the first heartbeat. On connect the server sends no event history; clients load `GET /api/dashboard` (and `GET /api/agents/tranche/state` for the price chart) first, then open the stream.
 
 Client rule (no env var, no switch): `apps/web/lib/sse.ts` exports `useStream(onEvent)` — a client hook that hardcodes `new EventSource('/api/stream')` (relative, so it is same-origin everywhere: it rides the Next.js rewrite on a laptop and Caddy's `/api/*` route in prod; both carry SSE). The only alternative is manual: **when running locally**, the laptop may open `/?sse=direct`, which makes the dashboard connect to `http://localhost:4000/api/stream` instead. That call is a cross-origin GET from `http://localhost:3000`, which is why the API enables `@fastify/cors` for that origin (§1); it is a laptop-only debugging aid and is documented in the test guide, never as a setting. It does nothing on the deployed Funnel URL, where the API is not reachable at `:4000`. Phone pages do not need SSE.
 

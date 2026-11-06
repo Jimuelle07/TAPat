@@ -274,6 +274,10 @@ export function createTelegramService(deps: TelegramDeps): TelegramService {
       .prepare('UPDATE beneficiaries SET telegram_chat_id = ? WHERE id = ?')
       .run(chatId, beneficiary.id);
     await sendMessage(chatId, linkText(beneficiary.first_name));
+    // The officer may have pressed Request evidence before the driver opened the link; the one request goes out on the first bind only.
+    if (beneficiary.telegram_chat_id === null && beneficiary.status === 'evidence_requested') {
+      await sendMessage(chatId, evidenceRequestText(beneficiary.first_name));
+    }
   }
 
   function readOrcrFixtures(): OrcrFixture[] {

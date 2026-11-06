@@ -11,12 +11,15 @@ export function registerStreamRoutes(app: FastifyInstance, deps: { bus: SseBus }
     const response = reply.raw;
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      // no-transform: the `compression` middleware behind the Next.js rewrite skips such responses; gzip would buffer events.
+      'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
-    // Push the header block out now: a client (and Caddy) otherwise waits for the first body byte, i.e. 15 s.
+    // Push the header block and a first body byte out now: a proxy (Caddy, the Next.js dev rewrite) otherwise waits
+    // for the first body byte, i.e. the first 15 s heartbeat. The comment is ignored by EventSource.
     response.flushHeaders();
+    response.write(': connected\n\n');
 
     let lastId = 0;
     const unsubscribe = deps.bus.subscribe((event, data) => {
