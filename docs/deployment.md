@@ -23,6 +23,7 @@ Owner: **Jim** (prod `.env`, Velo, cut-over) · **Dev2** (VM provisioning, no se
 | Layer | Choice | Fallback |
 |---|---|---|
 | Host | **Oracle Cloud Always Free**, Ampere A1 (Arm), Ubuntu 24.04, 2 OCPU / 12 GB, 50 GB boot volume | **Google Cloud** free `e2-micro` (1 GB RAM + 2 GB swap) in `us-west1`/`us-central1`/`us-east1`; then **Jim's laptop** (§10) |
+| Host (AWS option) | **AWS EC2** in `ap-southeast-1`, Ubuntu 24.04, `t3.small` (else `t3.micro`, whichever is free-tier eligible), 30 GB gp3 — provisioned by `deploy/wizard-aws-vercel.sh` (§6.4); same Funnel/Caddy/systemd stack | as the row above |
 | Public HTTPS | **Tailscale Funnel** (free plan, `*.ts.net` hostname, automatic certificate) | Cloudflare quick tunnel, phone pages only (§10) |
 | Local routing + auth | **Caddy** on `127.0.0.1:8080` | — |
 | Processes | **systemd**: `tapat-api`, `tapat-web`, `caddy`, `tailscaled` | — |
@@ -110,6 +111,7 @@ No changes to the money path or to any request/response shape. Only these files:
 | `deploy/tapat-api.service`, `deploy/tapat-web.service` | §5.2 |
 | `deploy/provision.sh` | §6, one-time VM setup |
 | `deploy/update.sh` | §7, redeploy |
+| `deploy/wizard-aws-vercel.sh` | §6.4, interactive AWS + Vercel deploy; state in git-ignored `deploy/.wizard.env` |
 
 `deploy/**` is a protected path, like `.env*`: only Jim edits it ([AGENTS.md](../AGENTS.md)).
 
@@ -245,6 +247,40 @@ sudo systemctl restart caddy                # with `admin off`, only a restart r
 - the phone reads a tag on `/station/A` over the Funnel URL;
 - the dashboard on the laptop updates live over the Funnel URL (proves SSE through Funnel → Caddy).
 
+### 6.4 Wizard: AWS EC2 + Vercel (Jim)
+
+`deploy/wizard-aws-vercel.sh` does §6.1–§6.3 and §9.2 with **AWS EC2** as the VM, in place of Oracle/GCP. Run it from the repo root in **Git Bash** (on Windows, `bash` from PowerShell is the WSL stub):
+
+```bash
+bash deploy/wizard-aws-vercel.sh
+```
+
+Laptop prerequisites: `aws` with working credentials, `gh` logged in with admin on the repo, OpenSSH, `curl`, `git`, and the prod `apps/server/.env` (Jim's USB backup).
+
+| # | Stage | Does |
+|---|---|---|
+| 1 | Preflight | Checks tools and AWS/GitHub logins; asks the region (default `ap-southeast-1`) |
+| 2 | Basic-auth credentials | One user + password for Caddy and Vercel's `WEB_BASIC_AUTH` |
+| 3 | AWS: SSH key + firewall | Key pair `tapat-deploy`; security group `tapat-ssh` with SSH from the laptop's current IP `/32` only — every other IPv4 `tcp/22` source in the group is revoked; hand-added IPv6 or port-range rules are left alone (§3) |
+| 4 | AWS: EC2 instance | Finds or launches `Name=tapat-api`: Ubuntu 24.04, 30 GB gp3, IMDSv2 only, termination protection |
+| 5 | VM: deploy key + provision | Read-only GitHub deploy key for `tapat` (the repo is private, §6.2 step 4), then `provision.sh` |
+| 6 | Tailscale Funnel | `tailscale up --hostname=tapat`, `tailscale funnel --bg 8080`, reads the Funnel URL |
+| 7 | Caddy basic auth | Hashes the password over stdin into `/etc/caddy/tapat-users`, restarts Caddy, checks DEP1 (`401`) |
+| 8 | Prod .env | Sets `PUBLIC_BASE_URL` to the Funnel URL in the prod `.env` (must have `GAS_MODE=velo`), in place |
+| 9 | Velo webhook | Points the webhook at `<Funnel URL>/api/webhooks/velo`; stores a new signing secret if Velo shows one |
+| 10 | Cut-over: upload .env, build, start | Confirms no other prod API runs (§4), uploads the `.env`, pulls, builds, restarts both units |
+| 11 | Vercel: import project | `apps/web` with `API_ORIGIN` = Funnel URL and `WEB_BASIC_AUTH` (§9.2) |
+| 12 | Vercel: deployment protection off | §9.1 |
+| 13 | Verify | curl probes: Funnel `401`/health/`200`, Vercel `401`/`200`, and an `/api/*` call through Vercel that must reach Fastify |
+
+- **Re-runs safely.** Each step checks existing state first (instance by tag, security group, key pair, deploy key). A re-run is also the redeploy (stage 10 pulls, builds and restarts) and the fix after a laptop IP change (stage 3 swaps in the new `/32`).
+- **Keep `~/.ssh/tapat_aws_ed25519`.** The instance trusts only the key it was launched with. If the file is lost, stage 3 offers to replace the EC2 key pair, which helps only before the instance exists.
+- **No Elastic IP.** The public IP can change after a stop/start; every run re-reads it. Only SSH uses it — the public URL is the Funnel URL.
+- **Order:** Vercel comes last because `apps/web/next.config.ts` fails the build without `API_ORIGIN`, which is the Funnel URL.
+- **`PUBLIC_BASE_URL` stays the Funnel URL**, so Velo webhooks and checkout redirects bypass Vercel (§9.1). The VM keeps serving `tapat-web` at the Funnel URL as the fallback (§9.3, §10).
+- **State:** non-secret values plus the basic-auth password in `deploy/.wizard.env` (git-ignored; on Windows, Git Bash cannot set mode 600, so the clone folder's NTFS permissions protect it). The prod `.env` is edited in place and uploaded to `/opt/tapat/apps/server/.env` (owner `tapat`, mode 600). `provision.sh` is uploaded with CRs stripped, because a Windows checkout has CRLF and Ubuntu's bash rejects it.
+- If stage 13 reports `vercel-auth-forward`, Vercel did not forward `Authorization`: apply the §9.1 `x-origin-secret` fallback (Caddyfile change, Jim). The Funnel URL stays the entry point meanwhile.
+
 ## 7. Redeploy and operations
 
 `deploy/update.sh` (run by the ssh user `<ssh-user>`, which has sudo; the repo commands run as `tapat` — `-H` keeps `HOME=/home/tapat`, so pnpm's store and git's deploy key resolve):
@@ -274,7 +310,7 @@ sudo systemctl restart tapat-api tapat-web
 | Concern | Control |
 |---|---|
 | Public URL with money buttons | Caddy basic auth on everything except `/api/webhooks/velo` (HMAC-verified) and `/api/health`. Credentials go to the team and, in the submission, to judges |
-| Secrets | Only in `/opt/tapat/apps/server/.env` (mode 600, owner `tapat`) and Jim's USB backup. Never in the repo, `deploy/`, or `apps/web` |
+| Secrets | Only in `/opt/tapat/apps/server/.env` (mode 600, owner `tapat`) and Jim's USB backup. Never in the repo, `deploy/`, or `apps/web` — except the basic-auth password in the git-ignored `deploy/.wizard.env` on the laptop that runs the §6.4 wizard (never committed; protected by the clone folder's permissions) |
 | Exposure | API and Next bind `127.0.0.1`. Caddy binds `127.0.0.1`. Only Funnel (outbound) publishes, and only port 8080. Inbound: SSH only |
 | Cross-instance clashes | Prod and dev profiles (§4); one live API per profile |
 | Card/agent keys | Unchanged: AES-256-GCM in SQLite under `KEY_ENCRYPTION_SECRET` ([SDD §9](system-design.md)) |
@@ -304,6 +340,8 @@ sudo systemctl restart tapat-api tapat-web
 2. Production branch `main`; previews per PR.
 3. Environment variables for **Production and Preview**: `API_ORIGIN`, `WEB_BASIC_AUTH`. Before the VM exists, `API_ORIGIN=http://127.0.0.1:4000` is fine for mock-only previews.
 4. Nothing to change on the VM: leave `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` in `/opt/tapat/apps/server/.env`. It is what Velo's webhook and the checkout redirect use; only the browser's entry URL changes, and the Vercel rewrite reaches the same API.
+
+`deploy/wizard-aws-vercel.sh` stages 11–13 perform §9.2 and the automatable part of §9.4 (§6.4).
 
 ### 9.3 Turning it off
 
@@ -351,6 +389,7 @@ Everyone opens `https://tapat.<tailnet>.ts.net`; the VM's `tapat-web` never stop
 | Caddy, Node, pnpm, SQLite | Open source | $0 |
 | Velo Gas Station | Sponsorship limit set in setup.md stage 4 (50 XLM/day) | $0 (testnet) |
 | Vercel Hobby — **optional**, §9 only | Hobby plan, non-commercial personal use only ([Vercel plans](https://vercel.com/docs/plans/hobby)) | $0 |
+| *or* AWS EC2 (§6.4) | New-account free plan credits / 750 h free tier; public IPv4 billed hourly outside the free tier [INFERENCE] | $0 within the allowance |
 
 ## 13. Acceptance checklist
 
