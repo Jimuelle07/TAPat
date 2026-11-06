@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { postFreezeBurst } from "@/lib/api";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { EdgeChart } from "../../_components/charts";
 import { StationRow } from "../../_components/money";
 import { Actions, Body, Button, ErrorBlock, LinkButton, NoProgram, Notice, Skeleton, TopBar } from "../../_components/ui";
@@ -14,6 +15,7 @@ const SCORING_GRACE_MS = 4_000;
 
 export default function FreezeAgent() {
   const state = useDashboard();
+  const { isOfficer } = useAuth();
   const [burstRunning, setBurstRunning] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,7 @@ export default function FreezeAgent() {
   );
 
   const start = async () => {
+    if (!isOfficer) return;
     setStarting(true);
     setError(null);
     try {
@@ -83,9 +86,11 @@ export default function FreezeAgent() {
           ) : needsTap ? (
             <LinkButton href={`/station/${BURST_STATION}`}>Go to Station {BURST_STATION}</LinkButton>
           ) : (
-            <Button loading={starting || burstRunning} onClick={() => void start()}>
-              {starting || burstRunning ? "Burst running" : "Run burst"}
-            </Button>
+            <OfficerOnly fallback={<OfficerNotice />}>
+              <Button loading={starting || burstRunning} onClick={() => void start()}>
+                {starting || burstRunning ? "Burst running" : "Run burst"}
+              </Button>
+            </OfficerOnly>
           )}
         </Actions>
       ) : null}

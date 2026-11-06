@@ -6,6 +6,7 @@ import { postSettlementRun } from "@/lib/api";
 import { txLookup } from "@/lib/feed";
 import { php, shortHash } from "@/lib/format";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { Actions, Body, Button, DemoRate, EmptyState, ErrorBlock, LinkButton, ListCard, NoProgram, Notice, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
 /** A failed run answers 502 with no per-station body, but every station still writes its decision, so the list reads those. */
@@ -38,10 +39,12 @@ function runRow(decision: AgentDecision, dashboard: Dashboard): ListRow {
 
 export default function Settlement() {
   const state = useDashboard();
+  const { isOfficer } = useAuth();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const run = async () => {
+    if (!isOfficer) return;
     setRunning(true);
     setError(null);
     try {
@@ -84,9 +87,11 @@ export default function Settlement() {
       </Body>
       {dashboard !== null ? (
         <Actions>
-          <Button loading={running} disabled={dashboard.program.status === "ended"} onClick={() => void run()}>
-            {running ? "Settling" : "Run settlement"}
-          </Button>
+          <OfficerOnly fallback={<OfficerNotice />}>
+            <Button loading={running} disabled={dashboard.program.status === "ended"} onClick={() => void run()}>
+              {running ? "Settling" : "Run settlement"}
+            </Button>
+          </OfficerOnly>
           <LinkButton look="secondary" href="/demo">
             Back to agents
           </LinkButton>

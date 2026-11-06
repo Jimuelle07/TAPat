@@ -4,7 +4,7 @@ Everything one person needs to run the 3-minute TAPat demo on testnet, plus the 
 
 On Nov 8 the face-to-face pitch is **5 minutes: this 3-minute script runs inside it, followed by 3 minutes of Q&A** (session 13:00–20:00).
 
-Last updated: 2026-11-05
+Last updated: 2026-11-07
 
 ## 1. Kit
 
@@ -29,16 +29,18 @@ Last updated: 2026-11-05
 |---|---|---|
 | **T-60** | Confirm the deployment, not a tunnel: `curl https://tapat.<tailnet>.ts.net/api/health` from the laptop, and `sudo tailscale funnel status` over `ssh <ssh-user>@<ip>` ([deployment.md §7](deployment.md)). | `GET /api/health` → `{ok:true, rpc:"ok", velo:"ok", telegram:"ok", gasMode:"velo"}`. The URL is stable — there is nothing to copy, and the Velo webhook already points at `${PUBLIC_BASE_URL}/api/webhooks/velo`. |
 | **T-40** | Log in with the basic-auth card on the phone and the laptop, then re-open the phone tabs over the **Funnel URL** (Web NFC needs HTTPS and a user gesture): `/station/A`, `/enroll`. Laptop on `/` and `/demo`. | Each tab loads after one auth prompt; `/station/A` offers a "Enable NFC" button. With no program yet, every page shows "No active program — run `seed-demo.ts`". |
-| **T-30** | On the VM: `ssh <ssh-user>@<ip>` (`<ssh-user>` is `ubuntu` on Oracle Cloud, your Google-account user on GCP — [deployment.md §6.2](deployment.md)), then `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` and `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/seed-demo.ts` ([deployment.md §7](deployment.md)). | Program `active`; D1, D2, D3, D5 enrolled; card count 4; D3 policy expires 600 s after seed time. `/` shows four cards and the **Fund budget** button (badge `none`). `reset-demo` first, every time. |
+| **T-30** | On the VM: `ssh <ssh-user>@<ip>` (`<ssh-user>` is `ubuntu` on Oracle Cloud, your Google-account user on GCP — [deployment.md §6.2](deployment.md)), then `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` and `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/seed-demo.ts --officer-email=<email> [--officer-password=<password>]` ([deployment.md §7](deployment.md)). `--officer-email` defaults to `officer@tapat.demo`; without `--officer-password` the seed generates one. On an already-seeded deployment (the seed refuses while a program exists) run `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/create-officer.ts --officer-email=<email> [--officer-password=<password>]` instead — it creates or promotes the officer without touching the program or the chain — and copy its printed login into the submission form. | Program `active`; D1, D2, D3, D5 enrolled; card count 4; D3 policy expires 600 s after seed time. `/` shows four cards and the **Fund budget** button (badge `none`). The seed prints `Officer login: <email> / <password>` (or `Officer login: <email> (password unchanged)` on a re-run): copy it into the submission form. `reset-demo` first, every time. |
 | **T-20** | On `/` click **Fund budget**. Freighter (Budget Office) pays the Velo checkout for ₱10,000 (1,000 XLM). | Badge goes to "Waiting for Velo…" then **Velo verified ✓** within 3 s of payment (webhook, else poller). `budget.verifiedStroops` = 10000000000 (1,000 XLM), `remainingStroops` = 10000000000. |
 | **T-10** | Laptop on `/` (dashboard). Phone on `/station/A`. Second phone tab on `/enroll`. Phone on `/demo` when the beat starts. Silence notifications. | Tabs pre-warmed, no spinner. |
 | **T-0** | Start talking. | — |
 
-If you are re-running after a failed attempt: on the VM (as at T-30) `reset-demo.ts`, `seed-demo.ts`, then the budget checkout again (a new `budget:${programId}:${seq}` idempotency key is generated per attempt).
+If you are re-running after a failed attempt: on the VM (as at T-30) `reset-demo.ts`, `seed-demo.ts`, then the budget checkout again (a new `budget:${programId}:${seq}` idempotency key is generated per attempt). Accounts survive `reset-demo`: pass the same `--officer-email` / `--officer-password` to keep the login, or omit `--officer-password` to keep the existing password.
 
 ## 3. The 3-minute script
 
 UI routes: `/` dashboard, `/intake`, `/enroll`, `/station/[id]`, `/demo`. Total 185 s (3:05); hard ceiling 3:30.
+
+**First step (~10 s): log in as the officer.** On the laptop and on the phone, press **Log in** in the top-right and use the officer account from the submission form (each browser keeps its own session). Every state-changing button is locked with "Officer login required" until an officer session is active; the session lasts 12 h.
 
 | # | Beat | Sec | Spoken line | Exact click / tap | Expected on screen |
 |---|---|---|---|---|---|
@@ -66,7 +68,7 @@ D3's rejected ₱200, the ₱800 `OVER_CAP` tap, and the 30 simulated burst edge
 
 ### Button → endpoint map
 
-`/demo` has exactly **five buttons**, in this order: **Start price feed**, **Run burst**, **Run settlement**, **Unfreeze Station B**, **End program**.
+`/demo` has exactly **five buttons**, in this order: **Start price feed**, **Run burst**, **Run settlement**, **Unfreeze Station B**, **End program**. Every state-changing control in this map is officer-only: a viewer sees **Officer login required** instead of the button.
 
 | Screen | Control | Endpoint |
 |---|---|---|

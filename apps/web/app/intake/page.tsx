@@ -7,6 +7,7 @@ import { fullName } from "@/lib/format";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Icon } from "../_components/Icon";
 import { Actions, Body, Button, Card, Chip, ErrorBlock, KeyValues, LinkButton, ListCard, ListItem, NoProgram, Notice, SectionTitle, Skeleton, StatCard, StatRow, TopBar } from "../_components/ui";
+import { OfficerNotice, useAuth } from "../_components/Auth";
 
 const ERROR_TITLE: Record<string, string> = {
   VALIDATION_ERROR: "Check the file",
@@ -75,6 +76,7 @@ function Results({ response, onBack }: { response: IntakeResponse; onBack: () =>
 }
 
 export default function Intake() {
+  const { isOfficer, loading } = useAuth();
   const [program, setProgram] = useState<"loading" | "none" | "ok">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -97,7 +99,8 @@ export default function Intake() {
   if (response !== null) return <Results response={response} onBack={() => setResponse(null)} />;
 
   const upload = async () => {
-    if (file === null) return;
+    // Uploading a masterlist is officer-only; a stale render must not reach the POST either.
+    if (!isOfficer || file === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -129,20 +132,24 @@ export default function Intake() {
                 {error.body}
               </Notice>
             ) : null}
-            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-text bg-raised px-4 py-6 text-center focus-within:border-[2.5px] focus-within:border-primary">
-              <Icon name="upload" />
-              <span className="text-label">{file?.name ?? "Choose a CSV or a scanned list"}</span>
-              <span className="text-caption">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>
-              <input
-                type="file"
-                accept=".csv,text/csv,image/png,image/jpeg"
-                className="sr-only"
-                onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null);
-                  setError(null);
-                }}
-              />
-            </label>
+            {isOfficer ? (
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-text bg-raised px-4 py-6 text-center focus-within:border-[2.5px] focus-within:border-primary">
+                <Icon name="upload" />
+                <span className="text-label">{file?.name ?? "Choose a CSV or a scanned list"}</span>
+                <span className="text-caption">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv,image/png,image/jpeg"
+                  className="sr-only"
+                  onChange={(event) => {
+                    setFile(event.target.files?.[0] ?? null);
+                    setError(null);
+                  }}
+                />
+              </label>
+            ) : loading ? null : (
+              <OfficerNotice />
+            )}
             <Card>
               <h3 className="text-label">CSV columns, in this order</h3>
               <p className="font-mono text-mono">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
@@ -152,7 +159,7 @@ export default function Intake() {
           </>
         ) : null}
       </Body>
-      {loadError === null && program === "ok" ? (
+      {loadError === null && program === "ok" && isOfficer ? (
         <Actions>
           <Button loading={busy} disabled={file === null} onClick={() => void upload()}>
             {busy ? "Checking rows" : "Upload masterlist"}

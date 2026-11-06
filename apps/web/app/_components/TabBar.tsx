@@ -17,14 +17,13 @@ const TABS: Array<{ label: string; href: string; icon: IconName; active: (path: 
   { label: "Agents", href: "/demo", icon: "pulse", active: (p) => p.startsWith("/demo") },
 ];
 
-/** The bar's top line, rising in an arc over the active tab's raised circle. */
+/** The bar's top edge rising in an arc over the active tab's raised circle. */
 function ActiveCurve() {
   const curve =
     "M0 11C5 11 7 9.7 9.32 7.32C14.01 2.63 20.37 0 27 0C33.63 0 39.99 2.63 44.68 7.32C47 9.7 49 11 54 11";
   return (
     <svg aria-hidden="true" width="54" height="13" viewBox="0 0 54 13" className="absolute -top-[11.75px] left-1/2 -translate-x-1/2 overflow-visible">
       <path d={`${curve}V13H0Z`} className="fill-raised" />
-      <path d={curve} fill="none" className="stroke-text" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -34,7 +33,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 border-t-[1.5px] border-text bg-raised pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 bg-raised pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgb(27_46_40_/_0.08)]"
     >
       <ul className="flex h-14">
         {TABS.map((tab) => {

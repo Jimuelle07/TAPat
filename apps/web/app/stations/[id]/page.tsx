@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { dateTime } from "@/lib/format";
+import { OfficerNotice, OfficerOnly } from "../../_components/Auth";
 import { useDashboard } from "@/lib/use-dashboard";
 import { StationRow } from "../../_components/money";
 import { UnfreezeSheet } from "../../_components/Unfreeze";
@@ -57,7 +58,9 @@ export default function StationDetail() {
       </Body>
       {frozen ? (
         <Actions>
-          <Button onClick={() => setConfirming(true)}>Unfreeze station</Button>
+          <OfficerOnly fallback={<OfficerNotice />}>
+            <Button onClick={() => setConfirming(true)}>Unfreeze station</Button>
+          </OfficerOnly>
         </Actions>
       ) : null}
     </>

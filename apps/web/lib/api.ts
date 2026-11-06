@@ -3,6 +3,7 @@
 // browser rides the Next.js rewrite locally and Caddy's `/api/*` route in prod; no host or port is hardcoded.
 // A non-2xx response throws ApiClientError carrying `{error:{code,message}}` from §5.3.
 import type {
+  AuthResponse,
   Beneficiary,
   BeneficiaryStatus,
   BudgetCheckoutBody,
@@ -15,10 +16,13 @@ import type {
   EnrollResponse,
   HealthResponse,
   IntakeResponse,
+  LoginBody,
+  MeResponse,
   Program,
   ProgramResponse,
   RequestEvidenceResponse,
   SettlementResponse,
+  SignupBody,
   Station,
   TapResponse,
   TrancheStartResponse,
@@ -39,7 +43,9 @@ export type ApiErrorCode =
   | 'PHOTO_CONFIRMATION_REQUIRED'
   | 'STATION_FROZEN'
   | 'CHAIN_ERROR'
-  | 'INTERNAL';
+  | 'INTERNAL'
+  | 'UNAUTHORIZED'
+  | 'ACCOUNT_EXISTS';
 
 const API_ERROR_CODES: readonly ApiErrorCode[] = [
   'VALIDATION_ERROR',
@@ -54,6 +60,8 @@ const API_ERROR_CODES: readonly ApiErrorCode[] = [
   'STATION_FROZEN',
   'CHAIN_ERROR',
   'INTERNAL',
+  'UNAUTHORIZED',
+  'ACCOUNT_EXISTS',
 ];
 
 /** A failed `/api/*` call: the HTTP status plus the `code`/`message` of the `{error:{…}}` envelope. */
@@ -279,4 +287,26 @@ export function getDashboard(): Promise<Dashboard> {
 export async function getCoaCsv(): Promise<string> {
   const response = await send('/export/coa.csv');
   return response.text();
+}
+
+// ---- #22–#25 accounts ------------------------------------------------------------------------------------
+
+/** #22 `POST /api/auth/signup`: always creates a `viewer` and logs in with a session cookie (201). */
+export function postSignup(body: SignupBody): Promise<AuthResponse> {
+  return postJson<AuthResponse>('/auth/signup', body);
+}
+
+/** #23 `POST /api/auth/login`: 401 `UNAUTHORIZED` ("Wrong email or password.") on a bad email or password. */
+export function postLogin(body: LoginBody): Promise<AuthResponse> {
+  return postJson<AuthResponse>('/auth/login', body);
+}
+
+/** #24 `POST /api/auth/logout`: 204 with an empty body, so this must not parse JSON. */
+export async function postLogout(): Promise<void> {
+  await send('/auth/logout', { method: 'POST' });
+}
+
+/** #25 `GET /api/auth/me`: `user: null` when there is no session or it expired. */
+export function getMe(): Promise<MeResponse> {
+  return request<MeResponse>('/auth/me');
 }

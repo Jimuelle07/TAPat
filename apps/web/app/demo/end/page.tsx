@@ -7,6 +7,7 @@ import { postProgramEnd } from "@/lib/api";
 import { cardLabel, txLookup } from "@/lib/feed";
 import { php, phpTile, shortHash } from "@/lib/format";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerNotice, useAuth } from "../../_components/Auth";
 import { Actions, Body, Button, Chip, ConfirmSheet, DemoRate, ErrorBlock, LinkButton, ListCard, NoProgram, Notice, Skeleton, StatCard, TopBar, type ListRow } from "../../_components/ui";
 
 type CardOutcome = EndProgramResponse["cards"][number];
@@ -26,12 +27,14 @@ function outcomeRow(outcome: CardOutcome, dashboard: Dashboard): ListRow {
 export default function EndProgram() {
   const router = useRouter();
   const state = useDashboard();
+  const { isOfficer, loading: authLoading } = useAuth();
   const [confirmed, setConfirmed] = useState(false);
   const [sweeping, setSweeping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EndProgramResponse | null>(null);
 
   const end = async () => {
+    if (!isOfficer) return;
     setConfirmed(true);
     setSweeping(true);
     setError(null);
@@ -89,6 +92,7 @@ export default function EndProgram() {
                 <DemoRate />
               </>
             ) : null}
+            {!authLoading && !isOfficer ? <OfficerNotice /> : null}
           </>
         ) : null}
       </Body>
@@ -99,7 +103,7 @@ export default function EndProgram() {
       ) : null}
       {dashboard !== null && !sweeping && ended ? (
         <Actions>
-          {failures.length > 0 ? (
+          {isOfficer && failures.length > 0 ? (
             <Button look="secondary" onClick={() => void end()}>
               Run again
             </Button>
@@ -114,7 +118,7 @@ export default function EndProgram() {
           </LinkButton>
         </Actions>
       ) : null}
-      {dashboard !== null ? (
+      {dashboard !== null && isOfficer ? (
         <ConfirmSheet
           open={!confirmed && !ended}
           title="End this program?"

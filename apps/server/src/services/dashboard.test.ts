@@ -398,6 +398,118 @@ describe('createDashboardService', () => {
     clock += 1;
     await service.get();
     expect(fake.getEscrowBalance).toHaveBeenCalledTimes(2);
+
+    // A refreshed window reads the chain again and serves the new value, not the cached one.
+    clock += ESCROW_CACHE_MS;
+    fake.getEscrowBalance.mockImplementation(async () => 2_000_000n);
+    const refreshed = await service.get();
+    expect(refreshed.escrowRemainingStroops).toBe('2000000');
+    expect(fake.getEscrowBalance).toHaveBeenCalledTimes(3);
+  });
+
+  it('single-flights concurrent escrow refreshes into one read per active card', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    db.prepare(`UPDATE program SET status = 'active'`).run();
+    seedBeneficiary(db, { id: 'ben_A', status: 'enrolled' });
+    for (const uid of ['04A1B2C3AAAA', '04A1B2C3CCCC']) {
+      await seedCard(db, {
+        id: `card_${uid.slice(-4)}`,
+        beneficiaryId: 'ben_A',
+        uid,
+        agent: Keypair.random(),
+        secretEnc: 'v1:unused',
+      });
+    }
+
+    const fake = fakeNoir();
+    fake.getEscrowBalance.mockImplementation(async () => {
+      // Both loads are already in flight before either chain read settles.
+      await Promise.resolve();
+      return 1_000_000n;
+    });
+    const service = createDashboardService({
+      db,
+      noir: fake.noir,
+      config: { PHP_PER_XLM: 10 },
+      midasThreshold: 1.78,
+      now: () => NOW,
+    });
+
+    const [first, second] = await Promise.all([service.get(), service.get()]);
+    // Two active cards read once each, not one full round per request.
+    expect(fake.getEscrowBalance).toHaveBeenCalledTimes(2);
+    expect(first.escrowRemainingStroops).toBe('2000000');
+    expect(second.escrowRemainingStroops).toBe('2000000');
+  });
+
+  it('times out a slow escrow read and falls back to the cached balance', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    db.prepare(`UPDATE program SET status = 'active'`).run();
+    seedBeneficiary(db, { id: 'ben_A', status: 'enrolled' });
+    await seedCard(db, {
+      id: 'card_active',
+      beneficiaryId: 'ben_A',
+      uid: '04A1B2C3AAAA',
+      agent: Keypair.random(),
+      secretEnc: 'v1:unused',
+    });
+
+    const fake = fakeNoir();
+    fake.getEscrowBalance.mockImplementation(async () => 1_000_000n);
+    let clock = NOW;
+    const service = createDashboardService({
+      db,
+      noir: fake.noir,
+      config: { PHP_PER_XLM: 10 },
+      midasThreshold: 1.78,
+      now: () => clock,
+      escrowReadTimeoutMs: 10,
+    });
+
+    expect((await service.get()).escrowRemainingStroops).toBe('1000000');
+
+    clock += ESCROW_CACHE_MS;
+    fake.getEscrowBalance.mockImplementation(() => new Promise<bigint>(() => undefined));
+    const started = Date.now();
+    const stale = await service.get();
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(stale.escrowRemainingStroops).toBe('1000000');
+    expect(stale.cards.find((card) => card.id === 'card_active')?.escrowStroops).toBe('1000000');
+  });
+
+  it('propagates a failed read when the card has no cached balance, without poisoning the cache', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    db.prepare(`UPDATE program SET status = 'active'`).run();
+    seedBeneficiary(db, { id: 'ben_A', status: 'enrolled' });
+    await seedCard(db, {
+      id: 'card_active',
+      beneficiaryId: 'ben_A',
+      uid: '04A1B2C3AAAA',
+      agent: Keypair.random(),
+      secretEnc: 'v1:unused',
+    });
+
+    const fake = fakeNoir();
+    fake.getEscrowBalance.mockImplementation(async () => {
+      throw new Error('rpc down');
+    });
+    const service = createDashboardService({
+      db,
+      noir: fake.noir,
+      config: { PHP_PER_XLM: 10 },
+      midasThreshold: 1.78,
+      now: () => NOW,
+    });
+
+    // Never read before: no value to fall back to, so the error surfaces instead of a made-up 0.
+    await expect(service.get()).rejects.toThrow('rpc down');
+
+    fake.getEscrowBalance.mockImplementation(async () => 1_000_000n);
+    expect((await service.get()).escrowRemainingStroops).toBe('1000000');
+    expect(fake.getEscrowBalance).toHaveBeenCalledTimes(2);
   });
 
   it('lists recent chain txs newest first with both hashes, so the UI can resolve a ctx_ id', async () => {

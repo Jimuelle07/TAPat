@@ -10,6 +10,7 @@ import { NfcReadError, readUid, type NfcErrorCode } from "@/lib/nfc";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Icon } from "../_components/Icon";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, KeyValues, ListCard, NoProgram, Notice, SectionTitle, Skeleton, Stepper, TopBar } from "../_components/ui";
+import { OfficerNotice, useAuth } from "../_components/Auth";
 
 const SAMPLE_PHOTO = "d4-photo.jpg";
 
@@ -172,8 +173,11 @@ function Photo({
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [mismatch, setMismatch] = useState(false);
   const [chainFailed, setChainFailed] = useState(false);
+  const { isOfficer } = useAuth();
 
   const enroll = async () => {
+    // Enrolling is officer-only; a stale render must not reach the POST either.
+    if (!isOfficer) return;
     setBusy(true);
     setError(null);
     try {
@@ -343,6 +347,7 @@ function Result({ response, onNext }: { response: EnrollResponse; onNext: () => 
 
 export default function Enroll() {
   const preselected = useSearchParams().get("beneficiary");
+  const { isOfficer, loading } = useAuth();
   const [driver, setDriver] = useState<Beneficiary | null>(null);
   const [uid, setUid] = useState<string | null>(null);
   const [response, setResponse] = useState<EnrollResponse | null>(null);
@@ -363,6 +368,14 @@ export default function Enroll() {
     setAlreadyEnrolled(false);
   };
 
+  if (!isOfficer) {
+    return (
+      <>
+        <TopBar />
+        <Body>{loading ? null : <OfficerNotice />}</Body>
+      </>
+    );
+  }
   if (response !== null) return <Result response={response} onNext={restart} />;
   if (driver === null) return <Pick onPick={setDriver} />;
   if (alreadyEnrolled) {

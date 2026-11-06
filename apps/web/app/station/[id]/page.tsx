@@ -9,6 +9,7 @@ import { cardLabel, txLookup } from "@/lib/feed";
 import { parseAmount, php, shortHash } from "@/lib/format";
 import { NfcReadError, readUid } from "@/lib/nfc";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { BalanceCard, Receipt } from "../../_components/money";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, FilterChip, KeyValues, ListCard, NoProgram, Notice, Sheet, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
@@ -41,6 +42,7 @@ function recentRow(tap: Tap, dashboard: Dashboard): ListRow {
 export default function StationTerminal() {
   const { id } = useParams<{ id: string }>();
   const state = useDashboard();
+  const { isOfficer } = useAuth();
   const [amount, setAmount] = useState("");
   const [selected, setSelected] = useState<SelectedCard | null>(null);
   const [reading, setReading] = useState(false);
@@ -120,6 +122,7 @@ export default function StationTerminal() {
   const capText = `Cap ${php(dashboard.program.perTapCapStroops, rate)}`;
 
   const readCard = async () => {
+    if (!isOfficer) return;
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
@@ -140,6 +143,7 @@ export default function StationTerminal() {
   };
 
   const charge = async () => {
+    if (!isOfficer) return;
     if (selected === null || parsedAmount === null) return;
     const body: TapRequest =
       selected.kind === "read"
@@ -310,42 +314,44 @@ export default function StationTerminal() {
             {formError}
           </Notice>
         ) : null}
-        <label className="flex flex-col gap-2 rounded-md border-[1.5px] border-text bg-raised p-6 focus-within:border-[2.5px] focus-within:border-primary">
-          <span className="flex items-center justify-between gap-2">
-            <span className="text-label">Amount</span>
-            <span className="font-mono text-mono">{capText}</span>
-          </span>
-          <span className="flex items-baseline gap-2 font-mono text-amount-lg">
-            <span aria-hidden="true">PHP</span>
-            <input
-              inputMode="decimal"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0.00"
-              aria-label="Amount in pesos"
-              className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted"
-            />
-          </span>
-        </label>
-        {reading ? (
-          <Card className="!flex-row items-center gap-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-label">Hold the card to the phone</p>
-              <p className="text-caption">Listening for up to 15 seconds</p>
-            </div>
-            <Chip>Reading</Chip>
-          </Card>
-        ) : selected !== null ? (
-          <Card className="!flex-row items-center gap-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-label">{selected.kind === "read" ? `Card …${selected.uid.slice(-4)}` : cardLabel(selected.card)}</p>
-              <p className="text-caption">
-                {selected.kind === "read" ? "Stays selected until you read another or clear" : "Picked from the list, still a real on-chain payment"}
-              </p>
-            </div>
-            {selected.kind === "read" ? <Chip tone="accent">Card read</Chip> : <Chip>simulated</Chip>}
-          </Card>
-        ) : null}
+        <OfficerOnly fallback={<OfficerNotice />}>
+          <label className="flex flex-col gap-2 rounded-md border-[1.5px] border-text bg-raised p-6 focus-within:border-[2.5px] focus-within:border-primary">
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-label">Amount</span>
+              <span className="font-mono text-mono">{capText}</span>
+            </span>
+            <span className="flex items-baseline gap-2 font-mono text-amount-lg">
+              <span aria-hidden="true">PHP</span>
+              <input
+                inputMode="decimal"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="0.00"
+                aria-label="Amount in pesos"
+                className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted"
+              />
+            </span>
+          </label>
+          {reading ? (
+            <Card className="!flex-row items-center gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="text-label">Hold the card to the phone</p>
+                <p className="text-caption">Listening for up to 15 seconds</p>
+              </div>
+              <Chip>Reading</Chip>
+            </Card>
+          ) : selected !== null ? (
+            <Card className="!flex-row items-center gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="text-label">{selected.kind === "read" ? `Card …${selected.uid.slice(-4)}` : cardLabel(selected.card)}</p>
+                <p className="text-caption">
+                  {selected.kind === "read" ? "Stays selected until you read another or clear" : "Picked from the list, still a real on-chain payment"}
+                </p>
+              </div>
+              {selected.kind === "read" ? <Chip tone="accent">Card read</Chip> : <Chip>simulated</Chip>}
+            </Card>
+          ) : null}
+        </OfficerOnly>
         {recent.length > 0 ? (
           <ListCard heading="Recent taps" rows={recent.map((tap) => recentRow(tap, dashboard))} />
         ) : (
@@ -353,25 +359,27 @@ export default function StationTerminal() {
         )}
         <DemoRate />
       </Body>
-      <Actions>
-        <Button loading={charging} disabled={!canCharge && !charging} onClick={() => void charge()}>
-          {charging ? "Charging" : "Charge"}
-        </Button>
-        <div className="flex gap-2">
-          <Button look="secondary" loading={reading} disabled={nfcGone || charging} onClick={() => void readCard()}>
-            {reading ? "Reading" : "Read card"}
+      {isOfficer ? (
+        <Actions>
+          <Button loading={charging} disabled={!canCharge && !charging} onClick={() => void charge()}>
+            {charging ? "Charging" : "Charge"}
           </Button>
-          {selected !== null ? (
-            <Button look="secondary" disabled={charging} onClick={clear}>
-              Clear
+          <div className="flex gap-2">
+            <Button look="secondary" loading={reading} disabled={nfcGone || charging} onClick={() => void readCard()}>
+              {reading ? "Reading" : "Read card"}
             </Button>
-          ) : (
-            <Button look="secondary" disabled={charging} onClick={() => setPicking(true)}>
-              Simulate tap
-            </Button>
-          )}
-        </div>
-      </Actions>
+            {selected !== null ? (
+              <Button look="secondary" disabled={charging} onClick={clear}>
+                Clear
+              </Button>
+            ) : (
+              <Button look="secondary" disabled={charging} onClick={() => setPicking(true)}>
+                Simulate tap
+              </Button>
+            )}
+          </div>
+        </Actions>
+      ) : null}
       <Sheet title="Simulate tap" open={picking} onClose={() => setPicking(false)}>
         {pickable.length === 0 ? (
           <EmptyState icon="idcard" title="No active cards" body="Enroll a driver to tap at this station." />

@@ -144,3 +144,24 @@ CREATE INDEX idx_taps_station_created         ON taps(station_id, created_at);
 CREATE INDEX idx_taps_created                 ON taps(created_at);
 CREATE INDEX idx_chain_txs_status             ON chain_txs(status);
 CREATE INDEX idx_agent_decisions_created      ON agent_decisions(agent, created_at);
+
+-- @auth-schema: schema version 2 (accounts, docs/api-and-data.md §5.2 #22-#25). db/index.ts applies everything from
+-- this marker on to a version-1 database, so the DDL below is the one source of truth for the v1 -> v2 migration.
+
+CREATE TABLE users (
+  id            TEXT    PRIMARY KEY,                     -- 'usr_' + 12 hex
+  email         TEXT    NOT NULL UNIQUE,                 -- lowercased
+  display_name  TEXT    NOT NULL,
+  role          TEXT    NOT NULL CHECK (role IN ('officer','viewer')),
+  password_hash TEXT    NOT NULL,                        -- scrypt$N$r$p$saltHex$hashHex
+  created_at    INTEGER NOT NULL
+);
+
+CREATE TABLE sessions (
+  id          TEXT    PRIMARY KEY,                       -- sha256(cookie token) hex; the raw token is never stored
+  user_id     TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  INTEGER NOT NULL,
+  expires_at  INTEGER NOT NULL
+);
+
+CREATE INDEX sessions_user ON sessions(user_id);

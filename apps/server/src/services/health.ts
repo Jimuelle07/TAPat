@@ -1,5 +1,5 @@
-// The /api/health probes (docs/api-and-data.md §5.2 #1). `rpc` is checked on every request; `velo` and `telegram`
-// are cached so a down service is not hammered. `ok` depends on `rpc` only: Velo or Telegram down is degraded.
+// The /api/health probes (docs/api-and-data.md §5.2 #1). All three are cached for HEALTH_CACHE_MS and single-flight
+// so a down service is not hammered; `ok` depends on `rpc` only: Velo or Telegram down is degraded.
 import type { GasMode, HealthResponse } from '@tapat/shared';
 import type { Velo } from '@tapat/agent';
 import type { Config } from '../config';
@@ -23,19 +23,28 @@ export function createHealthProbes(deps: HealthProbeDeps): HealthProbes {
   const doFetch = deps.fetch ?? globalThis.fetch;
   const now = deps.now ?? Date.now;
 
-  /** Remembers the last result (successes and failures) for HEALTH_CACHE_MS. */
+  /** Remembers the last result (successes and failures) for HEALTH_CACHE_MS; concurrent misses share one probe. */
   const cached = (fn: () => Promise<boolean>): (() => Promise<boolean>) => {
     let entry: { at: number; value: boolean } | null = null;
+    let inFlight: Promise<boolean> | null = null;
     return async () => {
       const at = now();
       if (entry !== null && at - entry.at < HEALTH_CACHE_MS) return entry.value;
-      const value = await fn();
-      entry = { at, value };
-      return value;
+      if (inFlight !== null) return inFlight;
+      const pending = fn()
+        .then((value) => {
+          entry = { at, value };
+          return value;
+        })
+        .finally(() => {
+          inFlight = null;
+        });
+      inFlight = pending;
+      return pending;
     };
   };
 
-  const rpc = async (): Promise<boolean> => {
+  const rpc = cached(async (): Promise<boolean> => {
     try {
       const response = await doFetch(deps.config.STELLAR_RPC_URL, {
         method: 'POST',
@@ -48,7 +57,7 @@ export function createHealthProbes(deps: HealthProbeDeps): HealthProbes {
     } catch {
       return false;
     }
-  };
+  });
 
   const velo = cached(async () => {
     try {

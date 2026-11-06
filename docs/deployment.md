@@ -295,6 +295,7 @@ sudo systemctl restart tapat-api tapat-web
 | Task | Command on the VM (as `<ssh-user>`; repo commands use `sudo -H -u tapat`) |
 |---|---|
 | Reset + seed for a demo run | `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` then `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/seed-demo.ts` |
+| Create/reset the officer login | `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/create-officer.ts --officer-email=<email> [--officer-password=<password>]` (creates or promotes the officer without reseeding or touching the chain) |
 | Smoke test | `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/smoke-testnet.ts` |
 | End-to-end gate | `sudo -H -u tapat pnpm -C /opt/tapat demo:e2e` |
 | Logs | `sudo journalctl -u tapat-api -f`, `sudo journalctl -u tapat-web -f` |
@@ -303,6 +304,7 @@ sudo systemctl restart tapat-api tapat-web
 | Change basic-auth credentials | edit `/etc/caddy/tapat-users`, then `sudo systemctl restart caddy` |
 
 - **No redeploys after the Nov 7 09:00 feature freeze**, except a bug fix with a repro ([build-schedule.md](build-schedule.md)). The site must stay live and seeded from submission (Nov 7 11:00) through judging.
+- **The first API restart after this release migrates SQLite automatically:** schema `user_version` 1 → 2 adds the `users` and `sessions` tables; existing rows are untouched. Back up the DB first with the backup row's command above.
 - Never restart `tapat-api` during a demo beat.
 
 ## 8. Security

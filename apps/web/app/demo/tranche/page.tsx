@@ -7,6 +7,7 @@ import { cardLabel, perLitre, txLookup } from "@/lib/feed";
 import { php, shortHash } from "@/lib/format";
 import { ignoredSpike } from "@/lib/tranche";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { PriceChart } from "../../_components/charts";
 import { Actions, Body, Button, Card, DemoRate, ErrorBlock, KeyValues, LinkButton, ListCard, NoProgram, Notice, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
@@ -14,6 +15,7 @@ const POLL_MS = 700;
 
 export default function TrancheAgent() {
   const state = useDashboard();
+  const { isOfficer } = useAuth();
   const [tranche, setTranche] = useState<TrancheState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -42,6 +44,7 @@ export default function TrancheAgent() {
   }, [running, refresh]);
 
   const start = async () => {
+    if (!isOfficer) return;
     setStarting(true);
     setStartError(null);
     try {
@@ -144,9 +147,11 @@ export default function TrancheAgent() {
           ) : startError?.message.includes("no verified budget") ? (
             <LinkButton href="/?sheet=budget">Fund the budget</LinkButton>
           ) : (
-            <Button loading={running || starting} onClick={() => void start()}>
-              {running || starting ? "Feed running" : "Start price feed"}
-            </Button>
+            <OfficerOnly fallback={<OfficerNotice />}>
+              <Button loading={running || starting} onClick={() => void start()}>
+                {running || starting ? "Feed running" : "Start price feed"}
+              </Button>
+            </OfficerOnly>
           )}
         </Actions>
       ) : null}

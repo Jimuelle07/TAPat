@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ApiClientError, getProgram, postProgram } from "@/lib/api";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Actions, Body, Button, Field, Notice, TopBar } from "../../_components/ui";
+import { OfficerNotice, useAuth } from "../../_components/Auth";
 
 /** `message` names the failing field as "<path>: <reason>" (§5.3), which is how an error lands on its input. */
 function fieldOf(error: string | null): string | null {
@@ -13,6 +14,7 @@ function fieldOf(error: string | null): string | null {
 
 export default function CreateProgram() {
   const router = useRouter();
+  const { isOfficer, loading } = useAuth();
   const [form, setForm] = useState({
     name: "TODA Fuel Aid — San Roque",
     perTapCapPhp: "500",
@@ -37,6 +39,8 @@ export default function CreateProgram() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    // The form is officer-only, but a stale render must not reach the POST either.
+    if (!isOfficer) return;
     setBusy(true);
     setError(null);
     try {
@@ -57,6 +61,15 @@ export default function CreateProgram() {
       setBusy(false);
     }
   };
+
+  if (!isOfficer) {
+    return (
+      <>
+        <TopBar title="Create program" back="/" />
+        <Body>{loading ? null : <OfficerNotice />}</Body>
+      </>
+    );
+  }
 
   const known = ["name", "perTapCapPhp", "tranchePhp", "expiresAt", "priceThresholdPhp", "alpha", "beta"];
   return (

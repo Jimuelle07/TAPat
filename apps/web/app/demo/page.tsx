@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { postSettlementRun } from "@/lib/api";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
+import { OfficerOnly, OfficerNotice, useAuth } from "../_components/Auth";
 import { StationRow } from "../_components/money";
 import { UnfreezeSheet } from "../_components/Unfreeze";
 import { Body, Button, DemoRate, ErrorBlock, LinkButton, NoProgram, Notice, SectionTitle, Skeleton, TopBar } from "../_components/ui";
@@ -19,6 +20,7 @@ function Disabled({ children }: { children: string }) {
 export default function Agents() {
   const router = useRouter();
   const state = useDashboard();
+  const { isOfficer } = useAuth();
   const [settling, setSettling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unfreezing, setUnfreezing] = useState(false);
@@ -37,6 +39,7 @@ export default function Agents() {
               const fired = dashboard.program.trancheFired;
               const frozen = dashboard.stations.find((s) => s.status === "frozen");
               const settle = async () => {
+                if (!isOfficer) return;
                 setSettling(true);
                 setError(null);
                 try {
@@ -56,23 +59,25 @@ export default function Agents() {
                       {error}
                     </Notice>
                   ) : null}
-                  {fired || ended ? (
-                    <Button disabled>Start price feed</Button>
-                  ) : (
-                    <LinkButton href="/demo/tranche">Start price feed</LinkButton>
-                  )}
-                  {frozen !== undefined || ended ? <Disabled>Run burst</Disabled> : <LinkButton look="secondary" href="/demo/freeze">Run burst</LinkButton>}
-                  <Button look="secondary" loading={settling} disabled={ended} onClick={() => void settle()}>
-                    {settling ? "Settling" : "Run settlement"}
-                  </Button>
-                  {frozen === undefined || ended ? (
-                    <Disabled>Unfreeze Station B</Disabled>
-                  ) : (
-                    <Button look="secondary" onClick={() => setUnfreezing(true)}>
-                      Unfreeze {`Station ${frozen.id}`}
+                  <OfficerOnly fallback={<OfficerNotice />}>
+                    {fired || ended ? (
+                      <Button disabled>Start price feed</Button>
+                    ) : (
+                      <LinkButton href="/demo/tranche">Start price feed</LinkButton>
+                    )}
+                    {frozen !== undefined || ended ? <Disabled>Run burst</Disabled> : <LinkButton look="secondary" href="/demo/freeze">Run burst</LinkButton>}
+                    <Button look="secondary" loading={settling} disabled={ended} onClick={() => void settle()}>
+                      {settling ? "Settling" : "Run settlement"}
                     </Button>
-                  )}
-                  {ended ? <Disabled>End program</Disabled> : <LinkButton look="secondary" href="/demo/end">End program</LinkButton>}
+                    {frozen === undefined || ended ? (
+                      <Disabled>Unfreeze Station B</Disabled>
+                    ) : (
+                      <Button look="secondary" onClick={() => setUnfreezing(true)}>
+                        Unfreeze {`Station ${frozen.id}`}
+                      </Button>
+                    )}
+                    {ended ? <Disabled>End program</Disabled> : <LinkButton look="secondary" href="/demo/end">End program</LinkButton>}
+                  </OfficerOnly>
                   {fired || frozen !== undefined ? (
                     <div className="flex gap-2">
                       {fired ? <LinkButton look="tertiary" href="/demo/tranche">Tranche Agent</LinkButton> : null}

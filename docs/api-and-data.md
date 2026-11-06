@@ -2,7 +2,7 @@
 
 The single source of truth for TAPat's SQLite schema, REST endpoints, SSE stream, chain call map, environment variables, fixtures, and the shared TypeScript types the UI builds against.
 
-Last updated: 2026-11-05
+Last updated: 2026-11-07
 
 Related docs: [SDD](system-design.md) (why these calls happen, in what order) · [Algorithms](algorithms.md) (scoring and thresholds behind the numbers) · [PRD](PRD.md) (why the product exists) · [Setup](setup.md) (how to get these values) · [Build schedule](build-schedule.md) (who writes which file) · [Test plan](test-plan.md) (how each contract is checked).
 
@@ -16,7 +16,7 @@ Related docs: [SDD](system-design.md) (why these calls happen, in what order) ·
 | Money | Every amount is an integer count of **stroops** (`1 XLM = 10^7 stroops`). Never a float, never PHP, never XLM on the wire between API and DB. PHP is a display concern only. |
 | Money in JSON | Any field whose database column ends in `_stroops` is serialized as a **decimal string** (e.g. `"350000000"`). `bigint` is not JSON-serializable and 64-bit values exceed `Number.MAX_SAFE_INTEGER` for large programs; strings keep one representation everywhere. Deserialize with `BigInt(v)`. |
 | Timestamps | Columns ending in `_at` are **unix milliseconds** (`INTEGER`). Columns ending in `_at_s` are **unix seconds** (`INTEGER`) because Soroban `u64` policy expiry is seconds; Stellar ledger time is unix seconds. |
-| Identifiers | Primary keys are opaque `TEXT` with a type prefix: `prog_`, `ben_`, `card_`, `tap_`, `ctx_`, `dec_`. `stations.id` is the short label (`A`, `B`) because it appears in the phone URL. `velo_intents.id` is the Velo `paymentIntentId` verbatim. |
+| Identifiers | Primary keys are opaque `TEXT` with a type prefix: `prog_`, `ben_`, `card_`, `tap_`, `ctx_`, `dec_`, `usr_`. `stations.id` is the short label (`A`, `B`) because it appears in the phone URL. `velo_intents.id` is the Velo `paymentIntentId` verbatim. |
 | `u64` fields in JSON | `nonce` is serialized as a decimal string for the same reason as stroops. |
 | Errors | Every failure uses exactly `{"error":{"code":"<CODE>","message":"<human readable>"}}`. Codes are a closed set (§5.3). No other error shape is allowed. |
 | Validation | Bodies and query strings are parsed with `zod` schemas imported from `@tapat/shared` (`packages/shared/schemas.ts`). A parse failure is `400 VALIDATION_ERROR` with the failing path in `message`. |
@@ -243,12 +243,29 @@ CREATE TABLE price_points (
   PRIMARY KEY (program_id, idx)
 );
 
+CREATE TABLE users (
+  id            TEXT    PRIMARY KEY,                     -- 'usr_' + 12 hex
+  email         TEXT    NOT NULL UNIQUE,                 -- lowercased
+  display_name  TEXT    NOT NULL,
+  role          TEXT    NOT NULL CHECK (role IN ('officer','viewer')),
+  password_hash TEXT    NOT NULL,                        -- scrypt$N$r$p$saltHex$hashHex
+  created_at    INTEGER NOT NULL
+);
+
+CREATE TABLE sessions (
+  id          TEXT    PRIMARY KEY,                       -- sha256(cookie token) hex; the raw token is never stored
+  user_id     TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  INTEGER NOT NULL,
+  expires_at  INTEGER NOT NULL
+);
+
 CREATE INDEX idx_beneficiaries_program_status ON beneficiaries(program_id, status);
 CREATE INDEX idx_cards_beneficiary            ON cards(beneficiary_id);
 CREATE INDEX idx_taps_station_created         ON taps(station_id, created_at);
 CREATE INDEX idx_taps_created                 ON taps(created_at);
 CREATE INDEX idx_chain_txs_status             ON chain_txs(status);
 CREATE INDEX idx_agent_decisions_created      ON agent_decisions(agent, created_at);
+CREATE INDEX sessions_user                    ON sessions(user_id);
 ```
 
 **`chain_txs.error_code` values.** These are row-level codes written by `apps/server/src/services/chain.ts` — the reason a row ended where it did. They are **not** HTTP `error.code`s: the API's closed set is §5.3 and is unchanged. A `succeeded` row has `error_code = NULL`; a `submission_unknown` row carries its code as a hint until a verdict replaces it.
@@ -282,6 +299,8 @@ Retry rule: only a `failed` row is safe to retry — it is written only when the
 - `chain_txs.status = 'submission_unknown'` rows are settled by the background reconciler (5 s ticks, rows younger than 360 s — 300 s of transaction validity plus 60 s — see [system-design.md §4.5](system-design.md)): the Velo status first when the row has a `velo_request_id`, then the chain by `inner_hash`, so direct-path rows are included. They are never resubmitted.
 - `velo_intents.amount` is a string so `1000.00` stays exact. SQLite `REAL` would lose the trailing digits Velo compares.
 - One `program` row exists at a time in the demo build. `reset-demo.ts` deletes every row, then `seed-demo.ts` inserts one.
+- **Schema version 2 (accounts).** `PRAGMA user_version` is `2`. A v1 database is migrated in place at boot by creating only `users` and `sessions`; the v1 tables are unchanged. `reset-demo.ts` deletes the demo rows but **not** `users` or `sessions`, so the judges' officer login survives a demo reset; `seed-demo.ts` re-ensures the officer afterwards.
+- `users` holds the one officer (created by `seed-demo.ts`, §5.2 note after #25) and every signup viewer. `sessions.id` is `sha256(token)` hex — the raw cookie token is never stored, so a database read cannot mint a cookie. Passwords are scrypt (`scrypt$16384$8$1$<saltHex>$<hashHex>`), never plaintext.
 - Seeded fixed values: program `per_tap_cap_stroops = 500000000` (₱500), `tranche_stroops = 1500000000` (₱1,500), `expires_at_s = 1796054399`, `price_threshold_php = 65.0`, `alpha = 0.05`, `beta = 0.02`. Stations `A` = `Petron San Roque`, `B` = `Rotonda Fuels`.
 
 ### 2.2 Decision vocabulary (`agent_decisions.decision`)
@@ -589,6 +608,18 @@ export interface RequestEvidenceResponse {
 }
 export interface BurstResponse { accepted: boolean; edges: number; tickMs: number }
 export interface TrancheStartResponse { started: boolean; points: number; tickMs: number }
+
+// Accounts (§5.2 #22–#25). Officer gating is in the web UI only; the API endpoints stay open behind Caddy basic auth.
+export type UserRole = 'officer' | 'viewer';
+export interface AuthUser {
+  id: string;                   // 'usr_…'
+  email: string;                // lowercased
+  displayName: string;
+  role: UserRole;               // signup always creates 'viewer'; seed-demo creates the one 'officer'
+  createdAt: UnixMs;
+}
+export interface AuthResponse { user: AuthUser }
+export interface MeResponse { user: AuthUser | null }
 ```
 
 `GET /api/health` is the only endpoint that returns `HealthResponse` directly (no envelope). `GET /api/beneficiaries` and `GET /api/stations` return arrays directly. Everything else returns one of the envelopes above.
@@ -660,6 +691,10 @@ Base path `/api`. Server: Fastify 5 on `PORT` (4000), listening on `127.0.0.1` o
 | 19 | GET | `/api/export/coa.csv` | COA audit export | PRD F6 |
 | 20 | GET | `/api/stream` | SSE: every state change | all |
 | 21 | POST | `/api/webhooks/velo` | Velo webhook receiver | PRD F3 |
+| 22 | POST | `/api/auth/signup` | create a viewer account + session | this doc |
+| 23 | POST | `/api/auth/login` | authenticate + session cookie | this doc |
+| 24 | POST | `/api/auth/logout` | clear the cookie + delete the session | this doc |
+| 25 | GET | `/api/auth/me` | current user, or `null` | this doc |
 
 ### 5.2 Endpoint reference
 
@@ -1055,7 +1090,7 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 | `/` | budget badge (`budget`), the five money tiles + invariant line, the **station strip** (`stations`: name, `active`/`frozen` badge, `frozenReason`, `spentStroops`, `pendingStroops`, plus `heldStroops` for frozen stations), the card list (`cards`), and **one merged activity feed** |
 | `/demo` | the five agent buttons, the price chart + tranche decision panel, the **edge chart** (`recentTaps` vs the `midasThreshold` line), the same **station strip**, and the settlement result panel (last `SettlementResponse`, one line per station: "A — claimed ₱350 · tx…", "B — HELD ₱960 · station frozen") |
 
-UI layout, from the TAPat Mobile App UI Figma file: `/` shows the budget row, the five tiles, the invariant line and links. The station strip is on `/stations`, the card list on `/cards`, the merged feed on `/activity`, system health on `/health`. `/demo` keeps the five buttons and the station strip; the price chart and tranche panel are on `/demo/tranche`, the edge chart on `/demo/freeze`, the settlement panel on `/demo/settlement`, the sweep on `/demo/end`. When `program` is `null`, a page also offers **Create program**; a program created that way stays `draft` with no stations until `seed-demo.ts` runs.
+UI layout, from the TAPat Mobile App UI Figma file: `/` shows the budget row, the five tiles, the invariant line and links. The station strip is on `/stations`, the card list on `/cards`, the merged feed on `/activity`, system health on `/health`. `/demo` keeps the five buttons and the station strip; the price chart and tranche panel are on `/demo/tranche`, the edge chart on `/demo/freeze`, the settlement panel on `/demo/settlement`, the sweep on `/demo/end`. `/login` and `/signup` are the account pages behind the top bar's **Log in** / **Create an account** buttons; every state-changing control on the other pages is officer-only (§5.2 note after #25). When `program` is `null`, a page also offers **Create program**; a program created that way stays `draft` with no stations until `seed-demo.ts` runs.
 
 The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
 
@@ -1090,14 +1125,61 @@ timestamp,event,card_hash_prefix,station,amount_php,amount_xlm,tx_hash,agent_dec
 
 Errors: `404 NOT_FOUND`, `500 INTERNAL`.
 
+#### 22. `POST /api/auth/signup`
+
+Request body — `signupBodySchema` from `@tapat/shared`:
+
+```json
+{ "email": "juan@example.com", "password": "correct horse battery", "displayName": "Juan D." }
+```
+
+`email` is trimmed and lowercased, must be a valid address and ≤ 254 chars; `password` is 8–200 chars; `displayName` is trimmed, 1–80 chars.
+
+Response 201: `{ "user": AuthUser }`, with `role: "viewer"` — signup never creates an officer. Also sets the session cookie (below).
+
+- Cookie: `tapat_session=<token>; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200` (12 h). Logout sets `Max-Age=0`. No `Secure` flag: TLS ends at the Funnel/Vercel edge, so the API sees plain http on `127.0.0.1`.
+- Token = `randomBytes(32).toString('base64url')`. The DB stores only `sha256(token)` hex as `sessions.id`; the raw token exists only in the cookie. `sessions.expires_at = now + 43200 s`.
+- Passwords: `node:crypto` scrypt (N=16384, r=8, p=1, 16-byte random salt, 64-byte key), stored as `scrypt$16384$8$1$<saltHex>$<hashHex>`, compared with `timingSafeEqual`.
+- Errors: `400 VALIDATION_ERROR`, `409 ACCOUNT_EXISTS` (`"An account with this email already exists."`).
+
+#### 23. `POST /api/auth/login`
+
+Request body — `loginBodySchema` from `@tapat/shared`:
+
+```json
+{ "email": "juan@example.com", "password": "correct horse battery" }
+```
+
+Response 200: `{ "user": AuthUser }` plus the same `Set-Cookie` as signup (new session row, 12 h TTL).
+
+- An unknown email still runs one scrypt against a fixed dummy hash, so response timing does not reveal which emails exist.
+- The one officer account is created by `seed-demo.ts` (§2.1), never by an endpoint.
+- Errors: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED` (`"Wrong email or password."`).
+
+#### 24. `POST /api/auth/logout`
+
+No request body. Response **204** with an empty body and `Set-Cookie: tapat_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`; deletes the `sessions` row for the presented token.
+
+Idempotent: no cookie, an unknown token, or an expired session still returns 204. Errors: none.
+
+#### 25. `GET /api/auth/me`
+
+No request. Response 200: `{ "user": AuthUser | null }` — `null` when there is no cookie, the token is unknown, or the session has expired.
+
+The cookie is parsed by hand from the `cookie` header (no `@fastify/cookie`); expired sessions are treated as absent. Errors: none.
+
+**Officer gating is UI-only.** None of the other endpoints check the session: #1–#21 stay open exactly as before, protected in production by Caddy basic auth (and by the optional `WEB_BASIC_AUTH` on the Vercel front end). The web app hides or locks every state-changing control unless the logged-in user's `role` is `officer` (`OfficerOnly` in `apps/web/app/_components/Auth.tsx`; the fallback is `OfficerNotice`: "Officer login required" / "Log in with the officer account to use this action." with a **Log in** link to `/login`). `seed-demo.ts` creates the single officer; signup always creates a viewer.
+
 ### 5.3 Error codes (closed set)
 
 | Code | HTTP | Raised by | Meaning |
 |---|---|---|---|
 | `VALIDATION_ERROR` | 400 | any | zod parse or business validation failed; `message` names the field |
 | `NOT_FOUND` | 404 | any `:id` route | id unknown, or no program exists |
+| `UNAUTHORIZED` | 401 | `POST /api/auth/login` | wrong email or password |
 | `CARD_NOT_ENROLLED` | 404 | `POST /api/taps` | no card for that device hash in this program |
 | `WEBHOOK_SIGNATURE_INVALID` | 400 | `POST /api/webhooks/velo` | HMAC verify failed |
+| `ACCOUNT_EXISTS` | 409 | `POST /api/auth/signup` | an account with that email is already registered |
 | `CARD_ALREADY_ENROLLED` | 409 | `POST /api/enroll` | UID already has a non-`failed` card in this program |
 | `INVALID_STATE` | 409 | program/agents/stations/beneficiaries | the resource is in the wrong state for the action; `message` says which (e.g. `"Tap D2 at Station B first"`, `"no verified budget"`, `"tranche already fired"`) |
 | `OCR_UNAVAILABLE` | 422 | `POST /api/intake/upload` | image hash not in fixtures |
@@ -1183,6 +1265,8 @@ export async function postTap(body: {
 ```
 
 UI1's function bodies return the imported `apps/web/mocks/*.json`; UI2 replaces each body with the `fetch('/api/...')` call above and nothing else in the page changes — that is the "one-line change". Pages that need SSE or forms are client components using plain `fetch` + React state; no extra data library. Real-time comes only from `useStream(onEvent)` in `apps/web/lib/sse.ts` (§5.4).
+
+The auth functions follow the same one-front-door rule: `postSignup(body: SignupBody): Promise<AuthResponse>`, `postLogin(body: LoginBody): Promise<AuthResponse>`, `postLogout(): Promise<void>` (204, no JSON parse), `getMe(): Promise<MeResponse>`. They back the `/login` and `/signup` pages and the account button in the top bar; the pages never call `fetch` directly.
 
 | File | Shape |
 |---|---|
@@ -1395,7 +1479,7 @@ Names the plan did not specify, chosen minimally here. The integrator must recon
 
 1. `Stroops` JSON encoding = decimal string; `nonce`/`u64` = decimal string.
 2. `packages/shared/money.ts` exports: `STROOPS_PER_XLM`, `DEFAULT_PHP_PER_XLM`, `phpToStroops`, `stroopsToPhp`, `formatPhp`, `stroopsToXlmString`.
-3. Extra error codes: `NOT_FOUND`, `INVALID_STATE`, `VALIDATION_ERROR`, `CHAIN_ERROR`, `INTERNAL`, `WEBHOOK_SIGNATURE_INVALID`, `PHOTO_MISMATCH`.
+3. Extra error codes: `NOT_FOUND`, `INVALID_STATE`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `ACCOUNT_EXISTS`, `CHAIN_ERROR`, `INTERNAL`, `WEBHOOK_SIGNATURE_INVALID`, `PHOTO_MISMATCH`.
 4. `agent_decisions.decision` vocabulary beyond `BUDGET_EXHAUSTED` and `HELD`: `APPROVED`, `REJECTED`, `UNCERTAIN`, `EVIDENCE_REQUESTED`, `EVIDENCE_VERIFIED`, `EVIDENCE_UNMATCHED`, `FUNDED`, `BASELINE_SET`, `FROZEN`, `UNFROZEN`, `CLAIMED`, `NOTHING_PENDING`, `SWEPT`, `SKIPPED`, `PROGRAM_ENDED`.
 5. `chain_txs.kind` vocabulary: `register`, `register_agent`, `fund`, `authorize`, `claim`, `revoke_agent`, `sweep`, `revoke_device`.
 6. `stations.id` values `A` and `B`.

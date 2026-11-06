@@ -6,6 +6,7 @@ import { postBudgetCheckout } from "@/lib/api";
 import { php } from "@/lib/format";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Button, Chip, Field, KeyValues, Notice, Sheet } from "./_components/ui";
+import { OfficerNotice, useAuth } from "./_components/Auth";
 
 /** Budget deposit: one Velo checkout paid from the Budget Office wallet, verified on the ledger before any tranche. */
 export function BudgetSheet({
@@ -20,11 +21,14 @@ export function BudgetSheet({
   onChanged: () => void;
 }) {
   const { budget, phpPerXlm } = dashboard;
+  const { isOfficer, loading } = useAuth();
   const [amount, setAmount] = useState("10000");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fund = async () => {
+    // The form is officer-only, but a stale render must not reach the checkout POST either.
+    if (!isOfficer) return;
     const amountPhp = Number(amount);
     if (!Number.isInteger(amountPhp) || amountPhp <= 0) {
       setError("Enter a whole peso amount above zero.");
@@ -75,22 +79,28 @@ export function BudgetSheet({
   }
   return (
     <Sheet title="Fund the budget" open={open} onClose={onClose}>
-      {error !== null ? (
-        <Notice tone="error" title="Could not open checkout">
-          {error}
-        </Notice>
-      ) : null}
-      <Field
-        label="Budget amount (PHP)"
-        inputMode="numeric"
-        value={amount}
-        onChange={(event) => setAmount(event.target.value)}
-        helper="Paid once through Velo checkout, from the Budget Office wallet."
-      />
-      <KeyValues rows={[["Display rate", `PHP ${phpPerXlm} per XLM, demo rate`]]} />
-      <Button loading={busy} onClick={() => void fund()}>
-        {error !== null ? "Try again" : "Fund budget"}
-      </Button>
+      {loading ? null : !isOfficer ? (
+        <OfficerNotice />
+      ) : (
+        <>
+          {error !== null ? (
+            <Notice tone="error" title="Could not open checkout">
+              {error}
+            </Notice>
+          ) : null}
+          <Field
+            label="Budget amount (PHP)"
+            inputMode="numeric"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            helper="Paid once through Velo checkout, from the Budget Office wallet."
+          />
+          <KeyValues rows={[["Display rate", `PHP ${phpPerXlm} per XLM, demo rate`]]} />
+          <Button loading={busy} onClick={() => void fund()}>
+            {error !== null ? "Try again" : "Fund budget"}
+          </Button>
+        </>
+      )}
     </Sheet>
   );
 }

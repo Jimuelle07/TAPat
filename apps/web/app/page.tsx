@@ -10,6 +10,7 @@ import {
   Body,
   Chip,
   DemoRate,
+  EmptyState,
   ErrorBlock,
   ListCard,
   NoProgram,
@@ -21,6 +22,7 @@ import {
   type ChipTone,
   type ListRow,
 } from "./_components/ui";
+import { OfficerOnly } from "./_components/Auth";
 import { BudgetSheet } from "./BudgetSheet";
 import { ExportSheet } from "./ExportSheet";
 
@@ -70,7 +72,10 @@ export default function Home() {
       <>
         <TopBar />
         <Body>
-          <NoProgram body="Create a program to set the cap, tranche and expiry." />
+          {/* Only an officer can create the program, so a viewer gets the same message without the action. */}
+          <OfficerOnly fallback={<EmptyState title="No active program" body="Create a program to set the cap, tranche and expiry." />}>
+            <NoProgram body="Create a program to set the cap, tranche and expiry." />
+          </OfficerOnly>
         </Body>
       </>
     );

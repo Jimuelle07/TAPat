@@ -13,6 +13,7 @@ import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
 import type { TrancheService } from '../services/tranche';
 import { registerAgentRoutes } from './agents';
+import { registerAuthRoutes } from './auth';
 import { registerBeneficiaryRoutes } from './beneficiaries';
 import { registerBudgetRoutes } from './budget';
 import { registerDashboardRoutes } from './dashboard';
@@ -77,6 +78,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   const notifier =
     deps.notifier ?? (deps.telegram === undefined ? undefined : telegramEvidenceNotifier(deps.db, deps.telegram));
   registerHealthRoutes(app, { probes: deps.probes, gasMode: deps.config.GAS_MODE });
+  registerAuthRoutes(app, { db: deps.db });
   registerProgramRoutes(app, {
     db: deps.db,
     phpPerXlm: deps.config.PHP_PER_XLM,

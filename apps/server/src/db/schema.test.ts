@@ -1,8 +1,9 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
-import { applySchema, openDb, type Db } from './index';
+import { applySchema, BASE_SCHEMA_SQL, openDb, SCHEMA_VERSION, type Db } from './index';
 
 const TABLES = [
   'agent_decisions',
@@ -11,8 +12,10 @@ const TABLES = [
   'chain_txs',
   'price_points',
   'program',
+  'sessions',
   'stations',
   'taps',
+  'users',
   'velo_intents',
   'webhook_deliveries',
 ];
@@ -65,6 +68,24 @@ describe('schema.sql', () => {
     const second = open(path);
     expect(tableNames(second)).toEqual(TABLES);
     expect(second.prepare('SELECT COUNT(*) AS n FROM stations').get<{ n: number }>()).toEqual({ n: 1 });
+  });
+
+  it('migrates a version-1 file in place: the auth tables appear, existing rows stay, user_version becomes 2', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tapat-db-v1-'));
+    dirs.push(dir);
+    const path = join(dir, 'tapat.db');
+    const legacy = new Database(path);
+    legacy.exec(BASE_SCHEMA_SQL);
+    legacy.exec('PRAGMA user_version = 1');
+    legacy
+      .prepare("INSERT INTO stations (id, name, public_key, secret_enc, status) VALUES ('A', 'Petron San Roque', 'G', 'x', 'active')")
+      .run();
+    legacy.close();
+
+    const db = open(path);
+    expect(db.pragma('user_version')).toBe(SCHEMA_VERSION);
+    expect(tableNames(db)).toEqual(TABLES);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM stations').get<{ n: number }>()).toEqual({ n: 1 });
   });
 
   it('rejects a row that violates a CHECK constraint', () => {

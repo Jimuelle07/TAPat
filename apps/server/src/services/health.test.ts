@@ -93,16 +93,23 @@ describe('checkHealth', () => {
     await expect(checkHealth(probes, 'velo')).resolves.toMatchObject({ ok: true, rpc: 'ok', velo: 'down' });
   });
 
-  it('caches velo and telegram for HEALTH_CACHE_MS but checks the RPC every time', async () => {
+  it('caches rpc, velo and telegram for HEALTH_CACHE_MS', async () => {
     const { probes, now, counts } = harness();
 
     await checkHealth(probes, 'velo');
     now.value = HEALTH_CACHE_MS - 1;
     await checkHealth(probes, 'velo');
-    expect(counts).toEqual({ rpc: 2, telegram: 1, list: 1 });
+    expect(counts).toEqual({ rpc: 1, telegram: 1, list: 1 });
 
     now.value = HEALTH_CACHE_MS;
     await checkHealth(probes, 'velo');
-    expect(counts).toEqual({ rpc: 3, telegram: 2, list: 2 });
+    expect(counts).toEqual({ rpc: 2, telegram: 2, list: 2 });
+  });
+
+  it('probes the RPC once for two quick calls', async () => {
+    const { probes, counts } = harness();
+
+    await Promise.all([checkHealth(probes, 'velo'), checkHealth(probes, 'velo')]);
+    expect(counts).toEqual({ rpc: 1, telegram: 1, list: 1 });
   });
 });

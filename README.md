@@ -176,6 +176,16 @@ Docs:
 - [`docs/demo-runbook.md`](docs/demo-runbook.md) — the kit, the T-minus timeline, the 3-minute script, and the judge Q&A.
 - [`docs/index.md`](docs/index.md) — the doc map and the glossary.
 
+## For judges
+
+Open the demo URL — the submission form has the URL and the basic-auth login the site asks for first.
+
+Then press **Log in** in the top-right and use the **officer account**; its email and password are in the submission form. The officer unlocks every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program. **Create an account** makes a **viewer**: read-only dashboards, and every action shows "Officer login required".
+
+Honesty note: the officer role is a **UI gate for the demo** — the API endpoints themselves are protected by the site's basic auth, not by the role.
+
+The officer account is created on a fresh demo by the seed: `seed-demo.ts --officer-email=… --officer-password=…` prints `Officer login: <email> / <password>`. Without `--officer-password` it generates one and prints it once; accounts survive `reset-demo`. On an existing deployment that is already seeded, `create-officer.ts --officer-email=… [--officer-password=…]` creates or promotes the officer without reseeding or touching the chain, and prints the same `Officer login:` line.
+
 ## Environment variables
 
 Three files: the committed root `.env.example` lists every variable with no real value (a server section and a web section); the per-app templates it mirrors are `apps/server/.env.example` and `apps/web/.env.example`. At runtime the values live in `apps/server/.env` (the server refuses to boot if one is missing and prints the names) and `apps/web/.env.local` — both git-ignored.

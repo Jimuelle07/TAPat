@@ -28,14 +28,26 @@ export interface Db {
 }
 
 const SCHEMA_SQL = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
-/** `PRAGMA user_version` once schema.sql has been applied. schema.sql has no IF NOT EXISTS, so it runs once per file. */
-const SCHEMA_VERSION = 1;
+/** Everything in schema.sql from this marker to the end is the v2 auth DDL; a v1 file gets only that part. */
+const AUTH_SCHEMA_MARKER = '-- @auth-schema';
+const AUTH_SCHEMA_AT = SCHEMA_SQL.indexOf(AUTH_SCHEMA_MARKER);
+if (AUTH_SCHEMA_AT < 0) throw new Error('schema.sql is missing its -- @auth-schema marker');
+/** The version-1 (pre-accounts) DDL; exported so the migration test can build a v1 file without copying it. */
+export const BASE_SCHEMA_SQL = SCHEMA_SQL.slice(0, AUTH_SCHEMA_AT);
+const AUTH_SCHEMA_SQL = SCHEMA_SQL.slice(AUTH_SCHEMA_AT);
+/** `PRAGMA user_version` of the current schema.sql. */
+export const SCHEMA_VERSION = 2;
 
-/** Applies schema.sql on a fresh database; a database already at SCHEMA_VERSION is left untouched. */
+/**
+ * Brings a database to SCHEMA_VERSION in one transaction: a fresh file runs schema.sql whole; a version-1 file (the
+ * prod VM's, which predates accounts) runs only the auth DDL after the `-- @auth-schema` marker. schema.sql has no
+ * IF NOT EXISTS, so each version runs once per file.
+ */
 export function applySchema(db: Db): void {
   db.transaction(() => {
-    if (Number(db.pragma('user_version')) >= SCHEMA_VERSION) return;
-    db.exec(SCHEMA_SQL);
+    const version = Number(db.pragma('user_version'));
+    if (version >= SCHEMA_VERSION) return;
+    db.exec(version === 0 ? SCHEMA_SQL : AUTH_SCHEMA_SQL);
     db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });
 }

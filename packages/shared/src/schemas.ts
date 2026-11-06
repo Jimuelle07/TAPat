@@ -87,3 +87,20 @@ export const tapBodySchema = z.union([
   }),
 ]);
 export type TapBody = z.infer<typeof tapBodySchema>;
+
+const email = z.string().trim().toLowerCase().pipe(z.email().max(254));
+
+/** #22 `POST /api/auth/signup`: always creates a `viewer`. */
+export const signupBodySchema = z.strictObject({
+  email,
+  password: z.string().min(8, 'must be at least 8 characters').max(200),
+  displayName: z.string().trim().min(1).max(80),
+});
+export type SignupBody = z.infer<typeof signupBodySchema>;
+
+/** #23 `POST /api/auth/login`. */
+export const loginBodySchema = z.strictObject({
+  email,
+  password: z.string().min(1).max(200),
+});
+export type LoginBody = z.infer<typeof loginBodySchema>;

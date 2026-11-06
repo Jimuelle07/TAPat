@@ -5,6 +5,8 @@ import { ZodError } from 'zod';
 /** §5.3, verbatim. `EXPIRED`/`OVER_CAP`/… are tap reason codes, never HTTP error codes. */
 export type ErrorCode =
   | 'VALIDATION_ERROR'
+  | 'UNAUTHORIZED'
+  | 'ACCOUNT_EXISTS'
   | 'NOT_FOUND'
   | 'CARD_NOT_ENROLLED'
   | 'WEBHOOK_SIGNATURE_INVALID'

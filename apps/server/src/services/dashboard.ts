@@ -43,6 +43,12 @@ export function loadMidasThreshold(path: string = MIDAS_CONFIG_PATH): number {
 /** `api-and-data.md` §5.2 #18: the escrow read is deliberately slow-moving; the invariant must not flicker. */
 export const ESCROW_CACHE_MS = 5_000;
 
+/**
+ * A public testnet `balance_of` answers in 0.7–5.5 s; a read past this deadline falls back to the card's last known
+ * balance (when there is one) instead of hanging `GET /api/dashboard`.
+ */
+const ESCROW_READ_TIMEOUT_MS = 4_000;
+
 const RECENT_TAPS_LIMIT = 50;
 const RECENT_DECISIONS_LIMIT = 20;
 const RECENT_CHAIN_TXS_LIMIT = 200;
@@ -76,6 +82,8 @@ export interface DashboardDeps {
   now?: () => number;
   /** Test seam; production keeps the 5 s window. */
   escrowCacheMs?: number;
+  /** Test seam; production keeps the 4 s per-read deadline. */
+  escrowReadTimeoutMs?: number;
 }
 
 export interface DashboardService {
@@ -100,23 +108,62 @@ function displayName(firstName: string, lastName: string): string {
 export function createDashboardService(deps: DashboardDeps): DashboardService {
   const now = deps.now ?? Date.now;
   const escrowCacheMs = deps.escrowCacheMs ?? ESCROW_CACHE_MS;
+  const escrowReadTimeoutMs = deps.escrowReadTimeoutMs ?? ESCROW_READ_TIMEOUT_MS;
   let escrowCache: { at: number; balances: Map<string, bigint> } | null = null;
+  let escrowRefresh: Promise<Map<string, bigint>> | null = null;
 
-  /** One chain read per active card, refreshed at most every `escrowCacheMs`; anything not read is treated as 0. */
-  async function activeEscrow(cards: CardWithNameRow[]): Promise<Map<string, bigint>> {
+  /** `getEscrowBalance` with a hard deadline; a late rejection from the losing read is swallowed, never unhandled. */
+  async function readEscrow(deviceHash: string): Promise<bigint> {
+    const timedOut = Symbol('escrow read timed out');
+    const read = deps.noir.getEscrowBalance(deviceHash);
+    read.catch(() => undefined);
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<typeof timedOut>((resolve) => {
+      timer = setTimeout(() => resolve(timedOut), escrowReadTimeoutMs);
+    });
+    try {
+      const result = await Promise.race([read, timeout]);
+      if (result === timedOut) throw new Error(`escrow read timed out after ${escrowReadTimeoutMs} ms`);
+      return result;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** One chain read per active card; a timed-out or failed card keeps its previous balance when there is one. */
+  async function refreshEscrow(cards: CardWithNameRow[]): Promise<Map<string, bigint>> {
     const at = now();
-    if (escrowCache !== null && at - escrowCache.at < escrowCacheMs) return escrowCache.balances;
+    const previous = escrowCache?.balances;
     const active = cards.filter((card) => card.status === 'active');
-    const balances = new Map<string, bigint>(
-      await Promise.all(
-        active.map(async (card): Promise<[string, bigint]> => [
-          card.device_hash,
-          await deps.noir.getEscrowBalance(card.device_hash),
-        ]),
-      ),
+    const balances = new Map<string, bigint>();
+    await Promise.all(
+      active.map(async (card): Promise<void> => {
+        try {
+          balances.set(card.device_hash, await readEscrow(card.device_hash));
+        } catch (error) {
+          const fallback = previous?.get(card.device_hash);
+          if (fallback === undefined) throw error;
+          balances.set(card.device_hash, fallback);
+        }
+      }),
     );
     escrowCache = { at, balances };
     return balances;
+  }
+
+  /**
+   * One chain read per active card, refreshed at most every `escrowCacheMs`; anything not read is treated as 0.
+   * Concurrent requests await the refresh already in flight, and the cache only moves when a refresh completes.
+   */
+  function activeEscrow(cards: CardWithNameRow[]): Promise<Map<string, bigint>> {
+    const at = now();
+    if (escrowCache !== null && at - escrowCache.at < escrowCacheMs) return Promise.resolve(escrowCache.balances);
+    if (escrowRefresh !== null) return escrowRefresh;
+    const refresh = refreshEscrow(cards).finally(() => {
+      escrowRefresh = null;
+    });
+    escrowRefresh = refresh;
+    return refresh;
   }
 
   return {

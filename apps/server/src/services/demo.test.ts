@@ -73,6 +73,28 @@ describe('parseSeedArgs', () => {
     expect(() => parseSeedArgs(['--uid-d4=04A21F9C0000'])).toThrow('unknown flag');
     expect(() => parseSeedArgs(['30'])).toThrow('unrecognised argument');
   });
+
+  it('defaults the officer email and leaves the password unset', () => {
+    const args = parseSeedArgs([]);
+    expect(args.officerEmail).toBe('officer@tapat.demo');
+    expect(args.officerPassword).toBeUndefined();
+  });
+
+  it('lowercases a custom --officer-email', () => {
+    expect(parseSeedArgs(['--officer-email=  Officer@TAPAT.demo ']).officerEmail).toBe('officer@tapat.demo');
+  });
+
+  it('rejects an invalid --officer-email, naming the flag', () => {
+    expect(() => parseSeedArgs(['--officer-email=not-an-email'])).toThrow('--officer-email');
+  });
+
+  it('rejects a --officer-password shorter than 8 characters', () => {
+    expect(() => parseSeedArgs(['--officer-password=1234567'])).toThrow('--officer-password');
+  });
+
+  it('passes --officer-password through unchanged', () => {
+    expect(parseSeedArgs(['--officer-password=hunter2hunter2']).officerPassword).toBe('hunter2hunter2');
+  });
 });
 
 describe('parseMasterlistCsv', () => {

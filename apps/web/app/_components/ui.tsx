@@ -4,8 +4,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
+import { useAuth } from "./Auth";
 
 // ---- Button ----------------------------------------------------------------------------------------------------
 
@@ -409,7 +410,54 @@ export function TopBar({ title, back, chip, tone }: { title?: string; back?: str
         </>
       )}
       {chip !== undefined ? <Chip tone={tone}>{chip}</Chip> : null}
+      <AccountControl />
     </header>
+  );
+}
+
+/** Right-edge account control: a Log in link, or the first name plus role, which opens the account sheet. */
+function AccountControl() {
+  const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (user === null) {
+    return (
+      <Link href="/login" className="flex min-h-11 shrink-0 items-center px-2 text-caption underline">
+        Log in
+      </Link>
+    );
+  }
+  const firstName = user.displayName.trim().split(/\s+/)[0] ?? user.displayName;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`Account: ${user.displayName}`}
+        aria-haspopup="dialog"
+        className="flex min-h-11 shrink-0 items-center gap-1"
+      >
+        <span className="max-w-[72px] truncate text-caption">{firstName}</span>
+        <Chip tone={user.role === "officer" ? "mint" : "outline"}>{user.role}</Chip>
+      </button>
+      <Sheet title="Account" open={open} onClose={() => setOpen(false)}>
+        <KeyValues
+          rows={[
+            ["Name", user.displayName],
+            ["Email", user.email],
+            ["Role", user.role],
+          ]}
+        />
+        <Button
+          look="secondary"
+          onClick={() => {
+            setOpen(false);
+            void logout();
+          }}
+        >
+          Log out
+        </Button>
+      </Sheet>
+    </>
   );
 }
 

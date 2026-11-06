@@ -7,11 +7,13 @@ import { getBeneficiaries, postRequestEvidence } from "@/lib/api";
 import { fullName, score } from "@/lib/format";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Actions, Body, Button, Card, Chip, EmptyState, ErrorBlock, KeyValues, LinkButton, Notice, Sheet, Skeleton, TopBar } from "../../../_components/ui";
+import { OfficerOnly, useAuth } from "../../../_components/Auth";
 import { STATUS_CHIP } from "../status";
 
 
 export default function BeneficiaryDetail() {
   const { id } = useParams<{ id: string }>();
+  const { isOfficer } = useAuth();
   const [person, setPerson] = useState<Beneficiary | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,6 +37,8 @@ export default function BeneficiaryDetail() {
   }, [load]);
 
   const requestEvidence = async () => {
+    // Requesting evidence is officer-only; a stale render must not reach the POST either.
+    if (!isOfficer) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -102,16 +106,20 @@ export default function BeneficiaryDetail() {
       </Body>
       {person?.status === "uncertain" ? (
         <Actions>
-          <Button loading={busy} onClick={() => void requestEvidence()}>
-            Request evidence
-          </Button>
+          <OfficerOnly>
+            <Button loading={busy} onClick={() => void requestEvidence()}>
+              Request evidence
+            </Button>
+          </OfficerOnly>
         </Actions>
       ) : null}
       {person?.status === "rejected" ? (
         <Actions>
-          <Button loading={busy} onClick={() => void requestEvidence()}>
-            Appeal with evidence
-          </Button>
+          <OfficerOnly>
+            <Button loading={busy} onClick={() => void requestEvidence()}>
+              Appeal with evidence
+            </Button>
+          </OfficerOnly>
         </Actions>
       ) : null}
       {person?.status === "evidence_requested" && !person.telegramLinked ? (
@@ -123,7 +131,9 @@ export default function BeneficiaryDetail() {
       ) : null}
       {person?.status === "approved" ? (
         <Actions>
-          <LinkButton href={`/enroll?beneficiary=${encodeURIComponent(person.id)}`}>Enroll this driver</LinkButton>
+          <OfficerOnly>
+            <LinkButton href={`/enroll?beneficiary=${encodeURIComponent(person.id)}`}>Enroll this driver</LinkButton>
+          </OfficerOnly>
         </Actions>
       ) : null}
       <Sheet title="Send the link by hand" open={deepLink !== null} onClose={() => setDeepLink(null)}>

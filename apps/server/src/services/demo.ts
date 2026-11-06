@@ -3,6 +3,7 @@
 // `runChainTx` instead of carrying its own chain code. The scripts only load config, open the DB and print.
 import { Keypair } from '@stellar/stellar-sdk';
 import { encryptSecret } from '@tapat/agent';
+import { z } from 'zod';
 import { uidSchema, type Program } from '@tapat/shared';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
@@ -36,23 +37,35 @@ export const DEFAULT_D3_EXPIRY_OFFSET_S = 600;
 /** A UID with this prefix is a virtual card: no NFC hardware, on chain it is identical (SDD §6.2). */
 const VIRTUAL_UID_PREFIX = 'TAPATVIRTUAL';
 
+/** The officer account the seed creates or refreshes; judges log in with it. */
+const DEFAULT_OFFICER_EMAIL = 'officer@tapat.demo';
+
+/** `signupBodySchema`'s email rule: trimmed, lowercased, a valid address. */
+const officerEmailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
+
 export interface SeedArgs {
   /** Seconds after seed time that D3's policy expires. Always > 0: `register_agent` rejects a past expiry. */
   d3ExpiryOffsetS: number;
   /** Normalized UID per seeded driver. */
   uids: Record<SeedTag, string>;
+  /** Lowercased email of the officer account to create or refresh. */
+  officerEmail: string;
+  /** New password for the officer account; `undefined` leaves an existing hash untouched. */
+  officerPassword: string | undefined;
 }
 
 /**
- * Parses `--d3-expiry-offset=<seconds>` (default 600, must be a whole number > 0) and the optional
- * `--uid-d1=<UID>` / `--uid-d2` / `--uid-d3` / `--uid-d5` flags that name the physical tags. Anything else throws,
- * so a typo never silently seeds the defaults.
+ * Parses `--d3-expiry-offset=<seconds>` (default 600, must be a whole number > 0), the optional
+ * `--uid-d1=<UID>` / `--uid-d2` / `--uid-d3` / `--uid-d5` flags that name the physical tags, and
+ * `--officer-email=` / `--officer-password=`. Anything else throws, so a typo never silently seeds the defaults.
  */
 export function parseSeedArgs(argv: readonly string[]): SeedArgs {
   const uids: Record<SeedTag, string> = Object.fromEntries(
     SEED_CAST.map((member) => [member.tag, member.defaultUid]),
   ) as Record<SeedTag, string>;
   let d3ExpiryOffsetS = DEFAULT_D3_EXPIRY_OFFSET_S;
+  let officerEmail = DEFAULT_OFFICER_EMAIL;
+  let officerPassword: string | undefined;
 
   for (const arg of argv) {
     const match = /^--([a-z0-9-]+)=(.*)$/i.exec(arg);
@@ -64,6 +77,19 @@ export function parseSeedArgs(argv: readonly string[]): SeedArgs {
         throw new Error(`--d3-expiry-offset must be a whole number of seconds > 0, got "${value}"`);
       }
       d3ExpiryOffsetS = Number(value);
+      continue;
+    }
+    if (name === 'officer-email') {
+      const parsed = officerEmailSchema.safeParse(value);
+      if (!parsed.success) {
+        throw new Error(`--officer-email: ${parsed.error.issues[0]?.message ?? 'invalid email'}`);
+      }
+      officerEmail = parsed.data;
+      continue;
+    }
+    if (name === 'officer-password') {
+      if (value.length < 8) throw new Error(`--officer-password must be at least 8 characters, got ${value.length}`);
+      officerPassword = value;
       continue;
     }
     const tag = /^uid-(d[1235])$/.exec(name)?.[1]?.toUpperCase() as SeedTag | undefined;
@@ -79,7 +105,7 @@ export function parseSeedArgs(argv: readonly string[]): SeedArgs {
     if (seen.has(uid)) throw new Error(`UID ${uid} is used for two drivers; every card needs its own UID`);
     seen.add(uid);
   }
-  return { d3ExpiryOffsetS, uids };
+  return { d3ExpiryOffsetS, uids, officerEmail, officerPassword };
 }
 
 /** The eight CSV columns of api-and-data.md §5.2 #6, as the file names them. */
