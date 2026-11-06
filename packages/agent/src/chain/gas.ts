@@ -21,6 +21,11 @@ export interface SubmitSponsoredOptions {
   onRetry?: (attempt: number, error: unknown) => void;
   /** Called when `submit` fails, before the status is read back by identity. */
   onUncertainHandoff?: (error: unknown) => void;
+  /**
+   * Called once right after `sponsor` succeeds and before `submit`, so the caller can persist the identity before the
+   * hand-off. A throw from it propagates unchanged and `submit` is never called.
+   */
+  onReserved?: (identity: GasExecutionIdentity) => void;
 }
 
 const PROVIDER_TIMEOUT_MS = 30_000;
@@ -93,6 +98,8 @@ export async function submitSponsored(
     requestId: reservation.requestId,
     transactionHash: reservation.transactionHash,
   };
+  // Outside the post-reservation try: a caller persistence fault must reach the caller unchanged, before the hand-off.
+  opts.onReserved?.(identity);
   let result: GasSubmitResult;
   try {
     try {

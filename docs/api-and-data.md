@@ -251,6 +251,27 @@ CREATE INDEX idx_chain_txs_status             ON chain_txs(status);
 CREATE INDEX idx_agent_decisions_created      ON agent_decisions(agent, created_at);
 ```
 
+**`chain_txs.error_code` values.** These are row-level codes written by `apps/server/src/services/chain.ts` — the reason a row ended where it did. They are **not** HTTP `error.code`s: the API's closed set is §5.3 and is unchanged. A `succeeded` row has `error_code = NULL`; a `submission_unknown` row carries its code as a hint until a verdict replaces it.
+
+| `error_code` | Row status | Written when | Meaning |
+|---|---|---|---|
+| `CONTRACT_<errorName>` | `failed` | `prepare()` raised `NoirContractError` | The contract rejected the simulated call and nothing was submitted; `<errorName>` comes from the invoked contract's own table ([system-design.md §4.4](system-design.md)), e.g. `CONTRACT_AgentNotAuthorized` |
+| `PREPARE_FAILED` | `failed` | `signNoirCall` or the post-sign hash threw anything else | The envelope was never built or never handed off |
+| `PREPARE_INTERRUPTED` | `failed` | boot (`recoverInterruptedTxs`) | A previous process died with the row `pending` and no hand-off evidence: no `inner_hash`, or `gas_mode='velo'` with no `velo_request_id`. Nothing was sent, safe to retry |
+| `GAS_UNAVAILABLE` | `failed` | `sponsor()` failed and `GAS_FALLBACK_DIRECT=false` | Velo was unreachable or upstream-failed (`VeloProviderError`, or a throw that is not a `VeloError`); nothing was handed off |
+| `VELO_AUTH` | `failed` | `sponsor()` failed and `GAS_FALLBACK_DIRECT=false` | `VELO_GAS_API_KEY` is bad or missing |
+| `<Velo error class name>` | `failed` | `sponsor()` failed with any other `VeloError` | The Velo error's own class, e.g. `VeloValidationError` (our envelope is wrong) or `VeloRateLimitError` (quota) |
+| `GAS_FAILED` | `submission_unknown` | Velo status `failed`; the post-hand-off chain confirmation found nothing (unindexed or unreadable) | A hint: the Gas Station stopped, and the chain had not confirmed either way. The row is settled by a later Velo `succeeded` or by the reconciler's chain read (`succeeded`, or `failed`/`CHAIN_FAILED`) and freezes `submission_unknown` after the window — never returned to a caller as retryable |
+| `GAS_CANCELLED` | `submission_unknown` | Velo status `cancelled`; the post-hand-off chain confirmation found nothing (unindexed or unreadable) | Same hint for a cancelled request: the Gas Station stopped, the chain has not confirmed either way; settled by a later Velo `succeeded` or a chain read and frozen after the window |
+| `GAS_HANDOFF_UNKNOWN` | `submission_unknown` | `submit()` was attempted and `getStatus`/`waitForResult` threw (`GasHandoffError`) | The hand-off may have reached Velo; the identity is stored, so the row is reconciled and never resubmitted |
+| `CHAIN_FAILED` | `failed` | chain confirmation, or the reconciler, reports `FAILED` for the inner hash | The transaction is on the ledger and reverted |
+| `DIRECT_FAILED` | `failed` | `submitDirect` threw one of the SDK's terminal messages | The network refused the envelope, or the transaction landed and failed |
+| `DIRECT_UNKNOWN` | `submission_unknown` | `submitDirect` threw anything else (not confirmed in 60 s, transport error) | The direct send may be on chain; the inner hash is kept for the reconciler |
+| `HANDOFF_INTERRUPTED` | `submission_unknown` | boot (`recoverInterruptedTxs`) | A previous process died with the row `pending` **and** hand-off evidence: a `direct` row with an `inner_hash`, or a `velo` row with a `velo_request_id`. The hand-off may have happened |
+| `INTERNAL` | `failed` | any other throw out of `submitSponsored` | A programmer fault, not a chain outcome; rethrown to the caller |
+
+Retry rule: only a `failed` row is safe to retry — it is written only when the transaction provably did not apply: `CONTRACT_<errorName>`, `PREPARE_FAILED`, `PREPARE_INTERRUPTED`, `GAS_UNAVAILABLE`, `VELO_AUTH`, a Velo error class name, `INTERNAL` (all before any hand-off), or `CHAIN_FAILED`/`DIRECT_FAILED` (the chain refused the transaction). The owning service starts a new `chain_txs` row for such a code. A `submission_unknown` row is **never** retried — `GAS_FAILED`, `GAS_CANCELLED`, `GAS_HANDOFF_UNKNOWN`, `DIRECT_UNKNOWN`, `HANDOFF_INTERRUPTED` — because the transaction may already be on the ledger: the reconciler settles it by Velo identity, else by chain lookup of `inner_hash`, and an unproven row freezes as `submission_unknown` once the window ends. `error` holds the full message for the logs and the UI tooltip; `error_code` is the machine field.
+
 ### 2.1 Schema notes
 
 - `program.salt` is 16 random bytes hex, created by `POST /api/program`. It never appears in any response. `device_hash = SHA-256(utf8("${salt}:${UID}"))` where `UID` is the Web NFC `serialNumber` with colons removed, uppercased ([SDD §3](system-design.md)).
@@ -258,7 +279,7 @@ CREATE INDEX idx_agent_decisions_created      ON agent_decisions(agent, created_
 - `cards.last_nonce` is persisted **before** `authorize` is submitted. A failed submit keeps the value: `nonce = max(Date.now(), last_nonce + 1)` remains strictly increasing.
 - `taps.status` vocabulary: `authorized` (contract accepted), `rejected` (contract refused with `Error #3` or `#2`), `refused` (our API refused before signing: frozen station, unknown card), `failed` (submit/chain failure, no decision).
 - `rejected` and `refused` taps write **no** `chain_txs` row and keep `chain_tx_id = NULL`: the rejection is detected during `prepare()` simulation, so nothing was submitted and no hash exists. Only `authorized` and `failed` taps can point at a `chain_txs` row.
-- `chain_txs.status = 'submission_unknown'` rows are reconciled to `succeeded` or `failed` by the background reconciler (SDD §3). They are never resubmitted.
+- `chain_txs.status = 'submission_unknown'` rows are settled by the background reconciler (5 s ticks, rows younger than 360 s — 300 s of transaction validity plus 60 s — see [system-design.md §4.5](system-design.md)): the Velo status first when the row has a `velo_request_id`, then the chain by `inner_hash`, so direct-path rows are included. They are never resubmitted.
 - `velo_intents.amount` is a string so `1000.00` stays exact. SQLite `REAL` would lose the trailing digits Velo compares.
 - One `program` row exists at a time in the demo build. `reset-demo.ts` deletes every row, then `seed-demo.ts` inserts one.
 - Seeded fixed values: program `per_tap_cap_stroops = 500000000` (₱500), `tranche_stroops = 1500000000` (₱1,500), `expires_at_s = 1796054399`, `price_threshold_php = 65.0`, `alpha = 0.05`, `beta = 0.02`. Stations `A` = `Petron San Roque`, `B` = `Rotonda Fuels`.
@@ -1194,7 +1215,7 @@ Every write goes through `signNoirCall` then `submitSponsored`/`submitDirect` in
 
 Arguments are the SDK's typed values: amounts are `bigint` stroops (`i128`), `deviceHash` is a 64-hex string (`BytesN<32>`), `expiresAt` is a `Date` or `null`, `nonce` is a `bigint`. No `xdr.ScVal` is built anywhere in `apps/server` or `packages/agent`.
 
-Contract errors arrive as `NoirContractError` and map to `CHAIN_ERROR`; `chain_txs.error_code` holds `CONTRACT_<errorName>` (e.g. `CONTRACT_AgentNotAuthorized`) and `chain_txs.error` keeps the SDK's raw message, using the tables below.
+Contract errors arrive as `NoirContractError` and map to `CHAIN_ERROR`; `chain_txs.error_code` holds `CONTRACT_<errorName>` (e.g. `CONTRACT_AgentNotAuthorized`) and `chain_txs.error` keeps the SDK's synthesized `<contract>.<method> failed: <Name> (#<code>)` message plus the code and method — the raw RPC diagnostic is not retained. The tables below are the name lookup.
 
 | `payment_escrow` | code | | `device_registry` | code | | `agent_registry` | code |
 |---|---|---|---|---|---|---|---|
@@ -1235,7 +1256,7 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 | `velo.paymentIntents.retrieve(paymentIntentId)` | webhook `payment.succeeded`, 3 s poller | returns `status`, `receiverAddress`, `payerAddress`; `paid` requires a classic `payment` op to the project `ownerAddress` with the exact asset and amount |
 | `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `packages/agent/src/chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
 | `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `packages/agent/src/chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
-| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s for ≤ 2 min, then the row stays `submission_unknown` for the logs; `claimed`/`submitted`/`submission_unknown` are still running, `failed`/`cancelled` terminal |
+| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s, only for rows younger than 6 min; a Velo `succeeded` settles the row; `failed`/`cancelled` are only a hint and get one chain read by `inner_hash` (no verdict writes nothing); a non-terminal status or a read error falls through to the chain; after the window the row stays `submission_unknown` for the logs |
 | `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
 
 Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly — it is the current `latest`, so the handbook's "use the latest" is satisfied without `@alpha`); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; `GAS_FALLBACK_DIRECT=true` switches to the direct path only when `sponsor()` failed (nothing was handed off), never after `submit()`; never resubmit after a lost hand-off.

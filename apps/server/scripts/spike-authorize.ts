@@ -1,10 +1,10 @@
 /**
  * SPK (docs/build-schedule.md): throwaway card -> registerDevice -> registerAgent -> fundEscrow(1 XLM) -> checkPayment
- * -> authorize. Every Noir call is built by @noirx402/agent-sdk (`prepare`, inside @tapat/agent), signed here, then
- * submitted by the Velo Gas Station (`sponsor` then one `submit`), or with --direct by the Noir SDK (`submit`, the
- * Nov 5 23:00 go/no-go fallback, GAS_MODE=direct). Builder Handbook requirement 2: Noir only through the Noir SDK,
- * on the deployed IDs. Testnet only. Writes nothing to SQLite or .env; prints statuses and tx hashes, never a secret
- * or an XDR.
+ * -> authorize. Every Noir call goes through the production pipeline, `runChainTx` (`apps/server/src/services/chain.ts`):
+ * the SDK prepares it, this process signs it, and it is submitted by the Velo Gas Station, or with --direct by the
+ * Noir SDK (the Nov 5 23:00 go/no-go fallback, GAS_MODE=direct). Builder Handbook requirement 2: Noir only through
+ * the Noir SDK, on the deployed IDs. Testnet only. Writes to an in-memory SQLite only; prints statuses and tx hashes,
+ * never a secret or an XDR.
  *   pnpm --filter server tsx scripts/spike-authorize.ts
  *   pnpm --filter server tsx scripts/spike-authorize.ts --direct
  */
@@ -16,12 +16,11 @@ import {
   Velo,
   VeloError,
   createNoirClient,
-  signNoirCall,
-  submitDirect,
-  submitSponsored,
   type NoirOperation,
 } from '@tapat/agent';
 import { loadConfig } from '../src/config';
+import { openDb } from '../src/db/index';
+import { runChainTx, type ChainDeps, type ChainTxResult } from '../src/services/chain';
 
 const ONE_XLM = 10_000_000n;
 const PER_TAP_CAP = 500_000_000n; // ₱500 at the demo rate (10 PHP/XLM), the program cap
@@ -47,47 +46,42 @@ const velo = values.direct
   ? null
   : new Velo({ apiKey: config.VELO_GAS_API_KEY, baseUrl: config.VELO_GAS_BASE_URL, environment: 'testnet', timeoutMs: 30_000 });
 const runId = Date.now().toString(36);
+const chain: ChainDeps = {
+  db: openDb(':memory:'), // the spike exercises the production pipeline, including the chain_txs writes
+  noir,
+  gas: velo?.gas ?? null,
+  config: { ...config, GAS_MODE: values.direct ? 'direct' : 'velo', GAS_FALLBACK_DIRECT: false },
+  log: {
+    warn: (obj, message) => console.warn(`${message}${chainTxSuffix(obj)}`),
+    error: (obj, message) => console.error(`${message}${chainTxSuffix(obj)}`),
+  },
+};
+
+function chainTxSuffix(obj: object): string {
+  const { chainTxId } = obj as { chainTxId?: string };
+  return chainTxId === undefined ? '' : ` chainTxId=${chainTxId}`;
+}
 
 async function friendbot(publicKey: string): Promise<void> {
   const res = await fetch(`https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`);
   if (!res.ok) throw new Error(`friendbot failed for ${publicKey}: HTTP ${res.status}`);
 }
 
-async function submit(step: string, op: NoirOperation, signedXdr: string): Promise<void> {
-  if (!velo) {
-    const hash = await submitDirect(noir, signedXdr, op); // resolves once the network confirms
-    console.log(`${step.padEnd(15)} direct  SUCCESS   tx=${hash}`);
-    return;
-  }
-
-  // Stable per run and step: a retried sponsorship reuses the reservation, never a second one.
-  const key = `tapat-spk:${runId}:${step}`;
-  const result = await submitSponsored(velo.gas, signedXdr, {
-    idempotencyKey: key,
-    onRetry: (attempt, error) => {
-      console.log(`${step.padEnd(15)} velo    sponsor retry ${attempt}/3 after ${(error as VeloError).code ?? 'provider error'}`);
-    },
-    onUncertainHandoff: (error) => {
-      console.log(
-        `${step.padEnd(15)} velo    hand-off uncertain (${error instanceof Error ? error.constructor.name : 'error'}); ` +
-          'reading status by identity',
-      );
-    },
-  });
+function submit(step: string, result: ChainTxResult): void {
   console.log(
-    `${step.padEnd(15)} velo    ${result.status.padEnd(9)} outer=${result.outerTransactionHash ?? '-'} ` +
-      `inner=${result.transactionHash} fee=${result.actualFeeStroops ?? 'unknown'} stroops`,
+    `${step.padEnd(15)} ${result.gasMode.padEnd(6)} ${result.status.padEnd(19)} inner=${result.innerHash ?? '-'} ` +
+      `outer=${result.outerHash ?? '-'} code=${result.errorCode ?? '-'}`,
   );
   if (result.status !== 'succeeded') {
     throw new Error(
-      `${step}: Gas Station status ${result.status}; recover with getStatus({ requestId: ${result.requestId}, ` +
-        `transactionHash: ${result.transactionHash} }), never by resubmitting`,
+      `${step}: chain_txs row ${result.chainTxId} is ${result.status} (${result.errorCode ?? 'no code'}); ` +
+        'recover by identity, never by resubmitting',
     );
   }
 }
 
 async function run(step: string, signer: Keypair, op: NoirOperation): Promise<void> {
-  await submit(step, op, await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE));
+  submit(step, await runChainTx(chain, signer, op));
 }
 
 async function main(): Promise<void> {

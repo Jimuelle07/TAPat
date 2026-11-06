@@ -6,7 +6,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { Velo, createNoirClient } from '@tapat/agent';
 import { loadConfig } from './config';
 import { openDb } from './db/index';
-import { startReconciler, type ChainDeps } from './services/chain';
+import { recoverInterruptedTxs, startReconciler, type ChainDeps } from './services/chain';
 
 const STREAM_PATH = '/api/stream';
 
@@ -58,9 +58,12 @@ async function main(): Promise<void> {
   const app = await buildServer({ logger: true });
   // Routes are registered by C3/C4, which take `chain` as a dependency; the reconciler needs it now.
   const chain: ChainDeps = { db, noir, gas, config, log: app.log };
-  const stopReconciler = gas === null ? null : startReconciler(chain);
+  // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
+  recoverInterruptedTxs(chain);
+  // Always: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
+  const stopReconciler = startReconciler(chain);
   app.addHook('onClose', async () => {
-    stopReconciler?.();
+    stopReconciler();
     db.close();
   });
   await app.listen({ port: config.PORT, host: '127.0.0.1' });

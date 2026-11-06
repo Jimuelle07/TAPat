@@ -14,6 +14,7 @@ import type { Db, SqlValue } from '../db/index';
 import { openDb } from '../db/index';
 import {
   reconcileOnce,
+  recoverInterruptedTxs,
   runChainTx,
   startReconciler,
   type ChainDeps,
@@ -74,8 +75,10 @@ function fakeNoir(signer: Keypair) {
     .build();
   const prepare = vi.fn().mockResolvedValue(unsigned.toXDR());
   const submit = vi.fn().mockResolvedValue('direct_inner_hash');
-  const noir = { prepare, submit } as unknown as NoirAgentClient;
-  return { noir, prepare, submit };
+  // Default: the hash is not indexed yet, so a chain confirmation leaves the row as it was.
+  const getTransaction = vi.fn().mockResolvedValue({ status: 'NOT_FOUND' });
+  const noir = { prepare, submit, server: { getTransaction } } as unknown as NoirAgentClient;
+  return { noir, prepare, submit, getTransaction };
 }
 
 function fakeLog() {
@@ -106,6 +109,8 @@ function makeDeps(overrides: Partial<ChainDeps> = {}): ChainDeps {
     },
     log: fakeLog(),
     gasOptions: { retryDelayMs: 0, wait: { timeoutMs: 1, maxAttempts: 1 } },
+    // One chain read and no waiting: tests that exercise the poll override this.
+    confirm: { timeoutMs: 0, pollMs: 0 },
     ...overrides,
   };
 }
@@ -140,6 +145,16 @@ function insertUncertain(db: Db, id: string, updatedAt: number): void {
         velo_request_id, inner_hash, created_at, updated_at)
      VALUES (?, 'authorize', ?, 'authorize', 'GSOURCE', 'submission_unknown', 'velo', ?, ?, ?, ?)`,
   ).run(id, PAYMENT_ESCROW, `req_${id}`, `inner_${id}`, updatedAt, updatedAt);
+}
+
+/** Same, for a direct row: no Velo identity, so only the chain can settle it. */
+function insertUncertainDirect(db: Db, id: string, updatedAt: number): void {
+  db.prepare(
+    `INSERT INTO chain_txs
+       (id, kind, contract_id, method, source_public, status, gas_mode,
+        velo_request_id, inner_hash, created_at, updated_at)
+     VALUES (?, 'authorize', ?, 'authorize', 'GSOURCE', 'submission_unknown', 'direct', NULL, ?, ?, ?)`,
+  ).run(id, PAYMENT_ESCROW, `inner_${id}`, updatedAt, updatedAt);
 }
 
 /** Wraps a Db so the `nth` `UPDATE chain_txs` throws, standing in for a SQLite write fault. */
@@ -249,12 +264,13 @@ describe('runChainTx', () => {
     expect(sponsor).toHaveBeenCalledTimes(2);
   });
 
-  it('records submission_unknown for a non-terminal Velo status and never sends it direct', async () => {
+  it('records submission_unknown when Velo is non-terminal and the chain has not seen it yet', async () => {
     const { gas, submit, getStatus, waitForResult } = fakeGas();
     submit.mockRejectedValueOnce(new VeloProviderError('lost response', { status: 504 }));
     getStatus.mockResolvedValue(result('submitted'));
     waitForResult.mockResolvedValue(result('submitted'));
-    const { noir, submit: noirSubmit } = fakeNoir(Keypair.random());
+    const { noir, submit: noirSubmit, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'NOT_FOUND' });
     const deps = makeDeps({ gas, noir, config: { ...makeDeps().config, GAS_FALLBACK_DIRECT: true } });
 
     const out = await runChainTx(deps, Keypair.random(), AUTH);
@@ -263,6 +279,7 @@ describe('runChainTx', () => {
     expect(row.status).toBe('submission_unknown');
     expect(row.velo_request_id).toBe('req_1');
     expect(out.status).toBe('submission_unknown');
+    expect(getTransaction).toHaveBeenCalledTimes(1);
     expect(submit).toHaveBeenCalledTimes(1);
     expect(noirSubmit).not.toHaveBeenCalled();
   });
@@ -283,6 +300,206 @@ describe('runChainTx', () => {
     // The reservation's transactionHash is authoritative once submit() was attempted.
     expect(row.inner_hash).toBe(RESERVATION.transactionHash);
     expect(noirSubmit).not.toHaveBeenCalled();
+  });
+
+  it('persists the Velo identity while the row is still pending, before submit', async () => {
+    const db = openDb(':memory:');
+    const { gas, submit } = fakeGas();
+    let seen: Row | undefined;
+    submit.mockImplementation(async () => {
+      seen = db.prepare('SELECT * FROM chain_txs').get<Row>();
+      return result('succeeded');
+    });
+    const deps = makeDeps({ db, gas });
+
+    await runChainTx(deps, Keypair.random(), AUTH);
+
+    expect(seen?.status).toBe('pending');
+    expect(seen?.velo_request_id).toBe('req_1');
+    expect(seen?.inner_hash).toBe('inner_hash_1');
+  });
+
+  it('confirms a lagging Velo status against the chain and keeps the Velo identity', async () => {
+    const lagging: GasSubmitResult = { ...result('submitted'), outerTransactionHash: 'outer_hash_1' };
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(lagging);
+    waitForResult.mockResolvedValue(lagging);
+    const { noir, submit: noirSubmit, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+    const deps = makeDeps({ gas, noir });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(deps.db);
+    expect(row.status).toBe('succeeded');
+    expect(row.gas_mode).toBe('velo');
+    expect(row.velo_request_id).toBe('req_1');
+    expect(row.outer_hash).toBe('outer_hash_1');
+    expect(row.error_code).toBeNull();
+    expect(row.error).toBeNull();
+    expect(getTransaction).toHaveBeenCalledWith('inner_hash_1');
+    expect(out.status).toBe('succeeded');
+    expect(noirSubmit).not.toHaveBeenCalled();
+  });
+
+  it('records CHAIN_FAILED when the chain says the lagging transaction failed', async () => {
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(result('submitted'));
+    waitForResult.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'FAILED' });
+    const deps = makeDeps({ gas, noir });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(deps.db);
+    expect(row.status).toBe('failed');
+    expect(row.error_code).toBe('CHAIN_FAILED');
+    expect(row.error).toBe('Transaction inner_hash_1 failed on chain');
+    expect(out.status).toBe('failed');
+  });
+
+  it('settles a GasHandoffError row from the chain', async () => {
+    const { gas, submit, getStatus } = fakeGas();
+    submit.mockRejectedValueOnce(new VeloProviderError('lost response', { status: 504 }));
+    getStatus.mockRejectedValueOnce(new Error('status endpoint 502'));
+    const { noir, submit: noirSubmit, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+    const deps = makeDeps({ gas, noir });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(deps.db);
+    expect(row.status).toBe('succeeded');
+    expect(row.gas_mode).toBe('velo');
+    expect(row.velo_request_id).toBe('req_1');
+    expect(row.error_code).toBeNull();
+    expect(out.status).toBe('succeeded');
+    expect(noirSubmit).not.toHaveBeenCalled();
+  });
+
+  it('logs a failing chain read and leaves the row submission_unknown', async () => {
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(result('submitted'));
+    waitForResult.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockRejectedValue(new Error('rpc down'));
+    const log = fakeLog();
+    const deps = makeDeps({ gas, noir, log });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    expect(log.warn).toHaveBeenCalled();
+    const row = onlyRow(deps.db);
+    expect(row.status).toBe('submission_unknown');
+    expect(out.status).toBe('submission_unknown');
+  });
+
+  it('keeps polling the chain until the hash is indexed', async () => {
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(result('submitted'));
+    waitForResult.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction
+      .mockResolvedValueOnce({ status: 'NOT_FOUND' })
+      .mockResolvedValueOnce({ status: 'SUCCESS' });
+    const deps = makeDeps({ gas, noir, confirm: { timeoutMs: 1000, pollMs: 0 } });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    expect(getTransaction).toHaveBeenCalledTimes(2);
+    expect(out.status).toBe('succeeded');
+  });
+
+  it('does not overwrite a row another writer settled during the chain confirmation', async () => {
+    const db = openDb(':memory:');
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(result('submitted'));
+    waitForResult.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockImplementation(async () => {
+      // Simulate the reconciler settling the row between our poll and our guarded UPDATE.
+      db.prepare(
+        `UPDATE chain_txs
+            SET status = 'failed', error_code = 'GAS_FAILED', error = 'settled elsewhere'
+          WHERE status = 'submission_unknown'`,
+      ).run();
+      return { status: 'SUCCESS' };
+    });
+    const deps = makeDeps({ db, gas, noir, confirm: { timeoutMs: 0, pollMs: 0 } });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(db);
+    expect(getTransaction).toHaveBeenCalledTimes(1);
+    expect(row.status).toBe('failed');
+    expect(row.error_code).toBe('GAS_FAILED');
+    expect(out.status).toBe('failed');
+    expect(out.errorCode).toBe('GAS_FAILED');
+  });
+
+  it('passes the short Velo wait when none is configured', async () => {
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValue(result('submitted'));
+    waitForResult.mockResolvedValue(result('submitted'));
+    const deps = makeDeps({ gas, gasOptions: { retryDelayMs: 0 } });
+
+    await runChainTx(deps, Keypair.random(), AUTH);
+
+    expect(waitForResult).toHaveBeenCalledWith(
+      { requestId: 'req_1', transactionHash: 'inner_hash_1' },
+      { timeoutMs: 10_000, maxAttempts: 5 },
+    );
+  });
+
+  it('propagates a persistence fault on the direct success path instead of relabelling the send', async () => {
+    const { noir } = fakeNoir(Keypair.random());
+    const inner = openDb(':memory:');
+    // 1 = inner hash, 2 = the pre-hand-off direct marker, 3 = the direct send result.
+    const deps = makeDeps({
+      noir,
+      db: failNthChainTxUpdate(inner, 3),
+      gas: null,
+      config: { ...makeDeps().config, GAS_MODE: 'direct' },
+    });
+
+    await expect(runChainTx(deps, Keypair.random(), AUTH)).rejects.toThrow('disk I/O error');
+
+    const row = onlyRow(inner);
+    expect(row.status).toBe('pending');
+    // The marker written before the send names the path a boot repair has to classify.
+    expect(row.gas_mode).toBe('direct');
+    expect(row.error_code).toBeNull();
+    expect(row.inner_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it.each([
+    ['GAS_MODE=direct', { GAS_MODE: 'direct' }],
+    ['the sponsorship fallback', { GAS_FALLBACK_DIRECT: true }],
+  ] as const)('writes gas_mode=direct while still pending before the direct send (%s)', async (label, config) => {
+    const db = openDb(':memory:');
+    const { gas, sponsor } = fakeGas();
+    if (label !== 'GAS_MODE=direct') sponsor.mockRejectedValue(new VeloValidationError('envelope has two signatures'));
+    const { noir, submit: noirSubmit } = fakeNoir(Keypair.random());
+    let seen: Row | undefined;
+    noirSubmit.mockImplementation(async () => {
+      seen = db.prepare('SELECT * FROM chain_txs').get<Row>();
+      return 'direct_inner_hash';
+    });
+    const deps = makeDeps({
+      db,
+      gas: label === 'GAS_MODE=direct' ? null : gas,
+      noir,
+      config: { ...makeDeps().config, ...config },
+    });
+
+    await runChainTx(deps, Keypair.random(), AUTH);
+
+    expect(seen?.status).toBe('pending');
+    expect(seen?.gas_mode).toBe('direct');
+    expect(seen?.inner_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(seen?.velo_request_id).toBeNull();
+    expect(onlyRow(db).status).toBe('succeeded');
   });
 
   it('marks a contract rejection at prepare() as failed and rethrows it', async () => {
@@ -392,30 +609,102 @@ describe('runChainTx', () => {
     const { gas } = fakeGas();
     const { noir } = fakeNoir(Keypair.random());
     const inner = openDb(':memory:');
-    const deps = makeDeps({ gas, noir, db: failNthChainTxUpdate(inner, 2) });
+    // 1 = inner hash, 2 = the Velo identity before submit, 3 = the succeeded result.
+    const deps = makeDeps({ gas, noir, db: failNthChainTxUpdate(inner, 3) });
 
     await expect(runChainTx(deps, Keypair.random(), AUTH)).rejects.toThrow('disk I/O error');
 
     const row = onlyRow(inner);
     expect(row.status).toBe('pending');
     expect(row.error_code).toBeNull();
-    expect(row.inner_hash).toMatch(/^[0-9a-f]{64}$/);
+    // The Velo identity persisted before submit keeps its `transactionHash`.
+    expect(row.inner_hash).toBe(RESERVATION.transactionHash);
   });
 
   it.each([
     ['failed', 'GAS_FAILED'],
     ['cancelled', 'GAS_CANCELLED'],
-  ] as const)('maps a Velo %s status to %s', async (status, code) => {
+  ] as const)(
+    'keeps a Velo %s row submission_unknown with %s when the chain has not indexed it',
+    async (status, code) => {
+      const { gas, submit } = fakeGas();
+      submit.mockResolvedValue(result(status));
+      const { noir, getTransaction } = fakeNoir(Keypair.random());
+      getTransaction.mockResolvedValue({ status: 'NOT_FOUND' });
+      const deps = makeDeps({ gas, noir });
+
+      const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+      const row = onlyRow(deps.db);
+      expect(row.status).toBe('submission_unknown');
+      expect(row.error_code).toBe(code);
+      expect(row.error).toBe(`Gas Station status ${status} (request req_1)`);
+      expect(row.velo_request_id).toBe('req_1');
+      expect(row.inner_hash).toBe('inner_hash_1');
+      expect(getTransaction).toHaveBeenCalledTimes(1);
+      expect(getTransaction).toHaveBeenCalledWith('inner_hash_1');
+      expect(out.status).toBe('submission_unknown');
+      expect(out.errorCode).toBe(code);
+    },
+  );
+
+  it('accepts a Velo failure as succeeded when the chain applied the transaction', async () => {
     const { gas, submit } = fakeGas();
-    submit.mockResolvedValue(result(status));
-    const deps = makeDeps({ gas });
+    submit.mockResolvedValue(result('failed'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+    const deps = makeDeps({ gas, noir });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(deps.db);
+    expect(getTransaction).toHaveBeenCalledWith('inner_hash_1');
+    expect(row.status).toBe('succeeded');
+    expect(row.gas_mode).toBe('velo');
+    expect(row.error_code).toBeNull();
+    expect(row.error).toBeNull();
+    // The Velo identity is kept.
+    expect(row.velo_request_id).toBe('req_1');
+    expect(row.inner_hash).toBe('inner_hash_1');
+    expect(out.status).toBe('succeeded');
+  });
+
+  it('records CHAIN_FAILED when a cancelled Velo row is on chain as failed', async () => {
+    const { gas, submit } = fakeGas();
+    submit.mockResolvedValue(result('cancelled'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'FAILED' });
+    const deps = makeDeps({ gas, noir });
 
     const out = await runChainTx(deps, Keypair.random(), AUTH);
 
     const row = onlyRow(deps.db);
     expect(row.status).toBe('failed');
-    expect(row.error_code).toBe(code);
-    expect(out.errorCode).toBe(code);
+    expect(row.error_code).toBe('CHAIN_FAILED');
+    expect(row.error).toBe('Transaction inner_hash_1 failed on chain');
+    expect(out.errorCode).toBe('CHAIN_FAILED');
+  });
+
+  it('keeps GAS_FAILED and submission_unknown when the chain read after a Velo failure throws', async () => {
+    const { gas, submit } = fakeGas();
+    submit.mockResolvedValue(result('failed'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockRejectedValue(new Error('rpc down'));
+    const log = fakeLog();
+    const deps = makeDeps({ gas, noir, log });
+
+    const out = await runChainTx(deps, Keypair.random(), AUTH);
+
+    const row = onlyRow(deps.db);
+    expect(row.status).toBe('submission_unknown');
+    expect(row.error_code).toBe('GAS_FAILED');
+    expect(row.velo_request_id).toBe('req_1');
+    expect(out.status).toBe('submission_unknown');
+    expect(out.errorCode).toBe('GAS_FAILED');
+    expect(log.warn).toHaveBeenCalledWith(
+      { chainTxId: row.id, cause: new Error('rpc down') },
+      'chain confirmation read failed',
+    );
   });
 
   it('rejects defundEscrow before writing any row', async () => {
@@ -452,15 +741,16 @@ describe('runChainTx', () => {
 describe('reconcileOnce', () => {
   const NOW = 1_000_000_000;
 
-  it('settles a recent row and skips one past the 2-minute window', async () => {
+  it('settles a Velo row from getStatus and reads only rows inside the 6-minute window', async () => {
     const db = openDb(':memory:');
-    insertUncertain(db, 'recent', NOW - 1_000);
-    insertUncertain(db, 'stale', NOW - 121_000);
+    insertUncertain(db, 'recent', NOW - 359_000);
+    insertUncertain(db, 'stale', NOW - 361_000);
     const { gas, getStatus } = fakeGas();
     getStatus.mockResolvedValue(result('succeeded'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
     const log = fakeLog();
 
-    const settled = await reconcileOnce({ db, gas, log, now: () => NOW });
+    const settled = await reconcileOnce({ db, noir, gas, log, now: () => NOW });
 
     expect(settled).toBe(1);
     expect(getStatus).toHaveBeenCalledTimes(1);
@@ -468,21 +758,143 @@ describe('reconcileOnce', () => {
     const recent = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('recent');
     expect(recent?.status).toBe('succeeded');
     expect(recent?.outer_hash).toBe('outer_hash_1');
+    expect(getTransaction).not.toHaveBeenCalled();
     expect(db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('stale')?.status).toBe('submission_unknown');
   });
 
-  it('writes nothing for a non-terminal status', async () => {
+  it('settles a Velo failure as succeeded when the chain applied the transaction', async () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'velo_failed', NOW - 1_000);
+    const { gas, getStatus } = fakeGas();
+    getStatus.mockResolvedValue(result('failed'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+
+    const settled = await reconcileOnce({ db, noir, gas, log: fakeLog(), now: () => NOW });
+
+    expect(settled).toBe(1);
+    expect(getTransaction).toHaveBeenCalledWith('inner_velo_failed');
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('velo_failed');
+    expect(row?.status).toBe('succeeded');
+    expect(row?.error_code).toBeNull();
+    expect(row?.velo_request_id).toBe('req_velo_failed');
+  });
+
+  it('writes nothing when the chain has not seen a cancelled Velo row', async () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'velo_cancelled', NOW - 1_000);
+    const { gas, getStatus } = fakeGas();
+    getStatus.mockResolvedValue(result('cancelled'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'NOT_FOUND' });
+
+    const settled = await reconcileOnce({ db, noir, gas, log: fakeLog(), now: () => NOW });
+
+    expect(settled).toBe(0);
+    expect(getTransaction).toHaveBeenCalledTimes(1);
+    expect(getTransaction).toHaveBeenCalledWith('inner_velo_cancelled');
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('velo_cancelled');
+    expect(row?.status).toBe('submission_unknown');
+    expect(row?.updated_at).toBe(NOW - 1_000);
+  });
+
+  it('writes nothing and warns when the chain read after a Velo failure throws', async () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'velo_unreadable', NOW - 1_000);
+    const { gas, getStatus } = fakeGas();
+    getStatus.mockResolvedValue(result('failed'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockRejectedValue(new Error('rpc down'));
+    const log = fakeLog();
+
+    const settled = await reconcileOnce({ db, noir, gas, log, now: () => NOW });
+
+    expect(settled).toBe(0);
+    expect(getTransaction).toHaveBeenCalledTimes(1);
+    expect(log.warn).toHaveBeenCalledTimes(1);
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('velo_unreadable');
+    expect(row?.status).toBe('submission_unknown');
+    expect(row?.updated_at).toBe(NOW - 1_000);
+  });
+
+  it('settles a Velo row whose status lagged the chain', async () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'lagging', NOW - 1_000);
+    const { gas, getStatus } = fakeGas();
+    getStatus.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+
+    const settled = await reconcileOnce({ db, noir, gas, log: fakeLog(), now: () => NOW });
+
+    expect(settled).toBe(1);
+    expect(getTransaction).toHaveBeenCalledWith('inner_lagging');
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('lagging');
+    expect(row?.status).toBe('succeeded');
+    expect(row?.error_code).toBeNull();
+    expect(row?.velo_request_id).toBe('req_lagging');
+  });
+
+  it('settles a Velo row from the chain when getStatus throws', async () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'broken', NOW - 1_000);
+    const { gas, getStatus, sponsor, submit } = fakeGas();
+    getStatus.mockRejectedValue(new Error('status endpoint 502'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+    const log = fakeLog();
+
+    const settled = await reconcileOnce({ db, noir, gas, log, now: () => NOW });
+
+    expect(settled).toBe(1);
+    expect(log.warn).toHaveBeenCalledTimes(1);
+    expect(db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('broken')?.status).toBe('succeeded');
+    expect(sponsor).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('keeps a row unknown when the chain has not indexed it', async () => {
     const db = openDb(':memory:');
     insertUncertain(db, 'pending_row', NOW - 1_000);
     const { gas, getStatus } = fakeGas();
     getStatus.mockResolvedValue(result('submitted'));
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'NOT_FOUND' });
 
-    const settled = await reconcileOnce({ db, gas, log: fakeLog(), now: () => NOW });
+    const settled = await reconcileOnce({ db, noir, gas, log: fakeLog(), now: () => NOW });
 
     expect(settled).toBe(0);
     const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('pending_row');
     expect(row?.status).toBe('submission_unknown');
     expect(row?.updated_at).toBe(NOW - 1_000);
+  });
+
+  it('settles a direct row from the chain even without a Velo client', async () => {
+    const db = openDb(':memory:');
+    insertUncertainDirect(db, 'direct_row', NOW - 1_000);
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+
+    const settled = await reconcileOnce({ db, noir, gas: null, log: fakeLog(), now: () => NOW });
+
+    expect(settled).toBe(1);
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('direct_row');
+    expect(row?.status).toBe('succeeded');
+    expect(row?.gas_mode).toBe('direct');
+  });
+
+  it('records CHAIN_FAILED when the chain says the transaction failed', async () => {
+    const db = openDb(':memory:');
+    insertUncertainDirect(db, 'failed_row', NOW - 1_000);
+    const { noir, getTransaction } = fakeNoir(Keypair.random());
+    getTransaction.mockResolvedValue({ status: 'FAILED' });
+
+    const settled = await reconcileOnce({ db, noir, gas: null, log: fakeLog(), now: () => NOW });
+
+    expect(settled).toBe(1);
+    const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('failed_row');
+    expect(row?.status).toBe('failed');
+    expect(row?.error_code).toBe('CHAIN_FAILED');
   });
 
   it('logs a failed status read and keeps processing the other rows', async () => {
@@ -495,9 +907,10 @@ describe('reconcileOnce', () => {
         ? Promise.reject(new Error('status endpoint 502'))
         : Promise.resolve(result('succeeded')),
     );
+    const { noir } = fakeNoir(Keypair.random());
     const log = fakeLog();
 
-    const settled = await reconcileOnce({ db, gas, log, now: () => NOW });
+    const settled = await reconcileOnce({ db, noir, gas, log, now: () => NOW });
 
     expect(settled).toBe(1);
     expect(log.warn).toHaveBeenCalledTimes(1);
@@ -516,26 +929,96 @@ describe('reconcileOnce', () => {
       db.prepare("UPDATE chain_txs SET status = 'failed', error_code = 'GAS_FAILED' WHERE id = ?").run('raced');
       return result('succeeded');
     });
+    const { noir } = fakeNoir(Keypair.random());
 
-    const settled = await reconcileOnce({ db, gas, log: fakeLog(), now: () => NOW });
+    const settled = await reconcileOnce({ db, noir, gas, log: fakeLog(), now: () => NOW });
 
     expect(settled).toBe(0);
     const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('raced');
     expect(row?.status).toBe('failed');
     expect(row?.error_code).toBe('GAS_FAILED');
   });
+});
 
-  it('does nothing without a Velo client', async () => {
+describe('recoverInterruptedTxs', () => {
+  const NOW = 2_000_000_000;
+
+  function insertPending(
+    db: Db,
+    id: string,
+    fields: { gasMode?: 'velo' | 'direct'; veloRequestId?: string | null; innerHash: string | null },
+  ): void {
+    db.prepare(
+      `INSERT INTO chain_txs
+         (id, kind, contract_id, method, source_public, status, gas_mode,
+          velo_request_id, inner_hash, created_at, updated_at)
+       VALUES (?, 'authorize', ?, 'authorize', 'GSOURCE', 'pending', ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      PAYMENT_ESCROW,
+      fields.gasMode ?? 'velo',
+      fields.veloRequestId ?? null,
+      fields.innerHash,
+      NOW - 5_000,
+      NOW - 5_000,
+    );
+  }
+
+  it('fails only the rows with no hand-off evidence and marks the rest as unknown', () => {
     const db = openDb(':memory:');
-    insertUncertain(db, 'recent', NOW - 1_000);
-    const { gas, getStatus } = fakeGas();
+    // Nothing was handed off: no inner hash, or still `velo` with no reservation. A `direct` row with no hash died
+    // before the hash was computed, which is also before any send.
+    insertPending(db, 'no_hash', { innerHash: null });
+    insertPending(db, 'direct_no_hash', { gasMode: 'direct', innerHash: null });
+    insertPending(db, 'after_prepare', { innerHash: 'inner_after_prepare' });
+    // Handed off: the direct marker precedes the send and a reservation precedes `submit`.
+    insertPending(db, 'direct_sending', { gasMode: 'direct', innerHash: 'inner_direct_sending' });
+    insertPending(db, 'velo_reserved', {
+      veloRequestId: 'req_velo_reserved',
+      innerHash: 'inner_velo_reserved',
+    });
+    insertUncertain(db, 'already_unknown', NOW - 1_000);
+    db.prepare(
+      `INSERT INTO chain_txs
+         (id, kind, contract_id, method, source_public, status, gas_mode, created_at, updated_at)
+       VALUES ('done', 'authorize', ?, 'authorize', 'GSOURCE', 'succeeded', 'velo', ?, ?)`,
+    ).run(PAYMENT_ESCROW, NOW - 1_000, NOW - 1_000);
+    db.prepare(
+      `INSERT INTO chain_txs
+         (id, kind, contract_id, method, source_public, status, gas_mode, created_at, updated_at)
+       VALUES ('gone', 'authorize', ?, 'authorize', 'GSOURCE', 'failed', 'velo', ?, ?)`,
+    ).run(PAYMENT_ESCROW, NOW - 1_000, NOW - 1_000);
+    const log = fakeLog();
 
-    const settled = await reconcileOnce({ db, gas: null, log: fakeLog(), now: () => NOW });
+    const out = recoverInterruptedTxs({ db, log, now: () => NOW });
 
-    expect(settled).toBe(0);
-    expect(getStatus).not.toHaveBeenCalled();
-    expect(gas.sponsor).not.toHaveBeenCalled();
-    expect(gas.submit).not.toHaveBeenCalled();
+    expect(out).toEqual({ failed: 3, unknown: 2 });
+    for (const id of ['no_hash', 'direct_no_hash', 'after_prepare']) {
+      const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>(id);
+      expect(row?.status).toBe('failed');
+      expect(row?.error_code).toBe('PREPARE_INTERRUPTED');
+    }
+    for (const id of ['direct_sending', 'velo_reserved']) {
+      const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>(id);
+      expect(row?.status).toBe('submission_unknown');
+      expect(row?.error_code).toBe('HANDOFF_INTERRUPTED');
+      expect(row?.updated_at).toBe(NOW);
+    }
+    expect(db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('already_unknown')?.status).toBe(
+      'submission_unknown',
+    );
+    expect(db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('done')?.status).toBe('succeeded');
+    expect(db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<Row>('gone')?.status).toBe('failed');
+    expect(log.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing and logs nothing when no row is pending', () => {
+    const db = openDb(':memory:');
+    insertUncertain(db, 'already_unknown', NOW - 1_000);
+    const log = fakeLog();
+
+    expect(recoverInterruptedTxs({ db, log, now: () => NOW })).toEqual({ failed: 0, unknown: 0 });
+    expect(log.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -550,7 +1033,8 @@ describe('startReconciler', () => {
     insertUncertain(db, 'recent', Date.now() - 1_000);
     const { gas, getStatus, sponsor, submit } = fakeGas();
     getStatus.mockReturnValue(new Promise<GasSubmitResult>(() => {}));
-    const deps = { db, gas, log: fakeLog(), now: Date.now };
+    const { noir } = fakeNoir(Keypair.random());
+    const deps = { db, noir, gas, log: fakeLog(), now: Date.now };
 
     const stop = startReconciler(deps, 5000);
     await vi.advanceTimersByTimeAsync(5000);

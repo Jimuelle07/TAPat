@@ -1,6 +1,6 @@
 // @tapat/agent: pure agent logic. No env reads, no SQLite, no HTTP — callers pass config and clients in.
-export { createNoirClient, signNoirCall, submitDirect } from './chain/noir';
-export type { NoirClientConfig } from './chain/noir';
+export { createNoirClient, getTransactionOutcome, signNoirCall, submitDirect } from './chain/noir';
+export type { NoirClientConfig, OnChainOutcome } from './chain/noir';
 export { GasHandoffError, GasSponsorError, submitSponsored } from './chain/gas';
 export type { SubmitSponsoredOptions } from './chain/gas';
 export { decryptSecret, encryptSecret, fundWithFriendbot, generateAgentKeypair } from './chain/keys';
