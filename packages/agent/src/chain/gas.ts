@@ -26,9 +26,40 @@ export interface SubmitSponsoredOptions {
 const PROVIDER_TIMEOUT_MS = 30_000;
 
 /**
+ * `sponsor` never succeeded, so nothing was handed off and the same XDR may still be sent directly.
+ * Wrapping keeps the SDK error reachable through `.cause` for callers that triage by Velo error class.
+ */
+export class GasSponsorError extends Error {
+  override readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super(`Gas sponsorship failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'GasSponsorError';
+    this.cause = cause;
+  }
+}
+
+/**
+ * `submit` was attempted and its status could not be read back: Velo may already have the transaction, so the caller
+ * must never resubmit and must reconcile by identity instead.
+ */
+export class GasHandoffError extends Error {
+  override readonly cause: unknown;
+  readonly identity: GasExecutionIdentity;
+
+  constructor(identity: GasExecutionIdentity, cause: unknown) {
+    super(`Gas hand-off status unknown: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'GasHandoffError';
+    this.identity = identity;
+    this.cause = cause;
+  }
+}
+
+/**
  * Sponsors and submits one signed envelope. Sponsor failures are retried only when Velo reports a provider error,
  * and always with the same XDR and key. Any `submit` failure is recovered through `getStatus`, never a second submit.
- * The returned result may still be non-terminal; the caller decides what that means.
+ * The returned result may still be non-terminal; the caller decides what that means. Throws `GasSponsorError` when
+ * nothing was handed off and `GasHandoffError` when it was but the status is unreadable.
  */
 export async function submitSponsored(
   gas: Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>,
@@ -50,7 +81,7 @@ export async function submitSponsored(
       });
       break;
     } catch (error) {
-      if (!(error instanceof VeloProviderError) || attempt >= sponsorAttempts) throw error;
+      if (!(error instanceof VeloProviderError) || attempt >= sponsorAttempts) throw new GasSponsorError(error);
       opts.onRetry?.(attempt, error);
       if (retryDelayMs > 0) await sleep(retryDelayMs * attempt);
     }
@@ -64,14 +95,19 @@ export async function submitSponsored(
   };
   let result: GasSubmitResult;
   try {
-    result = await gas.submit({ ...identity, transactionXdr: signedXdr });
+    try {
+      result = await gas.submit({ ...identity, transactionXdr: signedXdr });
+    } catch (error) {
+      opts.onUncertainHandoff?.(error);
+      result = await gas.getStatus(identity);
+    }
+    // waitForResult returns the last non-terminal result when its attempts run out.
+    if (result.status === 'claimed' || result.status === 'submitted' || result.status === 'submission_unknown') {
+      result = await gas.waitForResult(identity, wait);
+    }
   } catch (error) {
-    opts.onUncertainHandoff?.(error);
-    result = await gas.getStatus(identity);
-  }
-  // waitForResult returns the last non-terminal result when its attempts run out.
-  if (result.status === 'claimed' || result.status === 'submitted' || result.status === 'submission_unknown') {
-    result = await gas.waitForResult(identity, wait);
+    // The hand-off may have reached Velo: anything that stops us reading the status back leaves it unknown.
+    throw new GasHandoffError(identity, error);
   }
   return result;
 }

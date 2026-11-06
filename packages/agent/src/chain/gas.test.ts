@@ -6,7 +6,7 @@ import {
   type GasSponsorReservation,
   type GasSubmitResult,
 } from '@carts1024/velo-sdk';
-import { submitSponsored } from './gas';
+import { GasHandoffError, GasSponsorError, submitSponsored } from './gas';
 
 type Gas = Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>;
 
@@ -74,24 +74,35 @@ describe('submitSponsored', () => {
     expect(out.status).toBe('succeeded');
   });
 
-  it('stops after sponsorAttempts and rethrows the last provider error', async () => {
+  it('stops after sponsorAttempts and wraps the last provider error', async () => {
     const { gas, sponsor, submit } = fakeGas();
     const providerError = new VeloProviderError('still 502', { status: 502 });
     sponsor.mockRejectedValue(providerError);
 
-    await expect(
-      submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0, sponsorAttempts: 3 }),
-    ).rejects.toBe(providerError);
+    const error: unknown = await submitSponsored(gas, XDR, {
+      idempotencyKey: KEY,
+      retryDelayMs: 0,
+      sponsorAttempts: 3,
+    }).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(GasSponsorError);
+    expect((error as GasSponsorError).cause).toBe(providerError);
+    expect((error as GasSponsorError).message).toBe('Gas sponsorship failed: still 502');
     expect(sponsor).toHaveBeenCalledTimes(3);
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it('rethrows a non-provider sponsor error without submitting', async () => {
+  it('wraps a non-provider sponsor error without submitting', async () => {
     const { gas, sponsor, submit } = fakeGas();
     const authError = new Error('bad api key');
     sponsor.mockRejectedValue(authError);
 
-    await expect(submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0 })).rejects.toBe(authError);
+    const error: unknown = await submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0 }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(GasSponsorError);
+    expect((error as GasSponsorError).cause).toBe(authError);
     expect(sponsor).toHaveBeenCalledTimes(1);
     expect(submit).not.toHaveBeenCalled();
   });
@@ -142,5 +153,36 @@ describe('submitSponsored', () => {
 
     await expect(submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0 })).resolves.toBe(failed);
     expect(waitForResult).not.toHaveBeenCalled();
+  });
+
+  it('wraps a getStatus failure after submit as a hand-off error', async () => {
+    const { gas, submit, getStatus } = fakeGas();
+    submit.mockRejectedValueOnce(new VeloProviderError('lost response', { status: 504 }));
+    const statusError = new Error('status endpoint 502');
+    getStatus.mockRejectedValueOnce(statusError);
+
+    const error: unknown = await submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0 }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(GasHandoffError);
+    expect((error as GasHandoffError).identity).toEqual(IDENTITY);
+    expect((error as GasHandoffError).cause).toBe(statusError);
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('wraps a waitForResult failure as a hand-off error', async () => {
+    const { gas, submit, waitForResult } = fakeGas();
+    submit.mockResolvedValueOnce(result('submitted'));
+    const waitError = new Error('polling aborted');
+    waitForResult.mockRejectedValueOnce(waitError);
+
+    const error: unknown = await submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0 }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(GasHandoffError);
+    expect((error as GasHandoffError).identity).toEqual(IDENTITY);
+    expect((error as GasHandoffError).cause).toBe(waitError);
   });
 });

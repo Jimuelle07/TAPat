@@ -3,8 +3,10 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { Velo, createNoirClient } from '@tapat/agent';
 import { loadConfig } from './config';
 import { openDb } from './db/index';
+import { startReconciler, type ChainDeps } from './services/chain';
 
 const STREAM_PATH = '/api/stream';
 
@@ -33,9 +35,34 @@ export async function buildServer(options: FastifyServerOptions = {}): Promise<F
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  // Handbook requirement: refuse to boot on any deployment the Noir SDK does not know (SDD §4.2).
+  const noir = createNoirClient({
+    rpcUrl: config.STELLAR_RPC_URL,
+    networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
+    contracts: {
+      deviceRegistry: config.NOIR_DEVICE_REGISTRY_ID,
+      agentRegistry: config.NOIR_AGENT_REGISTRY_ID,
+      paymentEscrow: config.NOIR_PAYMENT_ESCROW_ID,
+    },
+  });
   const db = openDb(config.DATABASE_PATH);
+  const gas =
+    config.GAS_MODE === 'velo'
+      ? new Velo({
+          apiKey: config.VELO_GAS_API_KEY,
+          baseUrl: config.VELO_GAS_BASE_URL,
+          environment: 'testnet',
+          timeoutMs: 30_000,
+        }).gas
+      : null;
   const app = await buildServer({ logger: true });
-  app.addHook('onClose', async () => db.close());
+  // Routes are registered by C3/C4, which take `chain` as a dependency; the reconciler needs it now.
+  const chain: ChainDeps = { db, noir, gas, config, log: app.log };
+  const stopReconciler = gas === null ? null : startReconciler(chain);
+  app.addHook('onClose', async () => {
+    stopReconciler?.();
+    db.close();
+  });
   await app.listen({ port: config.PORT, host: '127.0.0.1' });
 }
 

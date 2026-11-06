@@ -497,7 +497,7 @@ packages/agent/                    @tapat/agent — pure: no env, no SQLite, no 
   src/chain/
     noir.ts      createNoirClient(), signNoirCall(), submitDirect()
     gas.ts       submitSponsored(): Velo sponsor → one submit → status recovery
-    keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot   (planned, C2)
+    keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot
   src/algorithms/ names, matcher, crc, bocpd, cms, midas (planned, NM/MT/BOC/MIDAS)
   src/index.ts   the public API below
 apps/server/                       the only caller: config, chain_txs, reconciler, services, HTTP
@@ -512,10 +512,17 @@ createNoirClient(cfg: { rpcUrl: string; networkPassphrase: string; contracts: { 
 signNoirCall(noir: NoirAgentClient, signer: Keypair, op: NoirOperation, networkPassphrase: string): Promise<string>   // signed XDR
 submitDirect(noir: NoirAgentClient, signedXdr: string, op: NoirOperation): Promise<string>                           // tx hash
 submitSponsored(gas: Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>, signedXdr: string, opts: SubmitSponsoredOptions): Promise<GasSubmitResult>   // §4.5
+class GasSponsorError extends Error { cause: unknown }             // sponsor() never succeeded; nothing was handed off
+class GasHandoffError extends Error { identity: GasExecutionIdentity; cause: unknown }   // submit attempted, status unreadable
+
+generateAgentKeypair(): { publicKey: string; secret: string }                          // §4.7
+encryptSecret(plain: string, keyHex: string): string
+decryptSecret(blob: string, keyHex: string): string
+fundWithFriendbot(publicKey: string, opts?: { attempts?: number; delayMs?: number }): Promise<void>
 
 // SDK pass-throughs: re-exported unchanged so `apps/server` needs no direct SDK dependency
-export { Velo, VeloError } from '@carts1024/velo-sdk'
-export { NoirContractError, type NoirOperation } from '@noirx402/agent-sdk'
+export { Velo, VeloError, VeloProviderError, VeloAuthError, VeloValidationError, type GasApi, type GasSubmitResult, type GasExecutionIdentity } from '@carts1024/velo-sdk'
+export { NoirContractError, type NoirOperation, type NoirAgentClient } from '@noirx402/agent-sdk'
 ```
 
 Every Noir call goes through `@noirx402/agent-sdk@0.3.0` on the three deployed IDs — that is handbook requirement 2 (Builder Handbook, Nov 5): calling the contracts any other way does not count as Noir integration. `@stellar/stellar-sdk` stays only for `Keypair`, `TransactionBuilder.fromXDR` and signing, and as the SDK's peer; invoke, read, ScVal encoding and error parsing are the SDK's job, so there is no local Soroban client left to keep in sync with the contract ABI. `@carts1024/velo-sdk` supplies the `GasApi`/`GasSubmitResult` types the package consumes; `apps/server` keeps its own dependency on it for checkout and webhooks (C5).
@@ -549,8 +556,8 @@ export async function submitDirect(
 
 ```ts
 export type ChainKind =
-  | 'register' | 'register_agent' | 'fund_escrow' | 'authorize'
-  | 'claim' | 'revoke_agent' | 'sweep_on_revoke' | 'revoke_device';
+  | 'register' | 'register_agent' | 'fund' | 'authorize'
+  | 'claim' | 'revoke_agent' | 'sweep' | 'revoke_device';
 
 export interface ChainTxResult {
   chainTxId: string;
@@ -558,26 +565,59 @@ export interface ChainTxResult {
   gasMode: 'velo' | 'direct';
   innerHash: string | null;   // hash of the Soroban transaction we built
   outerHash: string | null;   // hash of the outer/fee-bump tx when the Gas Station wrapped it
-  ledger: number | null;
   errorCode: string | null;
   error: string | null;
 }
 ```
 
-The server-side pipeline (one function per `ChainKind`, in `src/services/`) behaves as follows:
+`ChainKind` is the `chain_txs.kind` vocabulary (`packages/shared/src/types.ts`, `docs/api-and-data.md`), not the SDK's operation names: `fundEscrow` records `fund` and `sweepOnRevoke` records `sweep`. There is no `ledger` field either — neither `GasSubmitResult` nor `submitDirect` returns one, and `chain_txs` has no column for it.
 
-* Throws `NoirContractError` when the SDK's simulation fails inside `prepare()` (i.e. inside `signNoirCall`). In that case no transaction was submitted, and the `chain_txs` row is left `status='failed'`, `error_code='CONTRACT_<CODE_NAME>'`.
-* Returns `ChainTxResult` for everything else, including `submission_unknown`.
-* Throws a plain `Error` only for programmer faults (malformed operation, a config the package rejects).
+There is **one** pipeline function, not one per kind:
+
+```ts
+export async function runChainTx(deps: ChainDeps, signer: Keypair, op: NoirOperation): Promise<ChainTxResult>;
+export async function reconcileOnce(deps: Pick<ChainDeps, 'db' | 'gas' | 'log' | 'now'>): Promise<number>;
+export function startReconciler(deps: Pick<ChainDeps, 'db' | 'gas' | 'log' | 'now'>, intervalMs?: number): () => void;
+```
+
+`ChainDeps = { db, noir, gas, config, log, gasOptions?, now? }`, with `gas: null` under `GAS_MODE=direct`; `log` is `{ warn(obj, msg), error(obj, msg) }`, which `app.log` satisfies. `runChainTx` looks `op` up in a `const` op table keyed by `NoirOperation['kind']`, so a new SDK operation is a compile error until it is mapped:
+
+| `op.kind` | `kind` | contract config | `method` |
+|---|---|---|---|
+| `registerDevice` | `register` | `NOIR_DEVICE_REGISTRY_ID` | `register` |
+| `revokeDevice` | `revoke_device` | `NOIR_DEVICE_REGISTRY_ID` | `revoke` |
+| `registerAgent` | `register_agent` | `NOIR_AGENT_REGISTRY_ID` | `register_agent` |
+| `revokeAgent` | `revoke_agent` | `NOIR_AGENT_REGISTRY_ID` | `revoke_agent` |
+| `fundEscrow` | `fund` | `NOIR_PAYMENT_ESCROW_ID` | `fund_escrow` |
+| `authorize` | `authorize` | `NOIR_PAYMENT_ESCROW_ID` | `authorize` |
+| `claim` | `claim` | `NOIR_PAYMENT_ESCROW_ID` | `claim` |
+| `sweepOnRevoke` | `sweep` | `NOIR_PAYMENT_ESCROW_ID` | `sweep_on_revoke` |
+
+`defundEscrow` has no row: `runChainTx` throws `Error('defundEscrow is not used by TAPat')` before any insert.
+
+`runChainTx` returns `ChainTxResult` for every persisted outcome, including `submission_unknown`, and throws only for programmer faults and for a `prepare()` rejection:
+
+* `NoirContractError` from `prepare()` (inside `signNoirCall`): no transaction was submitted; the row is `failed` with `error_code='CONTRACT_<errorName>'` and the error is rethrown.
+* Any other `prepare()` throw, or a throw from the post-sign `TransactionBuilder.fromXDR(signedXdr, …).hash()`: row `failed`, `error_code='PREPARE_FAILED'`, rethrown — nothing was handed off.
+* A `sponsor()` failure (`GasSponsorError`) is not a throw out of the pipeline: it is persisted as `failed` (or retried on the direct path) per step 4.
+* A `GasHandoffError` is persisted as `submission_unknown` per step 4, never rethrown.
+* Any other throw out of `submitSponsored`: a programmer fault — row `failed`, `error_code='INTERNAL'`, rethrown.
+* A persistence throw on the success path is not classified: `mapGasResult(result)` is written **outside** that try/catch, so a SQLite fault propagates and leaves the row as last persisted instead of relabelling a chain success as `failed`/`INTERNAL`.
 
 Steps:
 
 1. `id = randomUUID()`; insert `chain_txs` (`kind`, `contract_id`, `method`, `source_public`, `status='pending'`, `gas_mode` per `GAS_MODE`, `created_at`, `updated_at`).
-2. `const signedXdr = await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE)` — the SDK simulates, attaches the footprint and sets the resource fee; the acting account signs. On throw → mark the row failed with `CONTRACT_<errorName>` → rethrow the `NoirContractError`.
-3. `const innerHash = TransactionBuilder.fromXDR(signedXdr, networkPassphrase).hash().toString('hex')` — the SDK never signs or submits; the caller does both.
-4. `GAS_MODE=velo` → `const result = await submitSponsored(velo.gas, signedXdr, { idempotencyKey: id })` from `@tapat/agent`; `GAS_MODE=direct` → `const hash = await submitDirect(noir, signedXdr, op)`. A pre-dispatch throw from `submitSponsored` is handled by the fallback rule in §4.5.
-5. Update `chain_txs` with `status`, `gas_mode`, `inner_hash`, `outer_hash`, `velo_request_id`, `error_code`, `error`, `updated_at`; set `ledger` from the result (also kept in `outputs_json` of the decision and in the SSE payload). Emit SSE `chain_tx` with the row.
-6. Return `ChainTxResult`.
+2. `const signedXdr = await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE)` — the SDK simulates, attaches the footprint and sets the resource fee; the acting account signs. On throw the two rules above decide the row, then the error is rethrown.
+3. `const innerHash = TransactionBuilder.fromXDR(signedXdr, networkPassphrase).hash().toString('hex')` — written to the row before any hand-off; it is the hash the Gas Station reports as `transactionHash`. A throw here is a `PREPARE_FAILED` row, rethrown.
+4. `GAS_MODE='direct'` (or `gas === null`) → step 5. Otherwise `submitSponsored(gas, signedXdr, { idempotencyKey: id, ...gasOptions, onRetry, onUncertainHandoff })` from `@tapat/agent`, with both callbacks logging through `log.warn`:
+   * returns a result → step 6.
+   * `GasSponsorError` — `sponsor()` never succeeded, nothing was handed off. A `VeloValidationError` cause is logged with `log.error` first. `GAS_FALLBACK_DIRECT=true` → `log.warn` and step 5 with the **same** `signedXdr`; otherwise row `failed`, `gas_mode='velo'`, `error_code` = `GAS_UNAVAILABLE` for a `VeloProviderError` cause or a non-`VeloError` cause, `VELO_AUTH` for `VeloAuthError`, else the cause's class name (e.g. `VeloValidationError`, `VeloRateLimitError`), with the cause message as `error`.
+   * `GasHandoffError` — `submit()` was attempted and the status could not be read back: row `submission_unknown`, `velo_request_id = identity.requestId`, `inner_hash = identity.transactionHash`, `error_code='GAS_HANDOFF_UNKNOWN'`. **Never** falls back, never resubmits; the reconciler owns it.
+5. Direct path: `await submitDirect(noir, signedXdr, op)` → row `succeeded`, `gas_mode='direct'`, `inner_hash=<hash>`, `outer_hash=null`. A throw is classified by the SDK's message (§4.5 "Direct path"): `CONTRACT_<errorName>` for `NoirContractError`, `DIRECT_FAILED` when the network definitively refused, and `DIRECT_UNKNOWN` (status `submission_unknown`, keeping `innerHash`) for anything unconfirmed or transport-level.
+6. `mapGasResult(result)`: `succeeded` → row `succeeded` with `inner_hash`, `outer_hash` (nullable) and `velo_request_id`; `failed` → `failed`, `error_code='GAS_FAILED'`; `cancelled` → `failed`, `error_code='GAS_CANCELLED'` (both carry `Gas Station status <status> (request <requestId>)` as `error`); `claimed` / `submitted` / `submission_unknown` → `submission_unknown` with `velo_request_id`. The reconciler reuses the same function.
+7. Every write sets `updated_at = now()`; the returned `ChainTxResult` is built from the final row. Emitting the SSE `chain_tx` event is the SSE task's job — it is not part of this pipeline.
+
+**Boot wiring.** `main()` in `apps/server/src/server.ts` calls `createNoirClient` with the three `NOIR_*_ID`s and `STELLAR_NETWORK_PASSPHRASE` before `listen()`, so a mismatch throws into the existing `main().catch` and the process exits 1 with nothing listening. It builds `new Velo({ apiKey: VELO_GAS_API_KEY, baseUrl: VELO_GAS_BASE_URL, environment: 'testnet', timeoutMs: 30_000 }).gas` only when `GAS_MODE=velo` (else `gas = null`), assembles `ChainDeps` with `log: app.log`, and starts `startReconciler(chain)` when `gas` is non-null; the `onClose` hook stops the reconciler before `db.close()`.
 
 `NoirAgentClient.execute()` is not used: it signs and submits itself, and every write must go through `submitSponsored`/`submitDirect` so Velo sponsors it.
 
@@ -667,49 +707,54 @@ export async function submitSponsored(
 
 ```ts
 export type GasOutcome =
-  | { status: 'succeeded'; gasMode: 'velo'; outerHash: string | null; ledger: number | null }
+  | { status: 'succeeded'; gasMode: 'velo'; outerHash: string | null }
   | { status: 'failed';    gasMode: 'velo' | 'direct'; errorCode: string; error: string }
   | { status: 'submission_unknown'; gasMode: 'velo'; veloRequestId: string };
 ```
 
 `submitSponsored` steps:
 
-1. `const sponsored = await gas.sponsor(signedXdr, { idempotencyKey: opts.idempotencyKey })` → `{ requestId, transactionHash }`. A `VeloProviderError` is retried with the **same XDR and the same key**, up to `sponsorAttempts` attempts in total (default 4) with `retryDelayMs` between them (default 10 s, linear); `onRetry(attempt, error)` fires on each retry. **Any other error rethrows untouched.**
+1. `const sponsored = await gas.sponsor(signedXdr, { idempotencyKey: opts.idempotencyKey })` → `{ requestId, transactionHash }`. A `VeloProviderError` is retried with the **same XDR and the same key**, up to `sponsorAttempts` attempts in total (default 4) with `retryDelayMs` between them (default 10 s, linear); `onRetry(attempt, error)` fires on each retry. **Every** sponsor failure — a non-provider error on the first attempt, or a provider error after the last one — is thrown as `GasSponsorError`, with the SDK error reachable through `.cause`: `sponsor()` never succeeded, so nothing was handed off and the same XDR may still go direct.
 2. **Exactly one** `gas.submit({ requestId, transactionHash, transactionXdr: signedXdr })`. **Any** failure of that call — thrown, or a lost response — means `getStatus(identity)`; never a second `submit`. `onUncertainHandoff(error)` fires.
-3. If the status is `claimed` / `submitted` / `submission_unknown`, call `waitForResult(identity, opts.wait)` (default 90 s / 20 attempts).
+3. If the status is `claimed` / `submitted` / `submission_unknown`, call `waitForResult(identity, opts.wait)` (default 90 s / 20 attempts). Should `getStatus` or `waitForResult` themselves throw, the package throws `GasHandoffError(identity, cause)`: `submit` was attempted, Velo may already have the transaction, and the status is unreadable.
 4. Return the final `GasSubmitResult`, which may still be non-terminal.
 
 From there the XDR is out of our hands; `apps/server` maps what comes back:
 
 | Velo status | `GasOutcome` / `chain_txs` |
 |---|---|
-| `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`, **nullable**), the inner hash (`transactionHash`) and `ledger` |
+| `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`, **nullable**) and the inner hash (`transactionHash`) |
 | `failed` | `failed`, `errorCode = 'GAS_FAILED'` |
 | `cancelled` | `failed`, `errorCode = 'GAS_CANCELLED'` |
 | `claimed`, `submitted`, `submission_unknown` | `submission_unknown`, `veloRequestId = requestId`; the reconciler owns it |
 
 `GAS_MODE=direct` always takes the direct path.
 
-Exception mapping (the package handles the first row; `apps/server` handles the rest because only it knows about `GAS_FALLBACK_DIRECT`):
+Exception mapping (the package handles the first row; `apps/server` handles the rest because only it knows about `GAS_FALLBACK_DIRECT`). Every failure from `sponsor()` arrives at `apps/server` as `GasSponsorError`, whose `.cause` is the SDK error below — that is what makes "nothing was handed off" safe to detect:
 
 | Thrown | Meaning | Action |
 |---|---|---|
-| `VeloProviderError` from `sponsor()` | Gas Station upstream failure; nothing was handed off | `submitSponsored` retries the same XDR and key up to `sponsorAttempts`; after the last attempt it rethrows, and `apps/server` takes the direct path if `GAS_FALLBACK_DIRECT=true`, else records `failed` with `errorCode='GAS_UNAVAILABLE'` |
-| `VeloAuthError` from `sponsor()` | Bad or missing `VELO_GAS_API_KEY` | Pre-dispatch, no retry: rethrown. `apps/server` → direct path if `GAS_FALLBACK_DIRECT=true`; else `failed` with `errorCode='VELO_AUTH'` |
-| `VeloValidationError` from `sponsor()` | Envelope rule violated (wrong op count, wrong source, more than one signature, contract not on the allow-list) | Pre-dispatch, no retry: rethrown → direct path if `GAS_FALLBACK_DIRECT=true`; also log loudly, because it means our envelope is wrong |
-| `VeloRateLimitError` from `sponsor()` | Over 50 XLM/day or 300 requests/wallet/hour | Pre-dispatch, no retry: rethrown → direct path if `GAS_FALLBACK_DIRECT=true` |
-| Anything thrown by `gas.submit(...)`, or a non-terminal `getStatus` | The XDR may or may not have been dispatched | `submitSponsored` recovers with `getStatus`/`waitForResult` and returns a non-terminal result; `apps/server` records `submission_unknown` + the identity. **Never** a second `submit`; `GAS_FALLBACK_DIRECT` does **not** apply here — a fallback would be a second submission of the same intent |
+| `GasSponsorError` caused by `VeloProviderError` | Gas Station upstream failure; nothing was handed off | `submitSponsored` retries the same XDR and key up to `sponsorAttempts`; after the last attempt it throws `GasSponsorError`, and `apps/server` takes the direct path if `GAS_FALLBACK_DIRECT=true`, else records `failed` with `errorCode='GAS_UNAVAILABLE'` |
+| `GasSponsorError` caused by `VeloAuthError` | Bad or missing `VELO_GAS_API_KEY` | Pre-dispatch, no retry. `apps/server` → direct path if `GAS_FALLBACK_DIRECT=true`; else `failed` with `errorCode='VELO_AUTH'` |
+| `GasSponsorError` caused by `VeloValidationError` | Envelope rule violated (wrong op count, wrong source, more than one signature, contract not on the allow-list) | Pre-dispatch, no retry. `apps/server` → direct path if `GAS_FALLBACK_DIRECT=true`; also log loudly, because it means our envelope is wrong |
+| `GasSponsorError` caused by `VeloRateLimitError` | Over 50 XLM/day or 300 requests/wallet/hour | Pre-dispatch, no retry. `apps/server` → direct path if `GAS_FALLBACK_DIRECT=true`; else `failed` with the cause's class name as `errorCode` |
+| `GasHandoffError` | `submit` was attempted and the status could not be read back (`getStatus` or `waitForResult` threw); the XDR may or may not have been dispatched | `.identity` carries `{ requestId, transactionHash }`, `.cause` the throw. `apps/server` records `submission_unknown` with `error_code='GAS_HANDOFF_UNKNOWN'` and the identity. **Never** a second `submit`; `GAS_FALLBACK_DIRECT` does **not** apply here — a fallback would be a second submission of the same intent |
 
-`GAS_FALLBACK_DIRECT=true` is therefore only ever consulted **before** a successful `sponsor()`: once sponsorship returned, the sponsor/submit pair is the only path, and a broken hand-off is recovered by identity, never by sending the XDR again.
+Any other throw out of `submitSponsored` is a programmer fault (`apps/server` records `error_code='INTERNAL'`); `GAS_FALLBACK_DIRECT=true` is therefore only ever consulted **before** a successful `sponsor()`: once sponsorship returned, the sponsor/submit pair is the only path, and a broken hand-off is recovered by identity, never by sending the XDR again.
 
 Whenever the direct path is used, set `chain_txs.gas_mode='direct'` so the dashboard and CSV show that the demo borrowed the fallback.
 
-Direct path: `submitDirect(noir, signedXdr, op)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. A throw is `failed` with the error text.
+Direct path: `submitDirect(noir, signedXdr, op)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. A throw is classified by the message `@noirx402/agent-sdk@0.3.0` produces, because only two of them mean the network definitely did not apply the transaction:
+
+* `NoirContractError` → `failed`, `error_code='CONTRACT_<errorName>'`.
+* `<label> rejected by the network: <name>` (send returned `ERROR`) or `<label> failed on-chain (<hash>)` (the transaction landed and failed) → `failed`, `error_code='DIRECT_FAILED'`.
+* Anything else — `<label> not confirmed after 60s (<hash>)`, a transport error from send/get, or an unknown throw — → `submission_unknown`, `error_code='DIRECT_UNKNOWN'`, keeping the locally computed `inner_hash`. Such a row has no `velo_request_id`, so the reconciler skips it: it freezes as `submission_unknown` and is never resubmitted.
 
 Reconciler (`reconcileOnce`, in `apps/server`, every 5 s):
 
-* Select `chain_txs` where `status='submission_unknown'` and `updated_at > now - 120000`.
-* `velo.gas.getStatus(identity)` → map with the table above → update the row.
+* Select `chain_txs` where `status='submission_unknown'`, `velo_request_id IS NOT NULL`, `inner_hash IS NOT NULL` and `updated_at > now - 120000`.
+* `velo.gas.getStatus({ requestId: velo_request_id, transactionHash: inner_hash })` → map with the table above → update the row (with `updated_at`) and count it. The `UPDATE` is guarded by `AND status = 'submission_unknown'` and counts only when one row changed, so a row another writer settled in the meantime is left alone.
+* A non-terminal status writes **nothing** (so the row's 2-minute window expires and it freezes as `submission_unknown`); a thrown `getStatus` is logged with `log.warn` and the next row is processed.
 * After 2 minutes with no terminal status, leave it `submission_unknown` and let the demo continue; the runbook's fallback covers it.
 * **Never** call `sponsor()` or `velo.gas.submit()` again for the same row. `submission_unknown` means the transaction may already be on the ledger; resubmitting is how you double-spend.
 
@@ -725,10 +770,10 @@ Every wrapper takes an explicit acting account; none reads env, and each is a th
 | `revokeDevice(wallet, deviceHash)` | `revokeDevice{ deviceHash }` | `device_registry` | `wallet` (device owner) | `revoke_device` |
 | `registerAgent(wallet, deviceHash, agent, maxAmount, asset, expiresAt)` | `registerAgent{ deviceHash, agent, asset, maxAmount, expiresAt }` | `agent_registry` | `wallet` (device owner) | `register_agent` |
 | `revokeAgent(wallet, deviceHash)` | `revokeAgent{ deviceHash }` | `agent_registry` | `wallet` (device owner) | `revoke_agent` |
-| `fundEscrow(token, wallet, deviceHash, amount)` | `fundEscrow{ deviceHash, token, amount }` | `payment_escrow` | funder (`wallet`) | `fund_escrow` |
+| `fundEscrow(token, wallet, deviceHash, amount)` | `fundEscrow{ deviceHash, token, amount }` | `payment_escrow` | funder (`wallet`) | `fund` |
 | `authorize(agent, deviceHash, merchant, asset, amount, nonce)` | `authorize{ deviceHash, merchant, asset, amount, nonce }` | `payment_escrow` | `agent` (card agent) | `authorize` |
 | `claim(token, merchant)` | `claim{ token }` | `payment_escrow` | `merchant` (station) | `claim` |
-| `sweepOnRevoke(token, deviceHash, agent)` | `sweepOnRevoke{ deviceHash, token, agent }` | `payment_escrow` | device owner | `sweep_on_revoke` |
+| `sweepOnRevoke(token, deviceHash, agent)` | `sweepOnRevoke{ deviceHash, token, agent }` | `payment_escrow` | device owner | `sweep` |
 | — (not used) | `defundEscrow{ deviceHash, token, amount }` | `payment_escrow` | device owner | — |
 
 `defundEscrow` is listed because it is an SDK operation, but no TAPat beat defunds a live escrow: unspent money leaves at program end via `sweepOnRevoke`. `NoirAgentClient.execute()` and `unlinkDevice()` are not used either — `execute()` submits itself (Velo must sponsor), and `unlinkDevice()`'s built-in revoke→sweep→revoke order is our §3.8 sequence, which F6 has to record step by step.
@@ -765,13 +810,14 @@ Events: `("fund", device)`, `("authorize", device, merchant)`, `("claim", mercha
 
 ```ts
 export function generateAgentKeypair(): { publicKey: string; secret: string };
-export function encryptSecret(plain: string, keyHex?: string): string;   // "v1:<iv>:<tag>:<ct>", base64url parts
-export function decryptSecret(blob: string, keyHex?: string): string;
-export async function fundWithFriendbot(publicKey: string, opts?: { attempts?: number }): Promise<void>;
+export function encryptSecret(plain: string, keyHex: string): string;   // "v1:<iv>:<tag>:<ct>", base64url parts
+export function decryptSecret(blob: string, keyHex: string): string;
+export async function fundWithFriendbot(publicKey: string, opts?: { attempts?: number; delayMs?: number }): Promise<void>;
 ```
 
-* AES-256-GCM, 12-byte random IV, 16-byte auth tag, key = `Buffer.from(KEY_ENCRYPTION_SECRET, 'hex')` (must be 64 hex chars). Decryption failure is fatal for that operation and surfaces as `500 INTERNAL` with a logged cause — never a silent fallback.
-* `fundWithFriendbot` calls `https://friendbot.stellar.org?addr=<publicKey>`, retries 3× with 2 s backoff, treats an already-funded account as success.
+* `keyHex` is **required**: the package reads no env, so the caller passes `KEY_ENCRYPTION_SECRET` in. Anything other than 64 lowercase hex chars throws `KEY_ENCRYPTION_SECRET must be 64 lowercase hex chars`.
+* AES-256-GCM, 12-byte random IV, 16-byte auth tag, key = `Buffer.from(keyHex, 'hex')`. Decryption uses `createDecipheriv(..., { authTagLength: 16 })` and rejects a blob whose IV does not decode to exactly 12 bytes or whose tag does not decode to exactly 16 bytes — as it rejects any blob that is not `v1:<iv>:<tag>:<ct>` — with `Unrecognised secret blob format`; a wrong key or a tampered ciphertext throws from `decipher.final()`. The `v1` prefix is a format version only: it carries no key id, so rotating `KEY_ENCRYPTION_SECRET` makes every existing blob undecryptable (there is no key-version fallback). Decryption failure is fatal for that operation and surfaces as `500 INTERNAL` with a logged cause — never a silent fallback.
+* `fundWithFriendbot` calls `https://friendbot.stellar.org?addr=<publicKey>`, retries `attempts` times (default 3) with a fixed `delayMs` between attempts (default 2000, no sleep after the last), and treats an already-funded account as success only on HTTP 400 whose body matches `/already funded/i` (live body: `{"detail":"account already funded to starting balance","status":400}`). When every attempt fails it throws `friendbot failed for <publicKey>: <HTTP <status> or the transport message>`.
 * Station secrets are encrypted at bootstrap (`apps/server/scripts/bootstrap-accounts.ts`). At use time `apps/server` decrypts one (`src/velo/` for checkout, or a card's agent secret for one `authorize`) and passes the resulting `Keypair` into `packages/agent/src/chain/`; the package never sees the ciphertext or the env var.
 
 ### 4.8 `chain_txs` lifecycle
@@ -780,6 +826,7 @@ export async function fundWithFriendbot(publicKey: string, opts?: { attempts?: n
 pending -> succeeded
 pending -> failed              (simulation rejection, gas failure, direct-path failure)
 pending -> submission_unknown  (a failed Velo hand-off, or a non-terminal getStatus)
+pending -> submission_unknown  (direct path unconfirmed; frozen, never retried)
 submission_unknown -> succeeded | failed   (reconciler, within 2 min)
 submission_unknown -> submission_unknown   (after 2 min, frozen for the demo, surfaced in the UI)
 ```
