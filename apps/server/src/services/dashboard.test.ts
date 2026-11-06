@@ -400,6 +400,24 @@ describe('createDashboardService', () => {
     expect(fake.getEscrowBalance).toHaveBeenCalledTimes(2);
   });
 
+  it('lists recent chain txs newest first with both hashes, so the UI can resolve a ctx_ id', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    const insert = db.prepare(
+      `INSERT INTO chain_txs (id, kind, contract_id, method, source_public, status, gas_mode, inner_hash, outer_hash,
+                              created_at, updated_at)
+       VALUES (?, 'authorize', 'C', 'authorize', 'G', 'succeeded', 'velo', ?, ?, ?, ?)`,
+    );
+    insert.run('ctx_old', 'inner_old', null, T0, T0);
+    insert.run('ctx_new', 'inner_new', 'outer_new', T0 + 1, T0 + 1);
+    const { noir } = fakeNoir();
+    const dashboard = await createDashboardService({ db, noir, config: { PHP_PER_XLM: 10 }, midasThreshold: 2.2 }).get();
+    expect(dashboard.recentChainTxs.map((tx) => [tx.id, tx.innerHash, tx.outerHash])).toEqual([
+      ['ctx_new', 'inner_new', 'outer_new'],
+      ['ctx_old', 'inner_old', null],
+    ]);
+  });
+
   it('answers 404 NOT_FOUND without a program', async () => {
     db = openDb(':memory:');
     const service = createDashboardService({

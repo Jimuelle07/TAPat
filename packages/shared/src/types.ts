@@ -224,6 +224,7 @@ export interface Dashboard {
   stations: Station[];
   recentTaps: Tap[];            // newest first, max 50
   recentDecisions: AgentDecision[]; // newest first, max 20
+  recentChainTxs: ChainTx[];    // newest first, max 200; resolves the ctx_ ids in taps, decisions and enroll/settle responses to hashes
 }
 
 // Response envelopes (one per endpoint that is not a bare list)

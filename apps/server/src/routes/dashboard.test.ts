@@ -56,6 +56,7 @@ describe('GET /api/dashboard', () => {
       stations: [],
       recentTaps: [],
       recentDecisions: [],
+      recentChainTxs: [],
     });
     expect('salt' in (body.program as Record<string, unknown>)).toBe(false);
     expect(body.budget).toMatchObject({ state: 'none' });

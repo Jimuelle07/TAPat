@@ -4,10 +4,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { NoirAgentClient } from '@tapat/agent';
-import type { CardSummary, Dashboard, Station, Tap, AgentDecision } from '@tapat/shared';
+import type { CardSummary, ChainTx, Dashboard, Station, Tap, AgentDecision } from '@tapat/shared';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import { ApiError } from '../errors';
+import { toChainTx } from './chain';
 import { toAgentDecision, type DecisionRow } from './decisions';
 import { getCurrentProgram } from './program';
 import { listStations } from './stations';
@@ -44,6 +45,7 @@ export const ESCROW_CACHE_MS = 5_000;
 
 const RECENT_TAPS_LIMIT = 50;
 const RECENT_DECISIONS_LIMIT = 20;
+const RECENT_CHAIN_TXS_LIMIT = 200;
 
 interface CardWithNameRow {
   id: string;
@@ -233,6 +235,10 @@ export function createDashboardService(deps: DashboardDeps): DashboardService {
         .prepare('SELECT * FROM agent_decisions ORDER BY created_at DESC, rowid DESC LIMIT ?')
         .all<DecisionRow>(RECENT_DECISIONS_LIMIT)
         .map(toAgentDecision);
+      const recentChainTxs: ChainTx[] = deps.db
+        .prepare('SELECT * FROM chain_txs ORDER BY created_at DESC, rowid DESC LIMIT ?')
+        .all<Parameters<typeof toChainTx>[0]>(RECENT_CHAIN_TXS_LIMIT)
+        .map(toChainTx);
 
       return {
         program,
@@ -251,6 +257,7 @@ export function createDashboardService(deps: DashboardDeps): DashboardService {
         stations,
         recentTaps,
         recentDecisions,
+        recentChainTxs,
       };
     },
   };

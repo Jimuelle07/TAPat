@@ -541,6 +541,7 @@ function dashboardFixture(mode: 'full' | 'beats'): Dashboard {
     ],
     recentTaps: [],
     recentDecisions: [],
+    recentChainTxs: [],
   };
 }
 
