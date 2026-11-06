@@ -5,8 +5,8 @@ import type { Dashboard } from "@tapat/shared";
 import { postBudgetCheckout } from "@/lib/api";
 import { php } from "@/lib/format";
 import { errorMessage } from "@/lib/use-dashboard";
-import { Button, Chip, Field, KeyValues, Notice, Sheet } from "../_components/ui";
-import { OfficerNotice, useAuth } from "../_components/Auth";
+import { Button, Chip, Field, KeyValues, Notice, Sheet } from "./_components/ui";
+import { OfficerNotice, useAuth } from "./_components/Auth";
 
 /** Budget deposit: one Velo checkout paid from the Budget Office wallet, verified on the ledger before any tranche. */
 export function BudgetSheet({

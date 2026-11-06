@@ -4,7 +4,7 @@
 import { Keypair } from '@stellar/stellar-sdk';
 import { encryptSecret } from '@tapat/agent';
 import { z } from 'zod';
-import { uidSchema, type Program } from '@tapat/shared';
+import { uidSchema, VIRTUAL_UID_PREFIX, type Program } from '@tapat/shared';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import { newLinkCode } from './beneficiaries';
@@ -34,9 +34,6 @@ export const SEED_CAST: readonly CastMember[] = [
 /** SDD §2.5: D3's policy expires this many seconds after seed time unless `--d3-expiry-offset` says otherwise. */
 export const DEFAULT_D3_EXPIRY_OFFSET_S = 600;
 
-/** A UID with this prefix is a virtual card: no NFC hardware, on chain it is identical (SDD §6.2). */
-const VIRTUAL_UID_PREFIX = 'TAPATVIRTUAL';
-
 /** The officer account the seed creates or refreshes; judges log in with it. */
 const DEFAULT_OFFICER_EMAIL = 'officer@tapat.demo';
 
@@ -52,12 +49,15 @@ export interface SeedArgs {
   officerEmail: string;
   /** New password for the officer account; `undefined` leaves an existing hash untouched. */
   officerPassword: string | undefined;
+  /** A Velo payment intent that is already paid; the seed adopts it as the verified budget. */
+  budgetIntent: string | undefined;
 }
 
 /**
  * Parses `--d3-expiry-offset=<seconds>` (default 600, must be a whole number > 0), the optional
- * `--uid-d1=<UID>` / `--uid-d2` / `--uid-d3` / `--uid-d5` flags that name the physical tags, and
- * `--officer-email=` / `--officer-password=`. Anything else throws, so a typo never silently seeds the defaults.
+ * `--uid-d1=<UID>` / `--uid-d2` / `--uid-d3` / `--uid-d5` flags that name the physical tags, `--officer-email=` /
+ * `--officer-password=`, and `--budget-intent=<paymentIntentId>` (`[A-Za-z0-9_-]+`). Anything else throws, so a typo
+ * never silently seeds the defaults.
  */
 export function parseSeedArgs(argv: readonly string[]): SeedArgs {
   const uids: Record<SeedTag, string> = Object.fromEntries(
@@ -66,6 +66,7 @@ export function parseSeedArgs(argv: readonly string[]): SeedArgs {
   let d3ExpiryOffsetS = DEFAULT_D3_EXPIRY_OFFSET_S;
   let officerEmail = DEFAULT_OFFICER_EMAIL;
   let officerPassword: string | undefined;
+  let budgetIntent: string | undefined;
 
   for (const arg of argv) {
     const match = /^--([a-z0-9-]+)=(.*)$/i.exec(arg);
@@ -92,6 +93,13 @@ export function parseSeedArgs(argv: readonly string[]): SeedArgs {
       officerPassword = value;
       continue;
     }
+    if (name === 'budget-intent') {
+      if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+        throw new Error(`--budget-intent must be a payment intent id ([A-Za-z0-9_-]+), got "${value}"`);
+      }
+      budgetIntent = value;
+      continue;
+    }
     const tag = /^uid-(d[1235])$/.exec(name)?.[1]?.toUpperCase() as SeedTag | undefined;
     if (tag === undefined) throw new Error(`unknown flag --${name}`);
     const parsed = uidSchema.safeParse(value);
@@ -105,7 +113,7 @@ export function parseSeedArgs(argv: readonly string[]): SeedArgs {
     if (seen.has(uid)) throw new Error(`UID ${uid} is used for two drivers; every card needs its own UID`);
     seen.add(uid);
   }
-  return { d3ExpiryOffsetS, uids, officerEmail, officerPassword };
+  return { d3ExpiryOffsetS, uids, officerEmail, officerPassword, budgetIntent };
 }
 
 /** The eight CSV columns of api-and-data.md §5.2 #6, as the file names them. */

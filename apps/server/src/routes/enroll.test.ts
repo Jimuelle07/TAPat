@@ -212,4 +212,25 @@ describe('POST /api/enroll', () => {
     expect(response.statusCode).toBe(400);
     expect(ErrorBody.parse(response.json()).error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('stores virtual = true only for a uid starting with the TAPATVIRTUAL prefix', async () => {
+    seedBeneficiary(db as Db, { id: 'ben_D2', plate: 'ABC 1234' });
+    const VirtualBody = z.object({ card: z.object({ virtual: z.boolean() }) });
+
+    const simulated = await post([
+      { name: 'beneficiaryId', value: 'ben_D1' },
+      { name: 'uid', value: 'TAPATVIRTUALK3F9Q2' },
+      { name: 'samplePhoto', value: 'd4-photo.jpg' },
+    ]);
+    expect(simulated.statusCode).toBe(201);
+    expect(VirtualBody.parse(simulated.json()).card.virtual).toBe(true);
+
+    const real = await post([
+      { name: 'beneficiaryId', value: 'ben_D2' },
+      { name: 'uid', value: D1_UID },
+      { name: 'samplePhoto', value: 'd4-photo.jpg' },
+    ]);
+    expect(real.statusCode).toBe(201);
+    expect(VirtualBody.parse(real.json()).card.virtual).toBe(false);
+  });
 });

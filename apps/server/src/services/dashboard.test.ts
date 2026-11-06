@@ -530,6 +530,27 @@ describe('createDashboardService', () => {
     ]);
   });
 
+  it('always lists every fund, claim and sweep tx, even past the recent-N window, without duplicates', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    const insert = db.prepare(
+      `INSERT INTO chain_txs (id, kind, contract_id, method, source_public, status, gas_mode, inner_hash, outer_hash,
+                              created_at, updated_at)
+       VALUES (?, ?, 'C', 'm', 'G', 'succeeded', 'velo', ?, NULL, ?, ?)`,
+    );
+    insert.run('ctx_fund', 'fund', 'h_fund', T0, T0);
+    insert.run('ctx_claim', 'claim', 'h_claim', T0 + 1, T0 + 1);
+    insert.run('ctx_sweep', 'sweep', 'h_sweep', T0 + 2, T0 + 2);
+    for (let i = 0; i < 250; i += 1) insert.run(`ctx_a${i}`, 'authorize', `h_${i}`, T0 + 10 + i, T0 + 10 + i);
+    const { noir } = fakeNoir();
+    const dashboard = await createDashboardService({ db, noir, config: { PHP_PER_XLM: 10 }, midasThreshold: 2.2 }).get();
+    const ids = dashboard.recentChainTxs.map((tx) => tx.id);
+    expect(ids).toHaveLength(203);
+    expect(new Set(ids).size).toBe(203);
+    expect(ids.slice(-3)).toEqual(['ctx_sweep', 'ctx_claim', 'ctx_fund']);
+    expect(ids[0]).toBe('ctx_a249');
+  });
+
   it('answers 404 NOT_FOUND without a program', async () => {
     db = openDb(':memory:');
     const service = createDashboardService({

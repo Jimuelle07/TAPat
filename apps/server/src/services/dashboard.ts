@@ -282,8 +282,14 @@ export function createDashboardService(deps: DashboardDeps): DashboardService {
         .prepare('SELECT * FROM agent_decisions ORDER BY created_at DESC, rowid DESC LIMIT ?')
         .all<DecisionRow>(RECENT_DECISIONS_LIMIT)
         .map(toAgentDecision);
+      // Every fund, claim and sweep tx of the program is always listed (the activity feed pins them), plus the newest N of any kind.
       const recentChainTxs: ChainTx[] = deps.db
-        .prepare('SELECT * FROM chain_txs ORDER BY created_at DESC, rowid DESC LIMIT ?')
+        .prepare(
+          `SELECT * FROM chain_txs
+            WHERE kind IN ('fund', 'claim', 'sweep')
+               OR rowid IN (SELECT rowid FROM chain_txs ORDER BY created_at DESC, rowid DESC LIMIT ?)
+            ORDER BY created_at DESC, rowid DESC`,
+        )
         .all<Parameters<typeof toChainTx>[0]>(RECENT_CHAIN_TXS_LIMIT)
         .map(toChainTx);
 

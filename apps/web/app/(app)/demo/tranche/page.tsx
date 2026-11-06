@@ -10,6 +10,7 @@ import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { PriceChart } from "../../_components/charts";
 import { CoinFlow, useValueChange } from "../../_components/motion";
+import { TrancheReleasing, TrancheStatusCard } from "../../_components/TrancheStatus";
 import { Actions, Body, Button, Card, DemoRate, ErrorBlock, KeyValues, LinkButton, ListCard, NoProgram, Notice, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
 const POLL_MS = 700;
@@ -103,6 +104,7 @@ export default function TrancheAgent() {
                 {startError.message}
               </Notice>
             ) : null}
+            <TrancheStatusCard dashboard={ready.dashboard} tranche={ready.tranche} />
             <PriceChart
               points={ready.tranche.points}
               total={ready.tranche.total}
@@ -110,6 +112,7 @@ export default function TrancheAgent() {
               fired={ready.tranche.fired}
               simulated={ready.tranche.points.every((p) => p.simulated)}
             />
+            <TrancheReleasing dashboard={ready.dashboard} tranche={ready.tranche} />
             {decision?.decision === "BUDGET_EXHAUSTED" ? (
               <Notice title="Budget ran out">
                 BUDGET_EXHAUSTED: {php(String(decision.outputs.budgetAfterStroops ?? "0"), ready.dashboard.phpPerXlm)} left is below one{" "}
@@ -147,6 +150,8 @@ export default function TrancheAgent() {
               </div>
             ) : null}
             {ready.tranche.fired ? <DemoRate /> : null}
+            {/* Keeps the last rows clear of the floating action bar and the tab bar. */}
+            <div aria-hidden="true" className="h-20 shrink-0" />
           </>
         ) : null}
       </Body>

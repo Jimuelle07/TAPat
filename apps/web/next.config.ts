@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
       permanent: false,
     }));
   },
+  // Chain calls (enroll, settlement, sweep) can outlast Next's 30 s rewrite-proxy default; Caddy has no such limit in prod.
+  experimental: { proxyTimeout: 120_000 },
   // The browser only ever calls /api/*; Next forwards it to the API (local dev; Caddy routes it in prod).
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiUrl.origin}/api/:path*` }];

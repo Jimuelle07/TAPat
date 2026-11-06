@@ -1,8 +1,9 @@
 // Telegram bot (build-schedule TG1, SDD §7): a fake fetch stands in for the Bot API. No network, no real bot.
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { Keypair } from '@stellar/stellar-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoirContractError, encryptSecret, type NoirOperation } from '@tapat/agent';
@@ -15,6 +16,7 @@ import { recordTap, type TapDeps } from './tap';
 import {
   EVIDENCE_REVIEW_TEXT,
   EVIDENCE_VERIFIED_TEXT,
+  evidenceRequestText,
   LINK_UNKNOWN_TEXT,
   createTelegramService,
   linkText,
@@ -351,6 +353,56 @@ describe('createTelegramService', () => {
       },
     ]);
     expect(telegram.sent).toEqual([{ chatId: CHAT_ID, text: EVIDENCE_VERIFIED_TEXT }]);
+  });
+
+  it('sends the evidence request right after the link text when the officer already requested it', async () => {
+    db.prepare(`UPDATE beneficiaries SET status = 'evidence_requested' WHERE id = 'ben_D1'`).run();
+    telegram.updates.current = [
+      { update_id: 60, message: { message_id: 1, chat: { id: Number(CHAT_ID) }, text: '/start link_ben_D1' } },
+    ];
+
+    await service.pollOnce();
+
+    expect(chatOf('ben_D1')).toBe(CHAT_ID);
+    expect(telegram.sent).toEqual([
+      { chatId: CHAT_ID, text: linkText('Juan') },
+      { chatId: CHAT_ID, text: evidenceRequestText('Juan') },
+    ]);
+  });
+
+  it('does not resend the evidence request when an already-bound chat sends /start again', async () => {
+    db.prepare(`UPDATE beneficiaries SET status = 'evidence_requested' WHERE id = 'ben_D1'`).run();
+    setChat('ben_D1', CHAT_ID);
+    telegram.updates.current = [
+      { update_id: 61, message: { message_id: 1, chat: { id: Number(CHAT_ID) }, text: '/start link_ben_D1' } },
+    ];
+
+    await service.pollOnce();
+
+    expect(telegram.sent).toEqual([{ chatId: CHAT_ID, text: linkText('Juan') }]);
+  });
+
+  it('approves the committed ABC1234 OR/CR fixture for plate ABC 1234', async () => {
+    db.prepare(`UPDATE beneficiaries SET status = 'evidence_requested' WHERE id = 'ben_D1'`).run();
+    setChat('ben_D1', CHAT_ID);
+    const repoOrcrDir = fileURLToPath(new URL('../../../../fixtures/orcr', import.meta.url));
+    telegram.fixtureBytes.current = readFileSync(join(repoOrcrDir, 'ABC1234.jpg'));
+    const digest = createHash('sha256').update(telegram.fixtureBytes.current).digest('hex');
+
+    const withFixtures = buildService({ fixturesDir: repoOrcrDir });
+    telegram.updates.current = [
+      { update_id: 61, message: { message_id: 2, chat: { id: Number(CHAT_ID) }, document: { file_id: 'file-1' } } },
+    ];
+
+    await withFixtures.pollOnce();
+
+    expect(beneficiaryStatus('ben_D1')).toBe('approved');
+    expect(decisions()).toEqual([
+      {
+        decision: 'EVIDENCE_VERIFIED',
+        outputs_json: JSON.stringify({ sha256: digest, matched: true, plate: 'ABC 1234' }),
+      },
+    ]);
   });
 
   it('answers a non-matching document with the LGU review text and leaves the status alone', async () => {

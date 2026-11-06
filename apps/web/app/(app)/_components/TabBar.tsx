@@ -40,6 +40,8 @@ export function TabBar({ path: shown }: { path?: string }) {
   const path = shown ?? current;
   // -1 when no tab matches (login, signup): no orb, so no raised circle points at the wrong tab.
   const activeIndex = TABS.findIndex((tab) => tab.active(path));
+  // The login and signup screens are full-bleed, with no tab bar.
+  if (path === "/login" || path === "/signup") return null;
   return (
     <nav
       aria-label="Main"

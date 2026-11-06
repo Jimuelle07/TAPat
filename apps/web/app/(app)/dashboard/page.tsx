@@ -23,8 +23,8 @@ import {
   type ListRow,
 } from "../_components/ui";
 import { OfficerOnly } from "../_components/Auth";
-import { BudgetSheet } from "./BudgetSheet";
-import { ExportSheet } from "./ExportSheet";
+import { BudgetSheet } from "../BudgetSheet";
+import { ExportSheet } from "../ExportSheet";
 
 const STATUS: Record<Dashboard["program"]["status"], { label: string; tone: ChipTone }> = {
   draft: { label: "Draft", tone: "outline" },

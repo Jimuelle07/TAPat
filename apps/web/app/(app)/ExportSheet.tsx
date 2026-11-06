@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { getCoaCsv } from "@/lib/api";
 import { errorMessage } from "@/lib/use-dashboard";
-import { Button, KeyValues, Notice, Sheet } from "../_components/ui";
+import { Button, KeyValues, Notice, Sheet } from "./_components/ui";
 
 export function ExportSheet({ programId, open, onClose }: { programId: string; open: boolean; onClose: () => void }) {
   const [busy, setBusy] = useState(false);

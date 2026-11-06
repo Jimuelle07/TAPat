@@ -33,14 +33,24 @@ describe('GET /api/stream', () => {
     const response = await fetch(url, { signal: controller.signal });
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toMatch(/^text\/event-stream/);
-    expect(response.headers.get('cache-control')).toContain('no-cache');
+    expect(response.headers.get('cache-control')).toBe('no-cache, no-transform');
     expect(response.headers.get('cache-control')).not.toContain('no-store');
 
-    bus.publish('enroll', { id: 'card_D1', status: 'active' });
     const reader = response.body?.getReader();
     if (reader === undefined) throw new Error('no response body');
-    const { value } = await reader.read();
-    const frame = new TextDecoder().decode(value);
+    const decoder = new TextDecoder();
+    // First body byte is written on connect, before any event, so proxies forward the stream at once.
+    const first = await reader.read();
+    let text = decoder.decode(first.value);
+    expect(text.startsWith(': connected\n\n')).toBe(true);
+
+    bus.publish('enroll', { id: 'card_D1', status: 'active' });
+    while (!text.includes('data: {"id":"card_D1","status":"active"}\n\n')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+    }
+    const frame = text.slice(': connected\n\n'.length);
 
     expect(frame).toContain('event: enroll');
     expect(frame).toContain('data: {"id":"card_D1","status":"active"}');

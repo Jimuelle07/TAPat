@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import { TAP_REASON_LABELS } from "@tapat/shared";
 import type { CardSummary, Dashboard, Tap, TapReasonCode } from "@tapat/shared";
@@ -8,12 +9,23 @@ import { ApiClientError, postTap, type TapRequest } from "@/lib/api";
 import { cardLabel, txLookup } from "@/lib/feed";
 import { parseAmount, php, shortHash } from "@/lib/format";
 import { NfcReadError, readUid } from "@/lib/nfc";
+import { useStagedLabel, withMinDuration } from "@/lib/staged";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { Icon } from "../../_components/Icon";
 import { BalanceCard, Receipt } from "../../_components/money";
 import { Ripple } from "../../_components/motion";
+import { TapScene } from "../../_components/TapScene";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, FilterChip, KeyValues, ListCard, NoProgram, Notice, Sheet, Skeleton, TopBar, type ListRow } from "../../_components/ui";
+
+const subscribeNever = () => () => {};
+
+/** Opaque action bar flush on top of the 56px tab bar. A direct child of the page column, so the desktop embed's `.desktop-column > .sticky` rule un-sticks it. */
+function StickyBar({ children }: { children: ReactNode }) {
+  return <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 bg-surface pt-3 pb-1">{children}</div>;
+}
+
+const CHARGE_STEPS = ["Reading card", "Authorizing on-chain", "Waiting for the network"] as const;
 
 type SelectedCard = { kind: "read"; uid: string } | { kind: "simulated"; card: CardSummary };
 
@@ -57,6 +69,9 @@ export default function StationTerminal() {
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
+  // Decided after mount so the server render and the first client render agree.
+  const noNdef = useSyncExternalStore(subscribeNever, () => !("NDEFReader" in window), () => false);
+  const chargeLabel = useStagedLabel(charging, CHARGE_STEPS, 1200);
 
   const tabTitle = `Station ${id}`;
   const switcher = (
@@ -122,6 +137,8 @@ export default function StationTerminal() {
   const pickable = dashboard.cards.filter((c) => c.status === "active");
   const hashOf = txLookup(dashboard);
   const capText = `Cap ${php(dashboard.program.perTapCapStroops, rate)}`;
+  const sceneLast4 = selected?.kind === "simulated" ? selected.card.uidLast4 : selected?.kind === "read" ? selected.uid.slice(-4) : undefined;
+  const sceneSim = selected?.kind === "simulated";
 
   const readCard = async () => {
     if (!isOfficer) return;
@@ -154,7 +171,7 @@ export default function StationTerminal() {
     setCharging(true);
     setFormError(null);
     try {
-      const response = await postTap(body);
+      const response = await withMinDuration(postTap(body), 1200);
       setOutcome({ kind: "tap", ...response });
       void state.reload();
     } catch (cause) {
@@ -196,6 +213,7 @@ export default function StationTerminal() {
         <>
           <TopBar chip={tabTitle} />
           <Body>
+            <TapScene phase="error" last4={sceneLast4} simulated={sceneSim} label="Payment did not go through" />
             <Notice tone="error" title="The payment did not go through">
               CHAIN_ERROR: {outcome.message}. No decision was made on this tap.
             </Notice>
@@ -204,11 +222,13 @@ export default function StationTerminal() {
             </Card>
             <DemoRate />
           </Body>
-          <Actions solid>
-            <Button look="secondary" onClick={clear}>
-              Clear
-            </Button>
-          </Actions>
+          <StickyBar>
+            <Actions solid>
+              <Button look="secondary" onClick={clear}>
+                Clear
+              </Button>
+            </Actions>
+          </StickyBar>
         </>
       );
     }
@@ -217,6 +237,7 @@ export default function StationTerminal() {
         <>
           <TopBar chip={tabTitle} />
           <Body>
+            <TapScene phase="error" last4={sceneLast4} simulated={sceneSim} label="Card refused" />
             <Receipt
               stationLabel={tabTitle}
               status="REFUSED"
@@ -227,11 +248,13 @@ export default function StationTerminal() {
             />
             <DemoRate />
           </Body>
-          <Actions solid>
-            <Button look="secondary" onClick={clear}>
-              Clear
-            </Button>
-          </Actions>
+          <StickyBar>
+            <Actions solid>
+              <Button look="secondary" onClick={clear}>
+                Clear
+              </Button>
+            </Actions>
+          </StickyBar>
         </>
       );
     }
@@ -245,6 +268,7 @@ export default function StationTerminal() {
         <>
           <TopBar chip={tabTitle} />
           <Body>
+            <TapScene phase="done" last4={card?.uidLast4 ?? sceneLast4} simulated={sceneSim} label="Tap accepted" />
             <Receipt
               stationLabel={tabTitle}
               status="PAID"
@@ -267,9 +291,11 @@ export default function StationTerminal() {
             ) : null}
             <DemoRate />
           </Body>
-          <Actions solid>
-            <Button onClick={nextCharge}>Next charge</Button>
-          </Actions>
+          <StickyBar>
+            <Actions solid>
+              <Button onClick={nextCharge}>Next charge</Button>
+            </Actions>
+          </StickyBar>
         </>
       );
     }
@@ -277,6 +303,7 @@ export default function StationTerminal() {
       <>
         <TopBar chip={tabTitle} />
         <Body>
+          <TapScene phase="error" last4={card?.uidLast4 ?? sceneLast4} simulated={sceneSim} label="Tap declined" />
           <Receipt
             stationLabel={tabTitle}
             status={tap.status === "refused" ? "REFUSED" : "DECLINED"}
@@ -291,11 +318,13 @@ export default function StationTerminal() {
           />
           <DemoRate />
         </Body>
-        <Actions solid>
-          <Button look="secondary" onClick={clear}>
-            Clear
-          </Button>
-        </Actions>
+        <StickyBar>
+          <Actions solid>
+            <Button look="secondary" onClick={clear}>
+              Clear
+            </Button>
+          </Actions>
+        </StickyBar>
       </>
     );
   }
@@ -306,6 +335,7 @@ export default function StationTerminal() {
       <TopBar chip={tabTitle} />
       <Body>
         {switcher}
+        {charging ? <TapScene phase="reading" last4={sceneLast4} simulated={sceneSim} label={chargeLabel} /> : null}
         {station.status === "frozen" ? (
           <div className="shiver ice-sheen">
             <Notice tone="frozen" title="Station paused by the Freeze Agent">
@@ -373,31 +403,35 @@ export default function StationTerminal() {
         </OfficerOnly>
         {recent.length > 0 ? (
           <ListCard heading="Recent taps" rows={recent.map((tap) => recentRow(tap, dashboard))} />
-        ) : (
+        ) : charging ? null : (
           <EmptyState icon="receipt" title="No taps yet" body="Charges at this station appear here." />
         )}
         <DemoRate />
       </Body>
       {isOfficer ? (
-        <Actions>
-          <Button loading={charging} disabled={!canCharge && !charging} onClick={() => void charge()}>
-            {charging ? "Charging" : "Charge"}
-          </Button>
-          <div className="flex gap-2">
-            <Button look="secondary" loading={reading} disabled={nfcGone || charging} onClick={() => void readCard()}>
-              {reading ? "Reading" : "Read card"}
+        <StickyBar>
+          <Actions solid>
+            <Button loading={charging} disabled={!canCharge && !charging} onClick={() => void charge()}>
+              {charging ? chargeLabel : "Charge"}
             </Button>
-            {selected !== null ? (
-              <Button look="secondary" disabled={charging} onClick={clear}>
-                Clear
-              </Button>
-            ) : (
-              <Button look="secondary" disabled={charging} onClick={() => setPicking(true)}>
-                Simulate tap
-              </Button>
-            )}
-          </div>
-        </Actions>
+            <div className="flex gap-2">
+              {!noNdef ? (
+                <Button look="secondary" loading={reading} disabled={nfcGone || charging} onClick={() => void readCard()}>
+                  {reading ? "Reading" : "Read card"}
+                </Button>
+              ) : null}
+              {selected !== null ? (
+                <Button look="secondary" disabled={charging} onClick={clear}>
+                  Clear
+                </Button>
+              ) : (
+                <Button look="secondary" disabled={charging} onClick={() => setPicking(true)}>
+                  {noNdef ? "Pick card (simulated)" : "Simulate tap"}
+                </Button>
+              )}
+            </div>
+          </Actions>
+        </StickyBar>
       ) : null}
       <Sheet title="Simulate tap" open={picking} onClose={() => setPicking(false)}>
         {pickable.length === 0 ? (
