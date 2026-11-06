@@ -1,16 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+import { Azeret_Mono, Outfit } from "next/font/google";
+import { TabBar } from "./_components/TabBar";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const azeret = Azeret_Mono({
+  variable: "--font-azeret",
   subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -18,13 +22,22 @@ export const metadata: Metadata = {
   description: "TAPat — fuel aid released, capped, and returned on-chain",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#fbf5e3",
+};
+
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${outfit.variable} ${azeret.variable} h-full antialiased`}>
+      <body className="min-h-full">
+        {/* The design is a 390px phone screen, so wider windows get the same column, centred. */}
+        <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-surface pb-[calc(56px+env(safe-area-inset-bottom))]">
+          {children}
+          <Suspense fallback={null}>
+            <TabBar />
+          </Suspense>
+        </div>
+      </body>
     </html>
   );
 }

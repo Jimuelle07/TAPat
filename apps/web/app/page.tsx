@@ -1,69 +1,137 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { Dashboard } from "@tapat/shared";
+import { php, phpTile } from "@/lib/format";
+import { useDashboard } from "@/lib/use-dashboard";
+import { Invariant } from "./_components/money";
+import {
+  Body,
+  Chip,
+  DemoRate,
+  ErrorBlock,
+  ListCard,
+  NoProgram,
+  Skeleton,
+  StatCard,
+  StatRow,
+  Toast,
+  TopBar,
+  type ChipTone,
+  type ListRow,
+} from "./_components/ui";
+import { BudgetSheet } from "./BudgetSheet";
+import { ExportSheet } from "./ExportSheet";
+
+const STATUS: Record<Dashboard["program"]["status"], { label: string; tone: ChipTone }> = {
+  draft: { label: "Draft", tone: "outline" },
+  active: { label: "Active", tone: "mint" },
+  ending: { label: "Ending", tone: "outline" },
+  ended: { label: "Ended", tone: "outline" },
+};
+
+function budgetRow(dashboard: Dashboard, onClick: () => void): ListRow {
+  const { budget, phpPerXlm } = dashboard;
+  if (budget.state === "none") {
+    return { title: "No budget yet", meta: "Fund it before a tranche can release", chip: "Fund budget", tone: "accent", onClick };
+  }
+  if (budget.state === "waiting") {
+    return { title: "Budget payment started", meta: "Open checkout to finish paying", chip: "Waiting for Velo…", tone: "outline", onClick };
+  }
+  return {
+    title: `${php(budget.verifiedStroops, phpPerXlm)} budget`,
+    meta: `${php(budget.remainingStroops, phpPerXlm)} left to fund`,
+    chip: "Velo verified",
+    tone: "accent",
+    onClick,
+  };
+}
 
 export default function Home() {
+  const state = useDashboard();
+  const search = useSearchParams();
+  const [budgetOpen, setBudgetOpen] = useState(search.get("sheet") === "budget");
+  const [exportOpen, setExportOpen] = useState(false);
+  const budgetReturn = search.get("budget");
+
+  if (state.status === "loading") {
+    return (
+      <>
+        <TopBar />
+        <Body>
+          <Skeleton kinds={["line", "row", "card", "card", "card", "row"]} />
+        </Body>
+      </>
+    );
+  }
+  if (state.status === "no-program") {
+    return (
+      <>
+        <TopBar />
+        <Body>
+          <NoProgram body="Create a program to set the cap, tranche and expiry." />
+        </Body>
+      </>
+    );
+  }
+  if (state.status === "error") {
+    return (
+      <>
+        <TopBar />
+        <Body>
+          <ErrorBlock title="Could not load the dashboard" message={state.message} onRetry={() => void state.reload()} />
+        </Body>
+      </>
+    );
+  }
+
+  const { dashboard } = state;
+  const rate = dashboard.phpPerXlm;
+  const status = STATUS[dashboard.program.status];
+  const frozen = dashboard.stations.filter((s) => s.status === "frozen");
+  const stationsMeta =
+    dashboard.stations.length === 0
+      ? "Not set up yet"
+      : frozen.length > 0
+        ? `${frozen.map((s) => s.name).join(", ")} ${frozen.length === 1 ? "is" : "are"} frozen`
+        : "All stations active";
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <TopBar />
+      <Body>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="min-w-0 flex-1 text-h2">{dashboard.program.name}</h1>
+          <Chip tone={status.tone}>{status.label}</Chip>
+        </div>
+        <ListCard rows={[budgetRow(dashboard, () => setBudgetOpen(true))]} />
+        <StatCard tone="forest" full label="Funded" value={phpTile(dashboard.fundedStroops, rate)} />
+        <StatRow>
+          <StatCard label="Spent" value={phpTile(dashboard.spentStroops, rate)} />
+          <StatCard label="Held" value={phpTile(dashboard.heldStroops, rate)} />
+        </StatRow>
+        <StatRow>
+          <StatCard label="Pending" value={phpTile(dashboard.pendingStroops, rate)} />
+          <StatCard label="Returned" value={phpTile(dashboard.returnedStroops, rate)} />
+        </StatRow>
+        <Invariant ok={dashboard.invariantOk} escrow={php(dashboard.escrowRemainingStroops, rate)} />
+        <DemoRate />
+        <ListCard
+          rows={[
+            { title: "Stations", meta: stationsMeta, href: "/stations" },
+            { title: "Cards", meta: `${dashboard.counts.enrolled} enrolled`, href: "/cards" },
+            { title: "Activity", meta: "Taps and agent decisions", href: "/activity" },
+            { title: "Export for COA", meta: "Every money event with its tx hash", onClick: () => setExportOpen(true) },
+            { title: "System health", meta: "RPC, Velo, Telegram, gas mode", href: "/health" },
+          ]}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </Body>
+      {budgetReturn === "success" ? <Toast>Payment sent — waiting for Velo verification</Toast> : null}
+      {budgetReturn === "cancel" ? <Toast tone="info">Checkout cancelled</Toast> : null}
+      <BudgetSheet dashboard={dashboard} open={budgetOpen} onClose={() => setBudgetOpen(false)} onChanged={() => void state.reload()} />
+      <ExportSheet programId={dashboard.program.id} open={exportOpen} onClose={() => setExportOpen(false)} />
+    </>
   );
 }
+

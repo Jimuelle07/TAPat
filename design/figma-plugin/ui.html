@@ -1,0 +1,47 @@
+<style>
+  body { font: 13px/1.45 system-ui, sans-serif; margin: 0; padding: 16px; color: #1B2E28; background: #FBF5E3; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  button { width: 100%; height: 44px; border-radius: 12px; border: 1.5px solid #2E6F55; background: #2E6F55; color: #FBF5E3; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { background: #F0E9CD; border-color: #F0E9CD; color: #1B2E28; cursor: default; }
+  #close { display: none; margin-top: 8px; background: #FEFAEE; color: #1B2E28; border-color: #1B2E28; }
+  #logo { padding: 8px 12px; border: 1.5px solid #1B2E28; border-radius: 8px; background: #FEFAEE; margin-bottom: 12px; }
+  #log { margin-top: 12px; padding: 8px 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; user-select: text; }
+</style>
+<h1>TAPat UI Builder</h1>
+<p>Builds tokens, components, screens and prototype links in this file. Re-running replaces what it built before and leaves your own layers alone.</p>
+<div id="logo"></div>
+<button id="build">Build</button>
+<button id="close">Close</button>
+<div id="log"></div>
+<script>
+  const logEl = document.getElementById('log');
+  const buildEl = document.getElementById('build');
+  const closeEl = document.getElementById('close');
+  const add = (s) => { logEl.textContent += s + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+  buildEl.onclick = () => {
+    buildEl.disabled = true;
+    buildEl.textContent = 'Building…';
+    logEl.textContent = '';
+    parent.postMessage({ pluginMessage: { type: 'build' } }, '*');
+  };
+  closeEl.onclick = () => parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+  const finish = () => { buildEl.textContent = 'Finished'; closeEl.style.display = 'block'; };
+  onmessage = (e) => {
+    const m = e.data.pluginMessage;
+    if (!m) return;
+    if (m.type === 'selection') {
+      document.getElementById('logo').textContent = m.name ? 'Logo to use: ' + m.name : 'No layer selected. On the first run, select the pasted logo.';
+    }
+    if (m.type === 'log') add(m.msg);
+    if (m.type === 'error') { add('FAILED: ' + m.message + '\n' + m.stack); finish(); }
+    if (m.type === 'done') {
+      const r = m.report;
+      add('\nDone: ' + r.screens + ' screen states, ' + r.sets + ' components (' + r.variants + ' variants), ' + r.links + ' prototype links.');
+      if (r.warnings.length) add('\nWarnings:\n- ' + r.warnings.join('\n- '));
+      if (r.linkErrors.length) add('\nLink problems:\n- ' + r.linkErrors.join('\n- '));
+      if (r.overflow.length) add('\nThese scroll in the prototype (content is taller than the screen):\n- ' + r.overflow.join('\n- '));
+      finish();
+    }
+  };
+</script>

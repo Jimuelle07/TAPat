@@ -527,6 +527,7 @@ export interface Dashboard {
   stations: Station[];
   recentTaps: Tap[];            // newest first, max 50
   recentDecisions: AgentDecision[]; // newest first, max 20
+  recentChainTxs: ChainTx[];    // newest first, max 200; resolves the ctx_ ids in taps, decisions and enroll/settle responses to hashes
 }
 
 // Response envelopes (one per endpoint that is not a bare list)
@@ -1039,7 +1040,7 @@ No request. Response 200: `Dashboard`. Snapshot after the demo's close (post-swe
 }
 ```
 
-(`recentTaps` holds up to 50 rows and `recentDecisions` up to 20; both are truncated here. `cards` is in enrollment order and carries every card, whatever its status.)
+(`recentTaps` holds up to 50 rows, `recentDecisions` up to 20 and `recentChainTxs` up to 200; the first two are truncated here and `recentChainTxs` is omitted. A tx hash is `outerHash ?? innerHash`, the same rule as the COA export. `cards` is in enrollment order and carries every card, whatever its status.)
 
 `counts` buckets are **disjoint**: `approved` counts only beneficiaries still awaiting enrollment, so the four beneficiary status buckets (`approved` + `uncertain` + `enrolled` + the rejected rows) sum to `beneficiaries` (12 = 5 + 0 + 5 + 2). After the scripted demo `enrolled` is **5** (D1, D2, D3, D5 seeded + D4 enrolled on stage).
 
@@ -1053,6 +1054,8 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 |---|---|
 | `/` | budget badge (`budget`), the five money tiles + invariant line, the **station strip** (`stations`: name, `active`/`frozen` badge, `frozenReason`, `spentStroops`, `pendingStroops`, plus `heldStroops` for frozen stations), the card list (`cards`), and **one merged activity feed** |
 | `/demo` | the five agent buttons, the price chart + tranche decision panel, the **edge chart** (`recentTaps` vs the `midasThreshold` line), the same **station strip**, and the settlement result panel (last `SettlementResponse`, one line per station: "A — claimed ₱350 · tx…", "B — HELD ₱960 · station frozen") |
+
+UI layout, from the TAPat Mobile App UI Figma file: `/` shows the budget row, the five tiles, the invariant line and links. The station strip is on `/stations`, the card list on `/cards`, the merged feed on `/activity`, system health on `/health`. `/demo` keeps the five buttons and the station strip; the price chart and tranche panel are on `/demo/tranche`, the edge chart on `/demo/freeze`, the settlement panel on `/demo/settlement`, the sweep on `/demo/end`. When `program` is `null`, a page also offers **Create program**; a program created that way stays `draft` with no stations until `seed-demo.ts` runs.
 
 The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
 

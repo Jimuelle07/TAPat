@@ -131,7 +131,7 @@ All of these run against the **deployed app**, `https://tapat.<tailnet>.ts.net` 
 - [ ] **Enable NFC** is tapped as a user gesture; Chrome shows no "NFC not supported" notice.
 - [ ] Each of the 4 tags produces a `reading` event and resolves the expected card; `/station/[id]` shows only `displayName` + `uidLast4` (D1 "Juan D. …9C7E", D2 "Pedro R. …3A54", D3 "Ramon B. …77B0", D4 "Ana V. …A1B2"), never a full name or a full hash.
 - [ ] `/enroll` **Read card** shows only `…` + the last 4 of the normalized UID (the same string the kit note records, no colons) and posts `uid` normalized; the `simulated` picker on `/station/[id]` lists only `active` cards and keeps D3 with an `expired` tag.
-- [ ] After **Run burst**, the station strip on `/demo` (and on `/`) shows Station B with a **frozen** badge and its `frozenReason`; after **Run settlement** the `/demo` settlement panel shows "A — claimed ₱350 · tx…" and "B — HELD ₱960 · station frozen".
+- [ ] After **Run burst**, the station strip on `/demo` (and on `/stations`) shows Station B with a **frozen** badge and its `frozenReason`; after **Run settlement** the `/demo` settlement panel shows "A — claimed ₱350 · tx…" and "B — HELD ₱960 · station frozen".
 - [ ] A read stays selected for the next **Charge** until another read or **Clear**; scanning a second tag replaces it.
 - [ ] An unknown tag returns `CARD_NOT_ENROLLED` on screen with a readable message (not a raw 404).
 - [ ] D1 ₱350 at Station A → **Paid** on screen in < 2 s, Telegram receipt on the team phone in < 10 s.
@@ -158,7 +158,7 @@ Run in order at T-60 on show day. Every line is a pass/fail.
 **State**
 
 - [ ] On the VM: `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` then `... scripts/seed-demo.ts` completes without error; second run of both also succeeds (same physical cards, no `AlreadyRegistered`).
-- [ ] D3's policy `expires_at_s` is ~600 s after seed — confirm from the card list on `/` (data from `GET /api/dashboard`), not from the wall clock.
+- [ ] D3's policy `expires_at_s` is ~600 s after seed — confirm from the card list on `/cards` (data from `GET /api/dashboard`), not from the wall clock.
 - [ ] Budget checkout paid; badge **Velo verified ✓**; `budget_verified_stroops` = 10000000000.
 - [ ] Dashboard shows five zeroed money tiles (funded / spent / held / pending / returned) and the invariant line **OK** before the run.
 
@@ -166,7 +166,7 @@ Run in order at T-60 on show day. Every line is a pass/fail.
 
 - [ ] Beat 2: **Start price feed** does not fire at index 15 and fires by index 36; 3 fund tx hashes visible.
 - [ ] Beat 3: D1 ₱350 paid + receipt; ₱800 `OVER_CAP`; D3 `EXPIRED`.
-- [ ] Beat 4: **Run burst** freezes Station B (frozen badge in the station strip on `/demo` and `/`); **Run settlement** → settlement panel shows A claimed (tx), B `HELD ₱960`.
+- [ ] Beat 4: **Run burst** freezes Station B (frozen badge in the station strip on `/demo` and `/stations`); **Run settlement** → settlement panel shows A claimed (tx), B `HELD ₱960`.
 - [ ] Beat 5: scan upload summary reads 6 approved, 4 already enrolled, 2 rejected (1 ghost, 1 underage), 0 uncertain; D4 enrolls (dashboard counts then approved 5 / enrolled 5).
 - [ ] Beat 6: **End program** → 3 sweep txs, returned ₱3,190.
 - [ ] Totals: funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190; invariant line **OK**.
