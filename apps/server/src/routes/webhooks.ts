@@ -17,7 +17,11 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: BudgetDeps): v
         if (typeof deliveryId !== 'string' || deliveryId === '') {
           throw new ApiError(400, 'VALIDATION_ERROR', 'x-velo-delivery header is required');
         }
-        const rawBody = request.body as Buffer;
+        // The parser above hands over a Buffer; anything else cannot be verified against the HMAC of the raw bytes.
+        if (!Buffer.isBuffer(request.body)) {
+          throw new ApiError(400, 'WEBHOOK_SIGNATURE_INVALID', 'raw body is not a Buffer');
+        }
+        const rawBody = request.body;
         const signature = request.headers['x-velo-signature'];
         const event = await verifyVeloWebhook({
           rawBody,

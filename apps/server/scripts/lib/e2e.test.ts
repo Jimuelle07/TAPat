@@ -6,9 +6,12 @@ import type {
   Dashboard,
   EndProgramResponse,
   IntakeResponse,
+  PricePoint,
   Program,
+  SettlementResponse,
   Station,
   TapResponse,
+  TrancheState,
 } from '@tapat/shared';
 import {
   BEATS_ONLY_DASHBOARD,
@@ -16,12 +19,15 @@ import {
   EXPECTED_INTAKE_SUMMARY,
   FULL_RUN_DASHBOARD,
   RUNBOOK_TOTALS,
+  TRANCHE_FIRE_IDX,
   checkAudit,
   checkDashboard,
   checkEndProgram,
   checkIntake,
+  checkSettlement,
   checkTap,
   checkTotals,
+  checkTranche,
   findD4,
   parseE2eArgs,
   runSteps,
@@ -219,6 +225,96 @@ describe('tap expectation', () => {
   });
 });
 
+function pricePoint(idx: number): PricePoint {
+  return { programId: 'prog_test', idx, pricePhp: 60 + idx / 10, simulated: true, cpRecent: 0.9, mapR: 1 };
+}
+
+/** Beat 2's state: the replay stopped at the fire point, so `idx` is the changepoint and not the fixture's 45. */
+function trancheFixture(idx: number): TrancheState {
+  return {
+    running: false,
+    fired: true,
+    idx,
+    total: 45,
+    lastPricePhp: 60 + idx / 10,
+    cpRecent: 0.004,
+    mapR: 6,
+    thresholdPhp: 65,
+    budgetVerifiedStroops: EXPECTED_BUDGET_STROOPS,
+    budgetFundedStroops: RUNBOOK_TOTALS.funded,
+    points: Array.from({ length: idx }, (_, index) => pricePoint(index + 1)),
+    funds: [
+      { cardId: 'card_D1', beneficiaryId: 'ben_D1', amountStroops: '1500000000', txId: 'ctx_1', status: 'succeeded', reason: null },
+      { cardId: 'card_D2', beneficiaryId: 'ben_D2', amountStroops: '1500000000', txId: 'ctx_2', status: 'succeeded', reason: null },
+      { cardId: 'card_D3', beneficiaryId: 'ben_D3', amountStroops: '0', txId: null, status: 'skipped', reason: 'EXPIRED' },
+      { cardId: 'card_D5', beneficiaryId: 'ben_D5', amountStroops: '1500000000', txId: 'ctx_3', status: 'succeeded', reason: null },
+    ],
+  };
+}
+
+describe('tranche expectation', () => {
+  it('accepts a run that stopped at the fire point instead of replaying all 45 points', () => {
+    const fireIdx = TRANCHE_FIRE_IDX.min + 1;
+    const state = trancheFixture(fireIdx);
+    expect(state.idx).toBeLessThan(state.total);
+    expect(checkTranche(state)).toEqual([]);
+  });
+
+  it('rejects an idx that replayed the whole series and a points list that disagrees with it', () => {
+    const failures = checkTranche({ ...trancheFixture(TRANCHE_FIRE_IDX.min), idx: 45, points: trancheFixture(45).points });
+    expect(failures.some((failure) => failure.startsWith('tranche.idx'))).toBe(true);
+
+    const short = checkTranche({ ...trancheFixture(TRANCHE_FIRE_IDX.min), points: trancheFixture(TRANCHE_FIRE_IDX.min - 1).points });
+    expect(short).toContain(`tranche.points.length: expected ${TRANCHE_FIRE_IDX.min}, got ${TRANCHE_FIRE_IDX.min - 1}`);
+  });
+
+  it('rejects an idx of zero and a fire point outside the changepoint window', () => {
+    expect(checkTranche(trancheFixture(0)).some((failure) => failure.startsWith('tranche.idx'))).toBe(true);
+    const early = checkTranche(trancheFixture(TRANCHE_FIRE_IDX.min - 1));
+    expect(early.some((failure) => failure.includes('expected the fire point'))).toBe(true);
+  });
+});
+
+describe('settlement expectation', () => {
+  const settled: SettlementResponse = {
+    stations: [
+      {
+        stationId: 'A',
+        stationName: 'Petron San Roque',
+        pendingStroops: RUNBOOK_TOTALS.spent,
+        action: 'claimed',
+        chainTxId: 'ctx_claim',
+        decisionId: 'dec_1',
+      },
+      {
+        stationId: 'B',
+        stationName: 'Rotonda Fuels',
+        pendingStroops: RUNBOOK_TOTALS.held,
+        action: 'held',
+        chainTxId: null,
+        decisionId: 'dec_2',
+      },
+    ],
+  };
+
+  it('accepts a claimed A that reports the amount it claimed and a held B with no tx', () => {
+    expect(settled.stations[0]?.pendingStroops).toBe('350000000');
+    expect(checkSettlement(settled)).toEqual([]);
+  });
+
+  it('rejects a claimed A whose pendingStroops reads zero and a held B with a tx', () => {
+    const failures = checkSettlement({
+      stations: [
+        { ...(settled.stations[0] as SettlementResponse['stations'][number]), pendingStroops: '0', chainTxId: null },
+        { ...(settled.stations[1] as SettlementResponse['stations'][number]), chainTxId: 'ctx_held' },
+      ],
+    });
+    expect(failures).toContain('A.pendingStroops: expected 350000000, got 0');
+    expect(failures.some((failure) => failure.startsWith('A.chainTxId'))).toBe(true);
+    expect(failures).toContain('B.chainTxId: expected null, got ctx_held');
+  });
+});
+
 describe('step runner', () => {
   function reporter() {
     const lines: string[] = [];
@@ -307,6 +403,7 @@ describe('arguments', () => {
 });
 
 describe('chain audit', () => {
+  const trancheIdx = TRANCHE_FIRE_IDX.min;
   const audit: ChainAudit = {
     moneyTxs: [
       { kind: 'fund', status: 'succeeded' },
@@ -322,7 +419,8 @@ describe('chain audit', () => {
     ],
     authorizedTaps: [{ chainTxStatus: 'succeeded' }, { chainTxStatus: 'succeeded' }, { chainTxStatus: 'succeeded' }],
     rejectedTaps: [{ chainTxId: null }, { chainTxId: null }],
-    pricePoints: Array.from({ length: 45 }, () => ({ simulated: 1 })),
+    pricePoints: Array.from({ length: trancheIdx }, () => ({ simulated: 1 })),
+    trancheIdx,
     burstEdges: Array.from({ length: 30 }, () => ({ simulated: 1 })),
     trancheDecisions: 1,
     freezeScores: [2.31],
@@ -331,6 +429,17 @@ describe('chain audit', () => {
 
   it('passes when every money row succeeded and the labels are simulated', () => {
     expect(checkAudit(audit)).toEqual([]);
+  });
+
+  it('measures price_points against the tranche fire point, not the fixture length', () => {
+    expect(audit.pricePoints).toHaveLength(TRANCHE_FIRE_IDX.min);
+    const short = checkAudit({ ...audit, pricePoints: audit.pricePoints.slice(1) });
+    expect(short).toContain(`price_points: expected ${TRANCHE_FIRE_IDX.min}, got ${TRANCHE_FIRE_IDX.min - 1}`);
+    const padded = checkAudit({
+      ...audit,
+      pricePoints: Array.from({ length: 45 }, () => ({ simulated: 1 })),
+    });
+    expect(padded).toContain(`price_points: expected ${TRANCHE_FIRE_IDX.min}, got 45`);
   });
 
   it('flags a failed money tx, an unsimulated price point and a sub-threshold freeze', () => {

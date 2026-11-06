@@ -234,6 +234,34 @@ describe('createTelegramService', () => {
     expect(telegram.sent).toEqual([{ chatId: CHAT_ID, text: LINK_UNKNOWN_TEXT }]);
   });
 
+  it('refuses to re-bind a link code that already belongs to another chat', async () => {
+    setChat('ben_D1', '99999');
+    telegram.updates.current = [
+      { update_id: 8, message: { message_id: 1, chat: { id: Number(CHAT_ID) }, text: '/start link_ben_D1' } },
+    ];
+
+    await service.pollOnce();
+
+    // The leaked code must not steal the chat, and the reply reveals nothing about the record.
+    expect(chatOf('ben_D1')).toBe('99999');
+    expect(telegram.sent).toEqual([{ chatId: CHAT_ID, text: LINK_UNKNOWN_TEXT }]);
+    const logged = log.entries.join('\n');
+    expect(logged).toContain('already bound');
+    expect(logged).not.toContain(BOT_TOKEN);
+  });
+
+  it('leaves the link idempotent when the same chat sends /start again', async () => {
+    setChat('ben_D1', CHAT_ID);
+    telegram.updates.current = [
+      { update_id: 9, message: { message_id: 1, chat: { id: Number(CHAT_ID) }, text: '/start link_ben_D1' } },
+    ];
+
+    await service.pollOnce();
+
+    expect(chatOf('ben_D1')).toBe(CHAT_ID);
+    expect(telegram.sent).toEqual([{ chatId: CHAT_ID, text: linkText('Juan') }]);
+  });
+
   it('sends the receipt to a linked beneficiary after an authorized tap', async () => {
     setChat('ben_D1', CHAT_ID);
     fake.getEscrowBalance.mockResolvedValue(1_150_000_000n);

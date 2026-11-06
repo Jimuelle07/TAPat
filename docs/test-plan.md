@@ -167,7 +167,7 @@ Run in order at T-60 on show day. Every line is a pass/fail.
 - [ ] Beat 2: **Start price feed** does not fire at index 15 and fires by index 36; 3 fund tx hashes visible.
 - [ ] Beat 3: D1 ₱350 paid + receipt; ₱800 `OVER_CAP`; D3 `EXPIRED`.
 - [ ] Beat 4: **Run burst** freezes Station B (frozen badge in the station strip on `/demo` and `/`); **Run settlement** → settlement panel shows A claimed (tx), B `HELD ₱960`.
-- [ ] Beat 5: scan upload summary reads 4 approved + 4 already enrolled, 1 ghost, 1 underage, 2 uncertain; evidence request arrives on the team phone; D4 enrolls (dashboard counts then approved 3 / enrolled 5).
+- [ ] Beat 5: scan upload summary reads 6 approved, 4 already enrolled, 2 rejected (1 ghost, 1 underage), 0 uncertain; D4 enrolls (dashboard counts then approved 5 / enrolled 5).
 - [ ] Beat 6: **End program** → 3 sweep txs, returned ₱3,190.
 - [ ] Totals: funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190; invariant line **OK**.
 - [ ] `GET /api/export/coa.csv` downloads with the columns of api-and-data.md §5.2 #19 (eight), one row per money event, tx hash on every on-chain row.

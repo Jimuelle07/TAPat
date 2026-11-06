@@ -498,7 +498,7 @@ export interface Dashboard {
   program: Program;
   phpPerXlm: number;            // demo rate, for formatPhp()
   midasThreshold: number;       // from apps/server/config/midas.json; the freeze line on the edge chart
-  fundedStroops: Stroops;       // = program.budget_funded_stroops (chain_txs has no amount column)
+  fundedStroops: Stroops;       // Σ tranche-decision fund amounts whose chain_txs row is succeeded (§5.2 #18)
   spentStroops: Stroops;        // Σ authorized taps already covered by a succeeded claim (§5.2 #18)
   heldStroops: Stroops;         // unclaimed taps at frozen stations, same rule
   pendingStroops: Stroops;      // unclaimed taps at active stations, same rule
@@ -849,7 +849,7 @@ Steps: photo check (`samplePhoto` → the fixture's `{plate,toda}` must equal th
 No body. Response 202: `{ "started": true, "points": 45, "tickMs": 700 }`. Resets the stream, deletes prior `price_points` for the program, replays `fixtures/prices/doe-diesel-sim.json` one point per `PRICE_TICK_MS`, and fires at most once per program (`tranche_fired`).
 
 - A second call while running → `409 INVALID_STATE` (`"tranche already running"`). After it fired → `409 INVALID_STATE` (`"tranche already fired"`). With `budget_verified_stroops = 0` → `409 INVALID_STATE` (`"no verified budget"`).
-- Eligibility: cards `active` with `expires_at_s > now`, in enrollment order. `amount = min(tranche_stroops, budget_verified - budget_funded)`: the card that finds less than a full tranche left takes the remainder (never more than the budget), the decision becomes `BUDGET_EXHAUSTED`, and every later card is `skipped` with `reason: "BUDGET_EXHAUSTED"`. `program.tranche_fired` is set to `1` before the first `fund_escrow` is signed, so a crash mid-funding can never fund a second tranche. `budget_funded_stroops` grows only for a `succeeded` fund tx. The program must be `draft` or `active` (`ending`/`ended` → `409 INVALID_STATE`), like enroll and taps.
+- Eligibility: cards `active` with `expires_at_s > now`, in enrollment order. `amount = min(tranche_stroops, budget_verified - budget_funded)`: the card that finds less than a full tranche left takes the remainder (never more than the budget), the decision becomes `BUDGET_EXHAUSTED`, and every later card is `skipped` with `reason: "BUDGET_EXHAUSTED"`. `program.tranche_fired` is set to `1` before the first `fund_escrow` is signed, so a crash mid-funding can never fund a second tranche. `budget_funded_stroops` grows only for a `succeeded` fund tx, while a `submission_unknown` hand-off keeps counting against the remaining budget (the money may have moved, and the row is never resubmitted), so a later card can never take the same stroops; `Dashboard.fundedStroops` reads the chain row's current status, so that fund counts once the reconciler settles it `succeeded`. The program must be `draft` or `active` (`ending`/`ended` → `409 INVALID_STATE`), like enroll and taps.
 - The single `tranche` decision row carries `inputs_json = { pricePhp, segmentMeanPhp, thresholdPhp, cpRecent, mapR, budgetBeforeStroops }` and `outputs_json = { budgetAfterStroops, funded: [{ cardId, deviceHashPrefix, amountStroops, chainTxId }], skipped: [{ cardId, reason }] }`; `tx_ids_json` = the funding tx ids in order.
 - Errors: `404 NOT_FOUND`, `409 INVALID_STATE`, `502 CHAIN_ERROR` (a `fund_escrow` failed; the run continues with the next card and the failure appears in `outputs.funded` with that card's `chainTxId`).
 
@@ -1060,7 +1060,7 @@ The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, so
 
 Numbers are computed from our tables plus one chain read:
 
-- `fundedStroops` = `program.budget_funded_stroops` (incremented by the Tranche Agent as each `fund_escrow` succeeds; `chain_txs` has no amount column)
+- `fundedStroops` = Σ of the tranche decision's `outputs.funded[].amountStroops` whose `chain_txs` row is `succeeded`, read from the row's **current** status: each funded entry carries its own chain tx id, so a `submission_unknown` fund the reconciler settles `succeeded` later is counted exactly once (`program.budget_funded_stroops` only sees the synchronous result; `chain_txs` has no amount column)
 - `spentStroops` = Σ `amount_stroops` of `authorized` taps **at or below** their station's claim boundary (the `#16` query inverted: `t.created_at <=` the station's `MAX(chain_txs.updated_at)` for a `succeeded` claim)
 - `heldStroops` = the `#16` sum over `frozen` stations
 - `pendingStroops` = the `#16` sum over `active` stations

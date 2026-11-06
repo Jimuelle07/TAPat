@@ -12,6 +12,7 @@ import { toAgentDecision, type DecisionRow } from './decisions';
 import { getCurrentProgram } from './program';
 import { listStations } from './stations';
 import { toTap, type TapRow } from './tap';
+import { fundedStroops } from './tranche';
 
 const MIDAS_CONFIG_PATH = fileURLToPath(new URL('../../config/midas.json', import.meta.url));
 
@@ -166,7 +167,10 @@ export function createDashboardService(deps: DashboardDeps): DashboardService {
         else pending += BigInt(station.pendingStroops);
       }
 
-      const funded = BigInt(program.budgetFundedStroops);
+      // Authoritative and late-confirmation-safe (SDD §6.10): the tranche decision's per-card amounts joined to the
+      // chain row's current status, so a fund the reconciler settles `succeeded` after a `submission_unknown` counts
+      // exactly once. `program.budget_funded_stroops` only sees the synchronous result.
+      const funded = fundedStroops(deps.db);
       const invariantOk = funded === spent + held + pending + escrowRemaining + returned;
 
       const latestIntent = deps.db

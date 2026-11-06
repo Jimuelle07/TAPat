@@ -263,6 +263,13 @@ export function createTelegramService(deps: TelegramDeps): TelegramService {
       await sendMessage(chatId, LINK_UNKNOWN_TEXT);
       return;
     }
+    // A link code that already went to another chat must never be re-bound: a leaked code would steal the receipts.
+    // The reply is the same refusal as an unknown code, so the sender learns nothing about the record.
+    if (beneficiary.telegram_chat_id !== null && beneficiary.telegram_chat_id !== chatId) {
+      log.warn({ beneficiaryId: beneficiary.id }, 'link code already bound to another chat');
+      await sendMessage(chatId, LINK_UNKNOWN_TEXT);
+      return;
+    }
     deps.db
       .prepare('UPDATE beneficiaries SET telegram_chat_id = ? WHERE id = ?')
       .run(chatId, beneficiary.id);

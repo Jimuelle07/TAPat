@@ -7,9 +7,9 @@ import { Bocpd, bocpdRun, trancheShouldFire, type NoirOperation } from '@tapat/a
 import type { AgentDecision, PricePoint } from '@tapat/shared';
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
-import type { ChainDeps } from './chain';
+import { reconcileOnce, type ChainDeps } from './chain';
 import { createSseBus } from './sse';
-import { createTrancheService, type TrancheService } from './tranche';
+import { createTrancheService, fundedStroops, type TrancheService } from './tranche';
 import {
   KEY_ENCRYPTION_SECRET,
   T0,
@@ -229,6 +229,8 @@ describe('the price replay and the fire', () => {
 
     // Program counters and SSE.
     expect(program()).toEqual({ fired: 1, funded: 4_500_000_000, verified: 10_000_000_000 });
+    // The derived total (SDD §6.10) counts each synchronous success exactly once.
+    expect(fundedStroops(db)).toBe(4_500_000_000n);
     expect(published.filter((entry) => entry.event === 'tranche')).toHaveLength(1);
     expect(published.filter((entry) => entry.event === 'chain_tx')).toHaveLength(3);
     const tranche = published.find((entry) => entry.event === 'tranche')?.data as AgentDecision;
@@ -360,6 +362,46 @@ describe('funding rules', () => {
     expect(outputs.budgetAfterStroops).toBe('7000000000');
     expect(program()?.funded).toBe(3_000_000_000);
     expect(service.state().funds.find((fund) => fund.cardId === 'card_D2')).toMatchObject({ status: 'failed', txId: failed[0]?.id });
+  });
+
+  it('keeps a submission_unknown fund against the budget, never resubmits it, and counts it once the reconciler settles it', async () => {
+    db.prepare('UPDATE program SET budget_verified_stroops = 4000000000').run();
+    let submit = 0;
+    fake.submit.mockImplementation(async () => {
+      submit += 1;
+      // Not a terminal network failure: the row freezes as `submission_unknown` and only the chain decides.
+      if (submit === 2) throw new Error('socket hang up');
+      return 'direct_inner_hash';
+    });
+    service.start();
+    await runToEnd();
+
+    // D2's unknown fund still consumed its tranche: D5 takes only the 1,000,000,000 stroops left, never a full one.
+    const amounts = fake.prepare.mock.calls.map(([, op]) => (op.kind === 'fundEscrow' ? op.amount : 0n));
+    expect(amounts).toEqual([TRANCHE, TRANCHE, 1_000_000_000n]);
+    expect(decisions()[0]?.decision).toBe('BUDGET_EXHAUSTED');
+    expect(JSON.parse(decisions()[0]?.outputs_json ?? '{}')).toMatchObject({ budgetAfterStroops: '0' });
+    expect(fake.submit).toHaveBeenCalledTimes(3);
+
+    const unknown = db
+      .prepare(`SELECT id, error_code FROM chain_txs WHERE status = 'submission_unknown'`)
+      .all<{ id: string; error_code: string }>();
+    expect(unknown).toHaveLength(1);
+    expect(unknown[0]?.error_code).toBe('DIRECT_UNKNOWN');
+    // Only the two synchronous successes are on the program row; the derived total (SDD §6.10) matches them.
+    expect(program()?.funded).toBe(2_500_000_000);
+    expect(fundedStroops(db)).toBe(2_500_000_000n);
+    expect(service.state().budgetFundedStroops).toBe('2500000000');
+
+    // The reconciler settles the uncertain row from the chain; the derived total then counts it exactly once.
+    const server = fake.noir.server as unknown as { getTransaction: (hash: string) => Promise<{ status: string }> };
+    server.getTransaction = async () => ({ status: 'SUCCESS' });
+    await expect(reconcileOnce({ db, noir: fake.noir, gas: null, log: fakeLog(), now: () => T0 })).resolves.toBe(1);
+    expect(fundedStroops(db)).toBe(4_000_000_000n);
+    expect(service.state().budgetFundedStroops).toBe('4000000000');
+    expect(service.state().funds.find((fund) => fund.cardId === 'card_D2')).toMatchObject({ status: 'succeeded' });
+    await expect(reconcileOnce({ db, noir: fake.noir, gas: null, log: fakeLog(), now: () => T0 })).resolves.toBe(0);
+    expect(fundedStroops(db)).toBe(4_000_000_000n);
   });
 
   it('still marks the program fired when funding throws unexpectedly, so a restart cannot fund twice', async () => {
