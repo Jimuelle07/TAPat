@@ -16,7 +16,9 @@ import { registerAgentRoutes } from './agents';
 import { registerBeneficiaryRoutes } from './beneficiaries';
 import { registerBudgetRoutes } from './budget';
 import { registerDashboardRoutes } from './dashboard';
+import type { TelegramService } from '../services/telegram';
 import { registerEnrollRoutes } from './enroll';
+import { registerExportRoutes } from './export';
 import { registerHealthRoutes } from './health';
 import { registerIntakeRoutes } from './intake';
 import { registerProgramRoutes } from './program';
@@ -47,6 +49,8 @@ export interface RouteDeps {
   freeze: FreezeService;
   /** `MIDAS` task writes `apps/server/config/midas.json`; absent, the documented threshold is used. */
   midasThreshold?: number;
+  /** The bot: tap receipts/declines here, and S7's `request-evidence` route calls its `sendEvidenceRequest`. */
+  telegram?: TelegramService;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
   /** Boot-time CRC thresholds from `fixtures/calibration/labeled.json` (§5.2 #7); `main()` computes them once. */
@@ -66,6 +70,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     midasThreshold: deps.midasThreshold ?? loadMidasThreshold(),
   });
 
+  // The bot's methods are closures (`createTelegramService` never uses `this`), so the reference travels on its own.
+  const notifyTap = deps.telegram?.notifyTap;
   registerHealthRoutes(app, { probes: deps.probes, gasMode: deps.config.GAS_MODE });
   registerProgramRoutes(app, {
     db: deps.db,
@@ -78,6 +84,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   registerStreamRoutes(app, { bus: deps.bus });
   registerStationRoutes(app, { db: deps.db });
   registerDashboardRoutes(app, { dashboard });
+  registerExportRoutes(app, { db: deps.db, phpPerXlm: deps.config.PHP_PER_XLM });
   registerEnrollRoutes(app, {
     db: deps.db,
     chain: deps.chain,
@@ -92,6 +99,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     bus: deps.bus,
     config: deps.config,
     onTap: (tap) => deps.freeze.enqueue(tap),
+    ...(notifyTap === undefined ? {} : { notify: notifyTap }),
   });
   registerBudgetRoutes(app, deps.budget);
   registerWebhookRoutes(app, deps.budget);

@@ -170,7 +170,7 @@ Run in order at T-60 on show day. Every line is a pass/fail.
 - [ ] Beat 5: scan upload summary reads 4 approved + 4 already enrolled, 1 ghost, 1 underage, 2 uncertain; evidence request arrives on the team phone; D4 enrolls (dashboard counts then approved 3 / enrolled 5).
 - [ ] Beat 6: **End program** → 3 sweep txs, returned ₱3,190.
 - [ ] Totals: funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190; invariant line **OK**.
-- [ ] `GET /api/export/coa.csv` downloads with 9 columns, one row per money event, tx hash on every on-chain row.
+- [ ] `GET /api/export/coa.csv` downloads with the columns of api-and-data.md §5.2 #19 (eight), one row per money event, tx hash on every on-chain row.
 - [ ] Fallbacks exercised once today: **Simulate tap** works (and satisfies the burst gate); `GAS_MODE=direct` restart takes ≤ 15 s; on a laptop, `/?sse=direct` reconnects the dashboard stream; the SSH-forward hosting fallback in [deployment.md §10](deployment.md) step 2 was tried once; backup video plays offline.
 
 **People**
