@@ -5,6 +5,7 @@ import type { BeneficiariesQuery, Beneficiary, RequestEvidenceResponse } from '@
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import { ApiError } from '../errors';
+import type { TelegramService } from './telegram';
 
 export interface BeneficiaryRow {
   id: string;
@@ -30,6 +31,24 @@ export interface BeneficiaryRow {
 /** The Telegram sender the evidence flow needs; the Telegram unit injects the real one (SDD §6.10). */
 export interface EvidenceNotifier {
   sendEvidenceRequest(beneficiary: Beneficiary): Promise<void>;
+}
+
+/**
+ * The real `EvidenceNotifier`: `request-evidence` hands over the response shape (no `telegram_chat_id`), the bot needs
+ * the row, so the adapter re-reads it here — the chat id never leaves the server. The bot answers `false` instead of
+ * throwing when the send fails or no chat is linked; that becomes a throw so the response's `telegramSent` stays true.
+ */
+export function telegramEvidenceNotifier(
+  db: Db,
+  telegram: Pick<TelegramService, 'sendEvidenceRequest'>,
+): EvidenceNotifier {
+  return {
+    async sendEvidenceRequest(beneficiary: Beneficiary): Promise<void> {
+      const row = db.prepare('SELECT * FROM beneficiaries WHERE id = ?').get<BeneficiaryRow>(beneficiary.id);
+      if (row === undefined) throw new Error(`beneficiary ${beneficiary.id} not found`);
+      if (!(await telegram.sendEvidenceRequest(row))) throw new Error(`evidence request to ${beneficiary.id} not sent`);
+    },
+  };
 }
 
 /** The deep link the UI renders; without a `link_code` it is the bot's plain address. */
