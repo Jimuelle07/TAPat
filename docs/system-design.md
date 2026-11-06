@@ -1023,7 +1023,7 @@ The order matters when several conditions could apply: on chain the checks run n
 
 **Start** — `POST /api/agents/tranche/start`.
 
-1. Require `program.status='active'` and `program.budget_verified_stroops > 0` → else `409 INVALID_STATE` ("no verified budget; run the budget checkout first").
+1. Require `program.status` `draft` or `active` (the same states enroll and taps accept; `ending`/`ended` → `409 INVALID_STATE`) and `program.budget_verified_stroops > 0` → else `409 INVALID_STATE` ("no verified budget; run the budget checkout first").
 2. Require `program.tranche_fired = 0` → else `409 INVALID_STATE` ("tranche already fired; run reset-demo.ts to replay"). This is how "fires at most once per program" is enforced; a call while a run is in flight also gets `409 INVALID_STATE` ("tranche already running").
 3. Reset the price cursor (delete prior `price_points` for the program) and return `202` `TrancheStartResponse` (`started`, `points`, `tickMs`, per `docs/api-and-data.md` #11). The stream is in-process only; it restarts from `idx 0` on API restart.
 
@@ -1035,10 +1035,10 @@ The order matters when several conditions could apply: on chain the checks run n
 4. Evaluate the fire rule (per `docs/algorithms.md`). No fire writes no decision — per-tick rows would be noise; the dashboard derives "waiting" from the stream.
 5. On fire:
    1. Eligible cards = `cards.status='active'` AND `cards.expires_at_s > now`, ordered by `cards.created_at` (enrollment order). A skipped card is an entry in `outputs_json.skipped` with `reason='EXPIRED'` — it never gets its own decision row.
-   2. `amount = min(tranche_stroops, budget_remaining)`. The moment `budget_remaining < tranche_stroops`, stop funding: every card after that point is a `skipped` entry with `reason='BUDGET_EXHAUSTED'`.
+   2. `amount = min(tranche_stroops, budget_remaining)`. The card that finds `budget_remaining < tranche_stroops` takes the remainder; once `budget_remaining` is `0`, every later card is a `skipped` entry with `reason='BUDGET_EXHAUSTED'`.
    3. For each eligible card sequentially: `fundEscrow(XLM_SAC_ID, programWallet, deviceHash, amount)`; on success `program.budget_funded_stroops += amount`. A failed funding does not abort the loop: that card keeps its `funded` entry with the failed `chainTxId`, and the cause is on `chain_txs`.
    4. One `agent_decisions` row (`agent='tranche'`, `decision='BUDGET_EXHAUSTED'` when funding stopped because the budget ran out — even if some cards were funded first — otherwise `FUNDED`) with `inputs_json = { pricePhp, segmentMeanPhp, thresholdPhp, cpRecent, mapR, budgetBeforeStroops }` and `outputs_json = { budgetAfterStroops, funded: [{ cardId, deviceHashPrefix, amountStroops, chainTxId }], skipped: [{ cardId, reason }] }`, plus `tx_ids_json` = the fund tx ids.
-   5. `program.tranche_fired = 1`; stop the stream; SSE `tranche` with the `AgentDecision`.
+   5. `program.tranche_fired = 1` is written **before** the first `fund_escrow` (so a crash mid-funding can never fund a second tranche); after the decision row: stop the stream; SSE `tranche` with the `AgentDecision`, then SSE `budget` with the updated `Program`.
 
 **State** — `GET /api/agents/tranche/state` returns `TrancheState` ([api-and-data.md](api-and-data.md) #12): `running`, `fired`, `idx`, `total`, `lastPricePhp`, `cpRecent`, `mapR`, `thresholdPhp`, both budget totals, `points: PricePoint[]` (the whole series so `/demo` can redraw after a reload), and `funds[]` with `status: ChainTxStatus | 'skipped'`.
 
@@ -1117,7 +1117,7 @@ Sweep always pays the device owner (Program Wallet = LGU side), which is the who
 
 `POST /api/program/budget-checkout`.
 
-1. Require `program.status='active'`.
+1. Require `program.status` not `ending`/`ended` (`draft` and `active` both accept a deposit, as in api-and-data §5.2 #4).
 2. `seq = (SELECT COUNT(*) FROM velo_intents WHERE purpose='budget') + 1`.
 3. `idempotencyKey = budget:${programId}:${seq}`.
 4. `velo.checkout.sessions.create({ amount: stroopsToXlmString(depositStroops), asset: VELO_CHECKOUT_ASSET, description, successUrl, cancelUrl }, { idempotencyKey })`.
@@ -1128,7 +1128,7 @@ Errors: `400 VALIDATION_ERROR`, `404 NOT_FOUND` (no program), `409 INVALID_STATE
 
 The dashboard badge reads `Dashboard.budget` and renders one of three states: `none` → a **Fund budget** button; `waiting` → "Waiting for Velo…" plus an **Open checkout** link to that row's `checkoutUrl`; `verified` → "Velo verified ✓ ₱{verified}" with the remaining amount. The button navigates the same tab to `checkoutUrl`; `/?budget=success` shows "Payment sent — waiting for Velo verification" and refetches, `/?budget=cancel` shows "Checkout cancelled".
 
-Webhook — `POST /api/webhooks/velo` is an **encapsulated Fastify plugin** with a string content-type parser so the raw body is available. Order: verify HMAC (`Velo.webhooks.verify({ payload: rawBody, signature: headers['x-velo-signature'], secret: VELO_WEBHOOK_SECRET })`) → insert `webhook_deliveries` (`delivery_id = x-velo-delivery`); a duplicate delivery id short-circuits with `200` → then dispatch:
+Webhook — `POST /api/webhooks/velo` is an **encapsulated Fastify plugin** with an `application/json` parser that keeps the body as a `Buffer` so the raw bytes are available. Order: verify HMAC (`Velo.webhooks.verify({ payload: rawBody, signature: headers['x-velo-signature'], secret: VELO_WEBHOOK_SECRET })`) → insert `webhook_deliveries` (`delivery_id = x-velo-delivery`); a duplicate delivery id short-circuits with `200` → then dispatch:
 
 | Type | Handling |
 |---|---|
