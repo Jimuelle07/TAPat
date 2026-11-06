@@ -251,11 +251,13 @@ describe('freeze decision', () => {
     const scored = published.filter((entry) => entry.event === 'tap').map((entry) => entry.data as Tap);
     expect(scored.some((tap) => tap.id === first.id)).toBe(true);
     expect(scored.some((tap) => tap.id === second.id)).toBe(true);
-    const reEmitted = scored.find((tap) => tap.id === second.id);
+    // Two `tap` events per row: one at tap time (unscored), one after scoring (clients upsert by `id`).
+    const emits = scored.filter((tap) => tap.id === second.id);
+    expect(emits).toHaveLength(2);
+    expect(emits[0]?.midasScore).toBeNull();
+    const reEmitted = emits.at(-1);
     expect(reEmitted?.midasScore).not.toBeNull();
     expect(reEmitted?.tick).toBe(60);
-    // Two `tap` events per row: one at tap time, one after scoring (clients upsert by `id`).
-    expect(scored.filter((tap) => tap.id === second.id)).toHaveLength(2);
 
     // Scored burst rows keep the fixture tick (`freezeStartTick + tick_offset`) and carry a score.
     const burstTicks = db
