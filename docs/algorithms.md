@@ -691,9 +691,10 @@ export function replayMidas(events: EdgeEvent[], cfg: MidasConfig): MidasScore[]
    sketchAdd(destination.current,  stationId)
 3. a_edge = sketchEstimate(edge, keyEdge)          a_src = sketchEstimate(source, cardId)
    a_dst  = sketchEstimate(destination, stationId)
-   edge   = chiSquare(a_edge, edge.totalCount,        edge.distinctKeys.length)
-   source = chiSquare(a_src,  source.totalCount,      source.distinctKeys.length)
-   dest   = chiSquare(a_dst,  destination.totalCount, destination.distinctKeys.length)
+   s_X    = max(sum(one row of X.current), X.distinctKeys.length)   // decayed window mass, floored at the vocabulary
+   edge   = chiSquare(a_edge, s_edge,        edge.distinctKeys.length)
+   source = chiSquare(a_src,  s_source,      source.distinctKeys.length)
+   dest   = chiSquare(a_dst,  s_destination, destination.distinctKeys.length)
 4. score = log1p(max(edge, source, dest))          // Math.log1p, natural log
 5. filtered = score >= cfg.threshold
 6. if not filtered:
@@ -705,7 +706,8 @@ export function replayMidas(events: EdgeEvent[], cfg: MidasConfig): MidasScore[]
 Notes that matter:
 
 * Decay happens **once per tick change**, before the event of the new tick, never per event. Ten edges in one tick each see the same decayed background.
-* `s` and `t` come from the *totals*, `a` from the *current* window. An edge that is filtered keeps inflating `a` while `s`/`t` stay put, which is the intended ratchet.
+* `a` is the decayed window estimate for the key; `s` is the decayed window **mass** (the sum of one CMS row), floored at `t` so the expected count per key is never below one observation; `t` is `distinctKeys.length`, the known-key vocabulary, and it comes from the totals. An edge that is filtered keeps inflating `a` while the totals — and therefore `t` — stay put, which is the intended ratchet.
+  The lifetime `totalCount` cannot serve as `s`: it is a lifetime scale while `a` is a window scale, so at a two-station destination sketch `s / t` reaches ~44 against an honest `a` of ~1, an honest baseline of χ² ≈ 88 that no burst can exceed. The windowed background is the only one on `a`'s scale, and `sketchDecay` already maintains it. Consequences the demo depends on: a fresh state scores 0 until a sketch knows two keys, and the 60-tick honest replay stays below the threshold while a flood at one station (10 edges per tick against a ~1.5-edge-per-tick baseline) crosses it.
 * Scores are rounded to 6 decimals before comparison with the threshold.
 * The amount is irrelevant to the score by design: MIDAS-F is a structure-anomaly detector, not an amount detector. Amount anomalies are the LGU's `NEAR_CAP_STREAK` rule ([system-design.md](./system-design.md) §6.5).
 
@@ -992,7 +994,7 @@ Vitest, in `packages/agent/src/algorithms/`. Each row is one `it(...)`.
 | Input | Expectation |
 |---|---|
 | `calibrate` output with seeds 1..50 (recompute in-test with `threshold = Infinity`) | every honest seed's max score `< midas.json.threshold` |
-| `replayMidas(burst.json)` | `some(score.score >= midas.json.threshold)` within the first 30 edges |
+| `replayMidas(burst.json)` after the 60-tick `honest-history.json` warm-up, at ticks 61–63 (how the Freeze Agent runs it) | `some(score.score >= midas.json.threshold)` within the first 30 edges — the 14th with the committed threshold; a fresh-state burst scores 0 because every sketch knows a single key |
 | `replayMidas(honest-history.json)` | no edge filtered |
 | decay behaviour: two edges in tick 0, one in tick 1 | the tick-1 estimate for the tick-0 edge is `0.6 ×` its pre-decay value (checked through `sketchEstimate`) |
 | filtering behaviour: an edge above the threshold twice | `totals` unchanged for that key, `current` increased |
