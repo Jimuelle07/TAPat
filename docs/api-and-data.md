@@ -670,7 +670,7 @@ No request. Response 200:
 { "ok": true, "rpc": "ok", "velo": "ok", "telegram": "ok", "gasMode": "velo" }
 ```
 
-- `rpc`: JSON-RPC `getHealth` POSTed to `STELLAR_RPC_URL` (1 s timeout), `ok` when `result.status === 'healthy'` (the RPC has no `GET /health` route; it answers 404). `velo`: `paymentIntents.list({ limit: 1 })` with `VELO_API_KEY` (2 s timeout, no retry), `'down'` if it throws. `telegram`: `getMe` (2 s timeout). `velo` and `telegram` are cached 30 s; `rpc` is checked on every request.
+- `rpc`: JSON-RPC `getHealth` POSTed to `STELLAR_RPC_URL` (5 s timeout: the public testnet RPC takes 0.7–5.5 s), `ok` when `result.status === 'healthy'` (the RPC has no `GET /health` route; it answers 404). `velo`: `paymentIntents.list({ limit: 1 })` with `VELO_API_KEY` (2 s timeout, no retry), `'down'` if it throws. `telegram`: `getMe` (2 s timeout). `velo` and `telegram` are cached 30 s; `rpc` is checked on every request.
 - `ok` is `true` when `rpc === 'ok'`; Velo and Telegram being down is degraded, not fatal.
 - Errors: `500 INTERNAL`.
 
