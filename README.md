@@ -188,11 +188,27 @@ Docs:
 
 Open the demo URL — the submission form has it.
 
-Opening the site asks for a login. Press **Create an account** to make an **officer** (or use the seeded officer account; its email and password are in the submission form). An officer can run every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program.
+Opening the site asks for a login. Press **Create an account** to make an **officer** (or use the seeded officer account below). An officer can run every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program.
 
 Honesty note: this is enforced by the API, not just the UI. Every write endpoint requires an officer session — `401 UNAUTHORIZED` without one — while most reads stay public; only `/api/auth/*` and the HMAC-signed Velo webhook bypass the check. The login redirect is a UI convenience; the server rule is the real boundary.
 
 The officer account is created on a fresh demo by the seed: `seed-demo.ts --officer-email=… --officer-password=…` prints `Officer login: <email> / <password>`. Without `--officer-password` it generates one and prints it once; accounts survive `reset-demo`. On an existing deployment that is already seeded, `create-officer.ts --officer-email=… [--officer-password=…]` creates or promotes the officer without reseeding or touching the chain, and prints the same `Officer login:` line.
+
+### Seed accounts (Stellar Testnet demo)
+
+Created by `seed-demo.ts` on the demo deployment. Testnet only — no real money.
+
+| Account | Login / identifier | Notes |
+|---|---|---|
+| Officer | `officer@tapat.demo` / `TapatDemo2026!` | Runs every action. Re-created by `seed-demo.ts --officer-email=officer@tapat.demo --officer-password=TapatDemo2026!` |
+| Card D1 | Juan D. · `…AL01` | Virtual card, enrolled and registered on-chain |
+| Card D2 | Pedro R. · `…AL02` | Virtual card, enrolled |
+| Card D3 | Ramon B. · `…AL03` | Policy expires 10 minutes after seeding, so the tranche skips it as `EXPIRED` |
+| Card D5 | Lito G. · `…AL05` | Virtual card, enrolled |
+| Station A | Petron San Roque | Normal station: settlement claims its pending taps |
+| Station B | Rotonda Fuels | The MIDAS freeze demo station: settlement holds its pending taps |
+
+Villanueva Ana (plate `JKL 4567`, D4) is approved but not enrolled, so she can be enrolled live with **Simulate card** and the sample photo. The ghost row De la Cruz (plate `ABC 1234`, `DUPLICATE_PLATE`) is the one for **Request evidence**; the OR/CR fixture `fixtures/orcr/ABC1234.jpg` approves it. Optional: `--budget-intent=<paid Velo intent id>` pre-verifies the ₱10,000 budget; otherwise press **Fund budget** and pay the checkout in Freighter.
 
 ## Environment variables
 
