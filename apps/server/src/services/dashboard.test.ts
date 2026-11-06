@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
 import { insertDecision } from './decisions';
-import { ESCROW_CACHE_MS, createDashboardService, loadMidasThreshold } from './dashboard';
+import { ESCROW_CACHE_MS, MIDAS_THRESHOLD_FALLBACK, createDashboardService, loadMidasThreshold } from './dashboard';
 import { seedBeneficiary, seedCard, seedProgram, seedStation, fakeNoir, XLM_SAC_ID, T0 } from './test-fakes';
 
 const NOW = 1_793_810_000_000; // the demo's closing clock, seconds 1793810000
@@ -336,7 +336,7 @@ describe('createDashboardService', () => {
     expect(dashboard.budget.state).not.toBe('verified');
   });
 
-  it('reports no budget intent as none and falls back to the documented MIDAS threshold', async () => {
+  it('reports no budget intent as none and falls back to the calibrated MIDAS threshold', async () => {
     db = openDb(':memory:');
     seedProgram(db);
     const service = createDashboardService({
@@ -347,6 +347,7 @@ describe('createDashboardService', () => {
     });
     const dashboard = await service.get();
     expect(dashboard.budget).toMatchObject({ state: 'none', checkoutUrl: null, paymentIntentId: null });
-    expect(dashboard.midasThreshold).toBeGreaterThan(0);
+    // Matches the Freeze Agent's fallback, so the chart line and the agent agree without the generated file.
+    expect(dashboard.midasThreshold).toBe(MIDAS_THRESHOLD_FALLBACK);
   });
 });

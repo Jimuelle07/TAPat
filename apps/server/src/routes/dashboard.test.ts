@@ -25,7 +25,7 @@ async function dashboardServer(database: Db): Promise<FastifyInstance> {
       db: database,
       noir: fakeNoir().noir,
       config: { PHP_PER_XLM: 10 },
-      midasThreshold: 1.78,
+      midasThreshold: 2.2,
     }),
   });
   return server;
@@ -43,7 +43,7 @@ describe('GET /api/dashboard', () => {
     const body = response.json() as Record<string, unknown>;
     expect(body).toMatchObject({
       phpPerXlm: 10,
-      midasThreshold: 1.78,
+      midasThreshold: 2.2,
       fundedStroops: '0',
       spentStroops: '0',
       heldStroops: '0',
