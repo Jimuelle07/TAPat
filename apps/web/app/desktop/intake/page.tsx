@@ -1,0 +1,214 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { IntakeResponse } from "@tapat/shared";
+import { ApiClientError, getProgram, uploadIntake } from "@/lib/api";
+import { fullName } from "@/lib/format";
+import { errorMessage } from "@/lib/use-dashboard";
+import { OfficerNotice, useAuth } from "@/app/(app)/_components/Auth";
+import { Icon } from "@/app/(app)/_components/Icon";
+import { Button, Card, Chip, ErrorBlock, KeyValues, LinkButton, NoProgram, Notice, Skeleton, StatCard } from "@/app/(app)/_components/ui";
+import { ActionRow, DataTable, Page } from "../_components/kit";
+
+const ERROR_TITLE: Record<string, string> = {
+  VALIDATION_ERROR: "Check the file",
+  OCR_UNAVAILABLE: "This image cannot be read",
+  NOT_FOUND: "No active program",
+};
+
+function Results({ response, onBack }: { response: IntakeResponse; onBack: () => void }) {
+  const { rows, summary, calibration } = response;
+  const rejected = rows.filter((row) => row.status === "rejected");
+  const count = (label: string, value: number) => <StatCard label={label} value={String(value)} live={{ to: value, format: (n) => String(Math.round(n)) }} />;
+  return (
+    <Page
+      title={`${summary.total} rows checked`}
+      chip={rows.some((row) => row.source === "ocr_precomputed") ? <Chip>precomputed OCR</Chip> : undefined}
+      actions={
+        <ActionRow>
+          <Button look="secondary" onClick={onBack}>
+            Upload another
+          </Button>
+          <LinkButton href="/desktop/intake/beneficiaries">Review beneficiaries</LinkButton>
+        </ActionRow>
+      }
+    >
+      {!calibration.feasible ? <Notice title="Calibration is not feasible">The two limits overlap on the grid, so the thresholds were clamped. Review results with care.</Notice> : null}
+      <div className="grid grid-cols-4 gap-3">
+        {count("Approved", summary.approved)}
+        {count("Already enrolled", summary.enrolled)}
+        {count("Rejected", summary.rejected)}
+        {count("Uncertain", summary.uncertain)}
+      </div>
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6">
+        {rejected.length > 0 ? (
+          <DataTable
+            label="Rejected rows"
+            rows={rejected}
+            rowKey={(row) => row.id}
+            href={(row) => `/desktop/intake/beneficiaries/${row.id}`}
+            columns={[
+              { header: "Rejected", cell: (row) => <span className="text-label">{fullName(row)}</span> },
+              { header: "Reason", cell: (row) => row.decisionReason ?? row.ruleCode ?? "Rejected by the matcher" },
+            ]}
+          />
+        ) : (
+          <Card>
+            <p className="text-small">No row was rejected.</p>
+          </Card>
+        )}
+        <Card>
+          <h2 className="text-label">Calibration</h2>
+          <KeyValues
+            rows={[
+              ["Approve at or above λ", calibration.lambdaHi.toFixed(2)],
+              ["Reject below λ", calibration.lambdaLo.toFixed(2)],
+              ["Max wrongful denial α", String(calibration.alpha)],
+              ["Max ghost admission β", String(calibration.beta)],
+              ["Measured wrongful denial", calibration.wrongfulDenialRate.toFixed(3)],
+              ["Measured ghost admission", calibration.ghostAdmissionRate.toFixed(3)],
+              ["Calibration set", String(calibration.n)],
+            ]}
+          />
+        </Card>
+      </div>
+    </Page>
+  );
+}
+
+export default function Intake() {
+  const { isOfficer, loading } = useAuth();
+  const [program, setProgram] = useState<"loading" | "none" | "ok">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ title: string; body: string } | null>(null);
+  const [response, setResponse] = useState<IntakeResponse | null>(null);
+
+  const load = useCallback(() => {
+    getProgram()
+      .then((result) => {
+        setProgram(result.program === null ? "none" : "ok");
+        setLoadError(null);
+      })
+      .catch((cause: unknown) => setLoadError(errorMessage(cause)));
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (response !== null) return <Results response={response} onBack={() => setResponse(null)} />;
+
+  const upload = async () => {
+    // Uploading a masterlist is officer-only; a stale render must not reach the POST either.
+    if (!isOfficer || file === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setResponse(await uploadIntake(file));
+    } catch (cause) {
+      const code = cause instanceof ApiClientError ? cause.code : "";
+      setError({
+        title: ERROR_TITLE[code] ?? "Could not check this list",
+        // OCR_UNAVAILABLE already reads as a full sentence the server wrote for this screen.
+        body: code === "OCR_UNAVAILABLE" ? errorMessage(cause) : `${code === "" ? "" : `${code}: `}${errorMessage(cause)}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Page
+      title="Masterlist"
+      actions={
+        <ActionRow>
+          <LinkButton look="secondary" href="/desktop/intake/beneficiaries">
+            View beneficiaries
+          </LinkButton>
+        </ActionRow>
+      }
+    >
+      {loadError !== null ? (
+        <div className="flex max-w-xl flex-col gap-4">
+          <ErrorBlock title="Could not load the program" message={loadError} onRetry={load} />
+        </div>
+      ) : null}
+      {loadError === null && program === "loading" ? <Skeleton kinds={["line", "card", "card", "row"]} /> : null}
+      {loadError === null && program === "none" ? (
+        <div className="mx-auto w-full max-w-md">
+          <NoProgram icon="upload" body="Create a program before uploading a masterlist." />
+        </div>
+      ) : null}
+      {loadError === null && program === "ok" ? (
+        <>
+          {error !== null ? (
+            <Notice tone="error" title={error.title}>
+              {error.body}
+            </Notice>
+          ) : null}
+          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start gap-6">
+            {isOfficer ? (
+              <div className="flex flex-col gap-4">
+                <label
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+                  }}
+                  onDragEnd={() => setDragging(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragging(false);
+                    const dropped = event.dataTransfer.files[0];
+                    if (dropped === undefined) return;
+                    // Dropping bypasses the picker's accept filter, so hold the same set of types here.
+                    if (!/\.(csv|png|jpe?g)$/i.test(dropped.name) && !/^(text\/csv|image\/(png|jpeg))$/.test(dropped.type)) {
+                      setError({ title: "Check the file", body: "Use a CSV, PNG or JPG." });
+                      return;
+                    }
+                    setFile(dropped);
+                    setError(null);
+                  }}
+                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-dashed border-text bg-raised px-4 py-20 text-center hover:bg-mint focus-within:border-[2.5px] focus-within:border-solid focus-within:border-primary ${
+                    dragging || busy ? "pulse bg-mint" : ""
+                  }`}
+                >
+                  <Icon name="upload" />
+                  <span className="text-label">{file?.name ?? "Drop a CSV or a scanned list here, or choose a file"}</span>
+                  <span className="text-caption">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,image/png,image/jpeg"
+                    className="sr-only"
+                    onChange={(event) => {
+                      setFile(event.target.files?.[0] ?? null);
+                      setError(null);
+                    }}
+                  />
+                </label>
+                <Button loading={busy} disabled={file === null} onClick={() => void upload()}>
+                  {busy ? "Checking rows" : "Upload masterlist"}
+                </Button>
+              </div>
+            ) : loading ? null : (
+              <OfficerNotice />
+            )}
+            <Card>
+              <h2 className="text-label">CSV columns, in this order</h2>
+              <p className="font-mono text-mono">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
+              <p className="text-caption">Birthdate as YYYY-MM-DD. Middle name and suffix may be empty.</p>
+            </Card>
+          </div>
+        </>
+      ) : null}
+    </Page>
+  );
+}

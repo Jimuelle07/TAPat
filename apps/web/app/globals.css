@@ -391,3 +391,30 @@ dialog::backdrop {
   .confetti-piece, .settle-coin, .ripple-ring { display: none !important; }
   .shimmer::after { display: none; }
 }
+
+/* ---- Desktop app (/desktop) ------------------------------------------------------------------------------------
+   Scoped to its shell, so the mobile app's sheets and top bars are untouched. */
+.desktop-shell dialog {
+  margin: auto;
+  max-width: 480px;
+  border-radius: var(--radius-lg);
+}
+.desktop-shell dialog span[aria-hidden="true"].mx-auto {
+  display: none;
+}
+/* A mobile screen embedded on a desktop page: the sidebar already has the logo and the account. */
+.desktop-column header[data-root="true"],
+.desktop-column header[data-root] > a[href="/login"],
+.desktop-column header[data-root] > button[aria-haspopup] {
+  display: none;
+}
+.desktop-column > main {
+  margin-bottom: 0;
+}
+/* Phone-only touches: thumb-reach floating actions would cover a form here, and the waves need a full screen. */
+.desktop-column > .sticky {
+  position: static;
+}
+.desktop-column > main > svg {
+  display: none;
+}
