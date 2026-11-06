@@ -11,6 +11,7 @@ import { errorMessage } from "@/lib/use-dashboard";
 import { Icon } from "../_components/Icon";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, KeyValues, ListCard, NoProgram, Notice, SectionTitle, Skeleton, Stepper, TopBar } from "../_components/ui";
 import { OfficerNotice, useAuth } from "../_components/Auth";
+import { CheckDraw, Confetti, Ripple } from "../_components/motion";
 
 const SAMPLE_PHOTO = "d4-photo.jpg";
 
@@ -117,8 +118,9 @@ function ReadCard({ driver, onBack, onRead }: { driver: Beneficiary; onBack: () 
             {error.code}: {error.message}
           </Notice>
         ) : null}
-        <Card className="items-center gap-3 py-8 text-center">
-          <Icon name={uid !== null ? "check" : "tap"} />
+        <Card className={`relative items-center gap-3 py-8 text-center ${uid !== null ? "pop-in" : ""}`}>
+          <Ripple active={reading} rings={3} />
+          {uid !== null ? <CheckDraw size={34} /> : <Icon name="tap" />}
           <h2 className="text-h2">{panelTitle}</h2>
           <p className="text-small">{panelBody}</p>
         </Card>
@@ -148,7 +150,11 @@ function EnrollTop({ onBack, title = "Enroll driver", chip }: { onBack: () => vo
         <Icon name="back" />
       </button>
       <h1 className="min-w-0 flex-1 truncate text-h2">{title}</h1>
-      {chip !== undefined ? <Chip tone="mint">{chip}</Chip> : null}
+      {chip !== undefined ? (
+        <span className="stamp">
+          <Chip tone="mint">{chip}</Chip>
+        </span>
+      ) : null}
     </header>
   );
 }
@@ -300,44 +306,47 @@ function Result({ response, onNext }: { response: EnrollResponse; onNext: () => 
   return (
     <>
       <EnrollTop onBack={onNext} title="Enrolled" chip="Active" />
-      <Body>
-        <Card>
-          <KeyValues
-            rows={[
-              ["Driver", shortName(beneficiary)],
-              ["Card", `…${card.uidLast4}`],
-              ["Hash prefix", response.deviceHashPrefix],
-              ["Per-tap cap", dashboard === null ? "Loading" : php(card.maxAmountStroops, dashboard.phpPerXlm)],
-              ["Expires", dateTime(card.expiresAtS * 1000)],
-            ]}
-          />
-        </Card>
-        <Card>
-          <h2 className="text-label">Photo check</h2>
-          <Chip tone="mint">{photoCheck.source === "precomputed" ? "precomputed vision · matched" : "officer confirmed"}</Chip>
-          {photoCheck.source === "precomputed" ? (
+      <div className="relative flex flex-1 flex-col">
+        <Confetti key={card.id} />
+        <Body>
+          <Card>
             <KeyValues
               rows={[
-                ["Plate", photoCheck.plate ?? "None"],
-                ["TODA", photoCheck.toda ?? "None"],
+                ["Driver", shortName(beneficiary)],
+                ["Card", `…${card.uidLast4}`],
+                ["Hash prefix", response.deviceHashPrefix],
+                ["Per-tap cap", dashboard === null ? "Loading" : php(card.maxAmountStroops, dashboard.phpPerXlm)],
+                ["Expires", dateTime(card.expiresAtS * 1000)],
               ]}
             />
-          ) : null}
-        </Card>
-        <ListCard
-          heading="On-chain"
-          rows={response.chainTxIds.map((id) => {
-            const hash = hashOf(id);
-            return {
-              id,
-              title: txs.get(id)?.kind === "register_agent" ? "Policy registered" : "Device registered",
-              meta: hash === null ? "Tx hash loading" : `tx ${shortHash(hash)}`,
-              ...(txs.get(id)?.status === "succeeded" ? { chip: "Succeeded", tone: "mint" as const } : { chip: "Pending" }),
-            };
-          })}
-        />
-        <DemoRate />
-      </Body>
+          </Card>
+          <Card>
+            <h2 className="text-label">Photo check</h2>
+            <Chip tone="mint">{photoCheck.source === "precomputed" ? "precomputed vision · matched" : "officer confirmed"}</Chip>
+            {photoCheck.source === "precomputed" ? (
+              <KeyValues
+                rows={[
+                  ["Plate", photoCheck.plate ?? "None"],
+                  ["TODA", photoCheck.toda ?? "None"],
+                ]}
+              />
+            ) : null}
+          </Card>
+          <ListCard
+            heading="On-chain"
+            rows={response.chainTxIds.map((id) => {
+              const hash = hashOf(id);
+              return {
+                id,
+                title: txs.get(id)?.kind === "register_agent" ? "Policy registered" : "Device registered",
+                meta: hash === null ? "Tx hash loading" : `tx ${shortHash(hash)}`,
+                ...(txs.get(id)?.status === "succeeded" ? { chip: "Succeeded", tone: "mint" as const } : { chip: "Pending" }),
+              };
+            })}
+          />
+          <DemoRate />
+        </Body>
+      </div>
       <Actions>
         <Button onClick={onNext}>Enroll next driver</Button>
       </Actions>

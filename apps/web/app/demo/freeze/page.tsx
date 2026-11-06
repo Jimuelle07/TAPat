@@ -74,7 +74,7 @@ export default function FreezeAgent() {
                 {station.frozenReason ?? "Paused by the Freeze Agent."}
               </Notice>
             ) : null}
-            <EdgeChart scores={scores} threshold={dashboard.midasThreshold} frozenScore={frozenScore} />
+            <EdgeChart scores={scores} threshold={dashboard.midasThreshold} frozenScore={frozenScore} live={burstRunning || starting} />
             {station !== undefined ? <StationRow station={station} phpPerXlm={dashboard.phpPerXlm} /> : null}
           </>
         ) : null}

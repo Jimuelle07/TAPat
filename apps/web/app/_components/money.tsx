@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { Station, Stroops } from "@tapat/shared";
 import Link from "next/link";
 import { php } from "@/lib/format";
+import { CheckDraw, CountUp } from "./motion";
 import { Chip, KeyValues, type ChipTone } from "./ui";
 
 export function StationRow({ station, phpPerXlm, href }: { station: Station; phpPerXlm: number; href?: string }) {
@@ -20,7 +21,7 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
         <Chip tone={frozen ? "frozen" : "mint"}>{frozen ? "Frozen" : "Active"}</Chip>
       </div>
       {frozen && station.frozenReason !== null ? (
-        <p className="mx-4 border-b-[1.5px] border-text py-2 font-mono text-mono break-words">{station.frozenReason}</p>
+        <p className="ice-sheen mx-4 border-b-[1.5px] border-text py-2 font-mono text-mono break-words">{station.frozenReason}</p>
       ) : null}
       <dl className="flex px-1">
         {figures.map(([key, value], index) => (
@@ -32,7 +33,7 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
       </dl>
     </>
   );
-  const className = "block overflow-hidden rounded-md border-[1.5px] border-text bg-raised";
+  const className = `block overflow-hidden rounded-md border-[1.5px] border-text bg-raised ${frozen ? "shiver" : "rise"}`;
   return href === undefined ? (
     <div className={className}>{content}</div>
   ) : (
@@ -45,7 +46,8 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
 export function Invariant({ ok, escrow }: { ok: boolean; escrow: string }) {
   const border = ok ? "border-[1.5px]" : "border-[2.5px]";
   return (
-    <div className={`overflow-hidden rounded-md ${border} border-text bg-raised`}>
+    <div className={`relative overflow-hidden rounded-md ${border} border-text bg-raised`}>
+      {ok ? <span key={Number(ok)} aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-md bg-mint ok-flash" /> : null}
       <div className={`flex items-center justify-between gap-2 border-b-[1.5px] border-text px-3 py-2`}>
         <span className="text-caption">Escrow remaining</span>
         <span className="font-mono text-mono">{escrow}</span>
@@ -77,7 +79,7 @@ export function Receipt({
   const teeth = 25;
   const points = Array.from({ length: teeth * 2 + 1 }, (_, i) => `${(i / (teeth * 2)) * 100},${i % 2 === 0 ? 0 : 7}`).join(" ");
   return (
-    <div>
+    <div className={tone === "danger" ? "shake" : "receipt-in"}>
       <div className="flex flex-col gap-3 border-[1.5px] border-b-0 border-text bg-raised p-5">
         <div className="flex items-center justify-between">
           <span className="block h-11 w-[88px] overflow-hidden">
@@ -90,7 +92,12 @@ export function Receipt({
         </div>
         <hr className="border-t-[1.5px] border-dashed border-text" />
         <div className="flex items-center justify-between">
-          <Chip tone={tone}>{status}</Chip>
+          <span className="flex items-center gap-2">
+            {status === "PAID" ? <CheckDraw size={22} /> : null}
+            <span className={status === "PAID" || tone === "danger" ? "stamp" : undefined}>
+              <Chip tone={tone}>{status}</Chip>
+            </span>
+          </span>
           <span className="font-mono text-amount-sm">{amount}</span>
         </div>
         <KeyValues rows={rows} />
@@ -105,9 +112,22 @@ export function Receipt({
 }
 
 /** Kit fuel credit card, shown after a paid tap. */
-export function BalanceCard({ balance, name, last4 }: { balance: string; name: string; last4: string }) {
+export function BalanceCard({
+  balance,
+  name,
+  last4,
+  live,
+}: {
+  balance: string;
+  name: string;
+  last4: string;
+  live?: { to: number; format: (n: number) => string };
+}) {
   return (
-    <div className="relative flex h-[220px] flex-col justify-between overflow-hidden rounded-md border-[1.5px] border-text bg-primary-deep p-6 text-surface">
+    <div
+      className="rise relative flex h-[220px] flex-col justify-between overflow-hidden rounded-md border-[1.5px] border-text bg-primary-deep p-6 text-surface"
+      style={{ animationDelay: "80ms" }}
+    >
       <span aria-hidden="true" className="absolute -right-[60px] top-[100px] size-[326px] rounded-full bg-primary" />
       <svg aria-hidden="true" width="90" height="90" viewBox="0 0 90 90" className="absolute top-0 right-0 text-primary">
         {[90, 74, 58, 42, 26, 10].map((r) => (
@@ -117,7 +137,7 @@ export function BalanceCard({ balance, name, last4 }: { balance: string; name: s
       <p className="relative text-caption tracking-[0.04em]">TODA FUEL AID</p>
       <div className="relative flex flex-col gap-2">
         <p className="text-small">Fuel credit left</p>
-        <p className="font-mono text-amount-md">{balance}</p>
+        <p className="font-mono text-amount-md">{live === undefined ? balance : <CountUp to={live.to} format={live.format} />}</p>
       </div>
       <div className="relative flex justify-between text-label">
         <span>{name}</span>

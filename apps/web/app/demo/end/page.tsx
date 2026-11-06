@@ -8,6 +8,7 @@ import { cardLabel, txLookup } from "@/lib/feed";
 import { php, phpTile, shortHash } from "@/lib/format";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerNotice, useAuth } from "../../_components/Auth";
+import { CoinFlow } from "../../_components/motion";
 import { Actions, Body, Button, Chip, ConfirmSheet, DemoRate, ErrorBlock, LinkButton, ListCard, NoProgram, Notice, Skeleton, StatCard, TopBar, type ListRow } from "../../_components/ui";
 
 type CardOutcome = EndProgramResponse["cards"][number];
@@ -87,7 +88,16 @@ export default function EndProgram() {
             ) : null}
             {ended && !sweeping ? (
               <>
-                <StatCard tone="forest" full label="Returned to the LGU wallet" value={phpTile(total, rate)} />
+                <div className="relative">
+                  <StatCard
+                    tone="forest"
+                    full
+                    label="Returned to the LGU wallet"
+                    value={phpTile(total, rate)}
+                    live={{ to: Number(total), format: (n) => phpTile(String(Math.round(n)), rate) }}
+                  />
+                  <CoinFlow key={ended ? outcomes.length : 0} />
+                </div>
                 {outcomes.length > 0 ? <ListCard heading="Per card" rows={outcomes.map((o) => outcomeRow(o, dashboard))} /> : null}
                 <DemoRate />
               </>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { postSignup } from "@/lib/api";
 import { errorMessage } from "@/lib/use-dashboard";
 import { useAuth } from "../_components/Auth";
+import { Stagger } from "../_components/motion";
 import { Actions, Body, Button, Field, Notice, TopBar } from "../_components/ui";
 
 /** `message` names the failing field as "<path>: <reason>" (§5.3), which is how an error lands on its input. */
@@ -76,41 +77,45 @@ export default function Signup() {
             {error}
           </Notice>
         ) : null}
-        <Field
-          label="Name"
-          autoComplete="name"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          error={errorFor("displayName")}
-          required
-        />
-        <Field
-          label="Email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          error={errorFor("email")}
-          required
-        />
-        <Field
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          helper="At least 8 characters"
-          error={errorFor("password")}
-          required
-        />
-        <p className="text-small">New accounts are viewers. Officer actions need the officer account.</p>
-        <p className="text-small">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary underline">
-            Log in
-          </Link>
-        </p>
+        <div className={error === null ? undefined : "shake"}>
+          <Stagger className="flex flex-col gap-4">
+            <Field
+              label="Name"
+              autoComplete="name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              error={errorFor("displayName")}
+              required
+            />
+            <Field
+              label="Email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              error={errorFor("email")}
+              required
+            />
+            <Field
+              label="Password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              helper="At least 8 characters"
+              error={errorFor("password")}
+              required
+            />
+            <p className="text-small">New accounts are viewers. Officer actions need the officer account.</p>
+            <p className="text-small">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary underline">
+                Log in
+              </Link>
+            </p>
+          </Stagger>
+        </div>
       </Body>
       <Actions>
         <Button type="submit" loading={busy}>

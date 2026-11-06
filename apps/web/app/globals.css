@@ -106,3 +106,288 @@ dialog::backdrop {
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
+
+/* ---- Motion tokens ---------------------------------------------------------------------------------------------
+   Durations are milliseconds; easings are the only four curves the app uses. */
+:root {
+  --motion-fast: 120ms; /* press, tone change, colour */
+  --motion-base: 200ms; /* fades, notices, sheet backdrop */
+  --motion-slow: 340ms; /* cards, rows, receipts */
+  --motion-hero: 520ms; /* chart draw, page hero */
+  --motion-stagger: 28ms; /* per-item delay, capped at index 8 */
+  --motion-rise: 10px; /* entrance travel */
+
+  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.9, 0.2);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1); /* chips, stamps, toast */
+  --ease-spring-soft: cubic-bezier(0.2, 1.3, 0.3, 1); /* tab rail, sheet */
+}
+
+/* ---- Keyframes -------------------------------------------------------------------------------------------------
+   `from`-only wherever the base state is the finished state, so `animation: none` under reduce leaves it visible. */
+@keyframes m-rise {
+  from { opacity: 0; transform: translate3d(0, var(--motion-rise), 0); }
+}
+@keyframes m-fade {
+  from { opacity: 0; }
+}
+@keyframes m-drop {
+  from { opacity: 0; transform: translate3d(0, calc(-1 * var(--motion-rise)), 0); }
+}
+@keyframes m-pop {
+  from { opacity: 0.35; transform: scale(0.9); }
+  60%  { transform: scale(1.04); }
+}
+@keyframes m-stamp {
+  from { opacity: 0; transform: scale(1.7) rotate(-5deg); }
+}
+@keyframes m-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(-7px, 0, 0); }
+  30% { transform: translate3d(6px, 0, 0); }
+  45% { transform: translate3d(-4px, 0, 0); }
+  60% { transform: translate3d(3px, 0, 0); }
+  75% { transform: translate3d(-2px, 0, 0); }
+}
+@keyframes m-shiver {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-1px, 0, 0); }
+  75% { transform: translate3d(1px, 0, 0); }
+}
+@keyframes m-sheen {
+  from { transform: translateX(-110%); }
+  to   { transform: translateX(110%); }
+}
+@keyframes m-float {
+  50% { transform: translate3d(0, -5px, 0); }
+}
+@keyframes m-flicker {
+  0%, 100% { opacity: 1; }
+  25% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+  70% { opacity: 0.5; }
+}
+@keyframes m-ripple {
+  from { opacity: 0.55; transform: scale(0.55); }
+  to   { opacity: 0; transform: scale(2.1); }
+}
+@keyframes m-draw {
+  from { stroke-dashoffset: 1; }
+}
+@keyframes m-sheet {
+  from { opacity: 0.6; transform: translate3d(0, 100%, 0); }
+}
+@keyframes m-backdrop {
+  from { opacity: 0; }
+}
+@keyframes m-toast {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+}
+@keyframes m-tab {
+  from { opacity: 0; transform: translate3d(0, 4px, 0) scale(0.8); }
+}
+@keyframes m-confetti {
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate3d(var(--dx, 0), var(--dy, 60px), 0) rotate(var(--rot, 180deg)); }
+}
+@keyframes m-coin {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--dx, 0), var(--dy, -70px), 0) scale(1); }
+}
+/* The healthy-invariant flash is an overlay: it must end invisible, or `both` would leave a mint wash. */
+@keyframes m-ok {
+  0%   { opacity: 0; transform: scale(0.86); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+/* ---- Motion utilities ------------------------------------------------------------------------------------------ */
+@utility rise {
+  animation: m-rise var(--motion-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+@utility fade-in {
+  animation: m-fade var(--motion-base) var(--ease-standard) both;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+@utility drop-in {
+  animation: m-drop var(--motion-base) var(--ease-out) both;
+}
+@utility pop-in {
+  animation: m-pop var(--motion-base) var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+@utility stamp {
+  animation: m-stamp 300ms var(--ease-spring) both;
+}
+@utility shake {
+  animation: m-shake 420ms var(--ease-standard) both;
+}
+@utility shiver {
+  animation: m-shiver 260ms var(--ease-standard) 2;
+}
+@utility float {
+  animation: m-float 5s ease-in-out infinite;
+}
+@utility flicker {
+  animation: m-flicker 240ms steps(1, end) 3;
+}
+@utility notice-in {
+  animation: m-rise var(--motion-base) var(--ease-out) both;
+}
+@utility toast-in {
+  animation: m-toast 380ms var(--ease-spring) both;
+}
+@utility receipt-in {
+  animation: m-rise var(--motion-hero) var(--ease-spring-soft) both;
+}
+@utility draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0; /* base = fully drawn, so animation: none under reduce is safe */
+  animation: m-draw var(--motion-hero) var(--ease-out) both;
+}
+@utility tab-bounce {
+  transform-origin: center;
+  animation: m-tab 380ms var(--ease-spring) both;
+}
+@utility ok-flash {
+  opacity: 0; /* base = invisible, so `animation: none` under reduce leaves no wash */
+  animation: m-ok var(--motion-hero) var(--ease-out) both;
+}
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  contain: paint;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.5) 50%, transparent 80%);
+    transform: translateX(-110%);
+    animation: m-sheen 1.4s var(--ease-standard) infinite;
+    animation-delay: calc(var(--i, 0) * -160ms);
+  }
+}
+@utility stepper-fill {
+  transform-origin: left center;
+  transform: scaleX(var(--on, 0));
+  transition: transform 320ms var(--ease-out);
+}
+
+/* ---- Motion component classes ---------------------------------------------------------------------------------- */
+@layer components {
+  /* Auto-cascade for the direct children of a `.stagger` container (Body, StatRow, lists).
+     Kept in the components layer so an explicit motion utility on the child (utilities layer) or the chip pop
+     (higher specificity) wins instead of being clobbered. Capped so a long page never waits: delay tops out at
+     index 8 (8 × 28 = 224 ms). */
+  .stagger > * {
+    animation: m-rise var(--motion-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+  }
+  .stagger > :nth-child(1) { --i: 0; }
+  .stagger > :nth-child(2) { --i: 1; }
+  .stagger > :nth-child(3) { --i: 2; }
+  .stagger > :nth-child(4) { --i: 3; }
+  .stagger > :nth-child(5) { --i: 4; }
+  .stagger > :nth-child(6) { --i: 5; }
+  .stagger > :nth-child(7) { --i: 6; }
+  .stagger > :nth-child(8) { --i: 7; }
+  .stagger > :nth-child(n + 9) { --i: 8; }
+
+  /* Chip tone changes replay a pop; the attribute is set after the first render only. */
+  .chip[data-pop="true"] { animation: m-pop var(--motion-base) var(--ease-spring) both; }
+
+  /* TabBar: one moving orb instead of a re-parented active circle. */
+  .tab-orb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20%;
+    height: 100%;
+    pointer-events: none;
+    transform: translate3d(calc(var(--tab, 0) * 100%), 0, 0);
+    transition: transform 380ms var(--ease-spring-soft);
+    will-change: transform;
+  }
+  .tab-curve { filter: drop-shadow(0 -1px 1px rgb(27 46 40 / 0.16)); }
+
+  /* Bottom sheet entrance on the native <dialog>. Exit stays instant. */
+  dialog[open] { animation: m-sheet 420ms var(--ease-spring-soft) both; }
+  dialog[open]::backdrop { animation: m-backdrop var(--motion-base) linear both; }
+
+  /* SVG particles need their own origin. */
+  .svg-dot { transform-box: fill-box; transform-origin: center; }
+  .svg-ping {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: m-ripple 1.5s var(--ease-out) infinite;
+  }
+
+  /* Confetti / coins: absolutely positioned children of a relative, overflow-hidden layer. */
+  .confetti-piece {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    width: 6px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--confetti-color, var(--color-accent));
+    animation: m-confetti 560ms var(--ease-out) both;
+    animation-delay: var(--delay, 0ms);
+  }
+  .settle-coin {
+    position: absolute;
+    bottom: 20%;
+    left: 50%;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    border: 1.5px solid var(--color-text);
+    background: var(--color-accent);
+    animation: m-coin 520ms var(--ease-out) both;
+    animation-delay: var(--delay, 0ms);
+  }
+  .ripple-ring {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    border: 1.5px solid var(--color-primary);
+    animation: m-ripple 1.5s var(--ease-out) infinite;
+    animation-delay: var(--delay, 0ms);
+  }
+
+  /* Frozen station: a single frost sheen sweep, transform/opacity only. */
+  .ice-sheen { position: relative; overflow: hidden; }
+  .ice-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgb(191 230 247 / 0.55) 50%, transparent 70%);
+    transform: translateX(-110%);
+    animation: m-sheen 900ms var(--ease-standard) both;
+    pointer-events: none;
+  }
+}
+
+/* ---- Reduced motion --------------------------------------------------------------------------------------------
+   Unlayered, so it always beats the layered utilities above. No `opacity: 0` survives because every utility's base
+   state is the finished state. */
+@media (prefers-reduced-motion: reduce) {
+  .rise, .fade-in, .drop-in, .pop-in, .stamp, .shake, .shiver, .float,
+  .flicker, .notice-in, .toast-in, .receipt-in, .draw, .tab-bounce, .ok-flash,
+  .shimmer::after, .stagger > *, .ice-sheen::after, .svg-ping,
+  dialog[open], dialog[open]::backdrop {
+    animation: none !important;
+  }
+  .stepper-fill, .tab-orb, .chip[data-pop="true"] {
+    transition: none !important;
+    animation: none !important;
+  }
+  .confetti-piece, .settle-coin, .ripple-ring { display: none !important; }
+  .shimmer::after { display: none; }
+}

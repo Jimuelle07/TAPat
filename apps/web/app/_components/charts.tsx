@@ -1,4 +1,5 @@
 // The two demo charts as plain SVG: no chart library is installed, and these are one line and a few dots.
+import type { CSSProperties } from "react";
 import type { PricePoint } from "@tapat/shared";
 import { Card, Chip } from "./ui";
 
@@ -33,7 +34,7 @@ function ChartFrame({
 }
 
 function ThresholdLine({ y }: { y: number }) {
-  return <line x1="0" x2={WIDTH} y1={y} y2={y} className="stroke-accent" strokeWidth="2" strokeDasharray="6 4" />;
+  return <line x1="0" x2={WIDTH} y1={y} y2={y} className="fade-in stroke-accent" strokeWidth="2" strokeDasharray="6 4" />;
 }
 
 export function PriceChart({
@@ -66,19 +67,39 @@ export function PriceChart({
       caption={`Threshold ${threshold} per litre. Point ${last?.idx ?? 0} of ${total}.`}
     >
       <ThresholdLine y={y(thresholdPhp)} />
-      <polyline
-        points={points.map((p) => `${x(p.idx).toFixed(1)},${y(p.pricePhp).toFixed(1)}`).join(" ")}
+      <path
+        d={points.map((p, index) => `${index === 0 ? "M" : "L"} ${x(p.idx).toFixed(1)} ${y(p.pricePhp).toFixed(1)}`).join(" ")}
         fill="none"
-        className="stroke-primary"
+        pathLength={1}
+        className="draw stroke-primary"
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      {fired && last !== undefined ? <circle cx={x(last.idx)} cy={y(last.pricePhp)} r="5" className="fill-primary" /> : null}
+      {last !== undefined ? (
+        <>
+          {/* Keyed by the point count so each arriving price pops once; the line itself is never remounted. */}
+          <circle key={points.length} cx={x(last.idx)} cy={y(last.pricePhp)} r="5" className="svg-dot pop-in fill-primary" />
+          {fired ? (
+            <circle cx={x(last.idx)} cy={y(last.pricePhp)} r="14" fill="none" strokeWidth="1.5" className="svg-ping stroke-primary" />
+          ) : null}
+        </>
+      ) : null}
     </ChartFrame>
   );
 }
 
-export function EdgeChart({ scores, threshold, frozenScore }: { scores: number[]; threshold: number; frozenScore: number | null }) {
+export function EdgeChart({
+  scores,
+  threshold,
+  frozenScore,
+  live = false,
+}: {
+  scores: number[];
+  threshold: number;
+  frozenScore: number | null;
+  /** True while a burst is running: over-line dots blink once as the freeze approaches. */
+  live?: boolean;
+}) {
   const top = Math.max(threshold * 1.45, ...scores.map((s) => s * 1.1));
   const y = (value: number): number => HEIGHT - (value / top) * HEIGHT;
   const span = Math.max(scores.length - 1, 1);
@@ -96,8 +117,17 @@ export function EdgeChart({ scores, threshold, frozenScore }: { scores: number[]
       <ThresholdLine y={y(threshold)} />
       {scores.map((value, index) => {
         const over = value >= threshold;
+        // Blink only once the burst/freeze class mounts; ordinary arrivals pop in.
+        const blinking = over && (frozenScore !== null || live);
         return (
-          <circle key={index} cx={(index / span) * (WIDTH - 12) + 6} cy={y(value)} r={over ? 6 : 4} className={over ? "fill-text" : "fill-primary"} />
+          <circle
+            key={index}
+            cx={(index / span) * (WIDTH - 12) + 6}
+            cy={y(value)}
+            r={over ? 6 : 4}
+            style={{ "--i": Math.min(index, 8) } as CSSProperties}
+            className={`svg-dot ${over ? "fill-text" : "fill-primary"} ${blinking ? "flicker" : "pop-in"}`}
+          />
         );
       })}
     </ChartFrame>

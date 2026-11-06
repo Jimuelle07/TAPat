@@ -7,6 +7,7 @@ import { txLookup } from "@/lib/feed";
 import { php, shortHash } from "@/lib/format";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
+import { CoinFlow } from "../../_components/motion";
 import { Actions, Body, Button, DemoRate, EmptyState, ErrorBlock, LinkButton, ListCard, NoProgram, Notice, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
 /** A failed run answers 502 with no per-station body, but every station still writes its decision, so the list reads those. */
@@ -42,6 +43,8 @@ export default function Settlement() {
   const { isOfficer } = useAuth();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One bump per finished run: the coins play once, then the layer stays hidden.
+  const [burst, setBurst] = useState(0);
 
   const run = async () => {
     if (!isOfficer) return;
@@ -53,6 +56,7 @@ export default function Settlement() {
       setError(errorMessage(cause));
     } finally {
       setRunning(false);
+      setBurst((n) => n + 1);
       void state.reload();
     }
   };
@@ -78,7 +82,10 @@ export default function Settlement() {
             {rows.length === 0 ? (
               <EmptyState icon="receipt" title="No settlement yet" body="Run settlement to claim what stations are owed." />
             ) : (
-              <ListCard heading="Last run" rows={rows.map((decision) => runRow(decision, dashboard))} />
+              <div className="relative">
+                <ListCard heading="Last run" rows={rows.map((decision) => runRow(decision, dashboard))} />
+                {burst > 0 ? <CoinFlow key={burst} /> : null}
+              </div>
             )}
             {anyHeld ? <Notice title="Held money stays in escrow">It is released only when the LGU unfreezes the station and settlement runs again.</Notice> : null}
             <DemoRate />

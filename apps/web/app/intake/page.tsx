@@ -34,12 +34,28 @@ function Results({ response, onBack }: { response: IntakeResponse; onBack: () =>
           <Notice title="Calibration is not feasible">The two limits overlap on the grid, so the thresholds were clamped. Review results with care.</Notice>
         ) : null}
         <StatRow>
-          <StatCard label="Approved" value={String(summary.approved)} />
-          <StatCard label="Already enrolled" value={String(summary.enrolled)} />
+          <StatCard
+            label="Approved"
+            value={String(summary.approved)}
+            live={{ to: summary.approved, format: (n) => String(Math.round(n)) }}
+          />
+          <StatCard
+            label="Already enrolled"
+            value={String(summary.enrolled)}
+            live={{ to: summary.enrolled, format: (n) => String(Math.round(n)) }}
+          />
         </StatRow>
         <StatRow>
-          <StatCard label="Rejected" value={String(summary.rejected)} />
-          <StatCard label="Uncertain" value={String(summary.uncertain)} />
+          <StatCard
+            label="Rejected"
+            value={String(summary.rejected)}
+            live={{ to: summary.rejected, format: (n) => String(Math.round(n)) }}
+          />
+          <StatCard
+            label="Uncertain"
+            value={String(summary.uncertain)}
+            live={{ to: summary.uncertain, format: (n) => String(Math.round(n)) }}
+          />
         </StatRow>
         {rejected.length > 0 ? (
           <ListCard
@@ -80,6 +96,7 @@ export default function Intake() {
   const [program, setProgram] = useState<"loading" | "none" | "ok">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [response, setResponse] = useState<IntakeResponse | null>(null);
@@ -133,7 +150,32 @@ export default function Intake() {
               </Notice>
             ) : null}
             {isOfficer ? (
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-text bg-raised px-4 py-6 text-center focus-within:border-[2.5px] focus-within:border-primary">
+              <label
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDragging(true);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+                }}
+                onDragEnd={() => setDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragging(false);
+                  const dropped = event.dataTransfer.files[0];
+                  if (dropped !== undefined) {
+                    setFile(dropped);
+                    setError(null);
+                  }
+                }}
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-text bg-raised px-4 py-6 text-center focus-within:border-[2.5px] focus-within:border-primary ${
+                  dragging || busy ? "pulse" : ""
+                }`}
+              >
                 <Icon name="upload" />
                 <span className="text-label">{file?.name ?? "Choose a CSV or a scanned list"}</span>
                 <span className="text-caption">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>

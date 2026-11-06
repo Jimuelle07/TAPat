@@ -3,10 +3,11 @@
 // The Figma component set: buttons, chips, cards, lists, inputs, notices and the loading/empty/error building blocks.
 import Image from "next/image";
 import Link from "next/link";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
 import { useAuth } from "./Auth";
+import { CountUp, useValueChange } from "./motion";
 
 // ---- Button ----------------------------------------------------------------------------------------------------
 
@@ -17,7 +18,8 @@ const BUTTON: Record<ButtonStyle, string> = {
   secondary: "border-[1.5px] border-text bg-raised text-text hover:bg-mint active:bg-mint",
   tertiary: "text-primary hover:bg-mint active:bg-mint",
 };
-const BUTTON_BASE = "flex min-h-[54px] w-full items-center justify-center gap-2 rounded-md px-4 text-label transition-colors";
+const BUTTON_BASE =
+  "flex min-h-[54px] w-full items-center justify-center gap-2 rounded-md px-4 text-label transition-[transform,background-color,color] duration-[var(--motion-fast)] ease-[var(--ease-standard)] active:scale-[0.97] active:duration-75 disabled:active:scale-100";
 
 function buttonClass(style: ButtonStyle, disabled: boolean): string {
   return `${BUTTON_BASE} ${disabled ? "cursor-not-allowed bg-sunken text-text" : BUTTON[style]}`;
@@ -83,8 +85,13 @@ const CHIP: Record<ChipTone, string> = {
 
 /** Status is always written out, so colour is never the only signal. */
 export function Chip({ tone = "outline", children }: { tone?: ChipTone; children: ReactNode }) {
+  const n = useValueChange(tone);
   return (
-    <span className={`inline-flex w-fit shrink-0 items-center rounded-sm border-[1.5px] px-2 py-1 text-caption ${CHIP[tone]}`}>
+    <span
+      key={n}
+      data-pop={n > 0 ? "true" : undefined}
+      className={`chip inline-flex w-fit shrink-0 items-center rounded-sm border-[1.5px] px-2 py-1 text-caption ${CHIP[tone]}`}
+    >
       {children}
     </span>
   );
@@ -107,8 +114,8 @@ export function FilterChip({
   onClick?: () => void;
   grow?: boolean;
 }) {
-  const className = `flex min-h-11 shrink-0 items-center justify-center rounded-sm border-[1.5px] px-3 text-label ${
-    selected ? "border-primary bg-primary text-surface" : "border-text bg-raised text-text"
+  const className = `flex min-h-11 shrink-0 items-center justify-center rounded-sm border-[1.5px] px-3 text-label transition-transform duration-[var(--motion-fast)] active:scale-[0.96] ${
+    selected ? "border-primary bg-primary text-surface pop-in" : "border-text bg-raised text-text"
   } ${grow ? "flex-1" : ""}`;
   if (href !== undefined) {
     return (
@@ -168,7 +175,9 @@ export function ListItem({ row, last = false }: { row: ListRow; last?: boolean }
       {row.chip === undefined && row.value === undefined && interactive ? <Icon name="chevron" /> : null}
     </>
   );
-  const className = `flex min-h-14 w-full items-center gap-3 py-3 ${last ? "" : "border-b-[1.5px] border-text"}`;
+  const className = `flex min-h-14 w-full items-center gap-3 py-3 ${
+    interactive ? "transition-transform duration-[var(--motion-fast)] active:scale-[0.995]" : ""
+  } ${last ? "" : "border-b-[1.5px] border-text"}`;
   if (row.href !== undefined) {
     return (
       <Link href={row.href} className={className}>
@@ -188,11 +197,11 @@ export function ListItem({ row, last = false }: { row: ListRow; last?: boolean }
 
 export function ListCard({ heading, rows }: { heading?: string; rows: ListRow[] }) {
   return (
-    <div className="flex flex-col rounded-md border-[1.5px] border-text bg-raised px-4 py-1">
+    <div className="flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised px-4 py-1">
       {heading !== undefined ? <h3 className="pt-2 pb-1 text-label">{heading}</h3> : null}
-      <ul>
+      <ul className="stagger">
         {rows.map((row, index) => (
-          <li key={row.id ?? index}>
+          <li key={row.id ?? index} style={{ "--i": Math.min(index, 8) } as CSSProperties}>
             <ListItem row={row} last={index === rows.length - 1} />
           </li>
         ))}
@@ -214,7 +223,19 @@ function Rings({ size, step, count, className }: { size: number; step: number; c
 }
 
 /** Kit card: value over caption, with the kit's large arc and corner rings. */
-export function StatCard({ tone = "cream", label, value, full = false }: { tone?: "cream" | "forest"; label: string; value: string; full?: boolean }) {
+export function StatCard({
+  tone = "cream",
+  label,
+  value,
+  full = false,
+  live,
+}: {
+  tone?: "cream" | "forest";
+  label: string;
+  value: string;
+  full?: boolean;
+  live?: { to: number; format: (n: number) => string };
+}) {
   const forest = tone === "forest";
   return (
     <div
@@ -234,14 +255,27 @@ export function StatCard({ tone = "cream", label, value, full = false }: { tone?
         count={full ? 7 : 6}
         className={forest ? "text-pressed" : "text-ring-surface"}
       />
-      <span className={`relative ${full ? "text-card-value" : "text-card-value-sm"}`}>{value}</span>
+      {live !== undefined ? (
+        <>
+          <span className="sr-only">{value}</span>
+          <span aria-hidden="true">
+            <CountUp
+              to={live.to}
+              format={live.format}
+              className={`relative tabular-nums ${full ? "text-card-value" : "text-card-value-sm"}`}
+            />
+          </span>
+        </>
+      ) : (
+        <span className={`relative tabular-nums ${full ? "text-card-value" : "text-card-value-sm"}`}>{value}</span>
+      )}
       <span className="relative text-small">{label}</span>
     </div>
   );
 }
 
 export function StatRow({ children }: { children: ReactNode }) {
-  return <div className="flex items-start gap-3">{children}</div>;
+  return <div className="flex items-start gap-3 stagger">{children}</div>;
 }
 
 // ---- Inputs ----------------------------------------------------------------------------------------------------
@@ -293,7 +327,7 @@ const NOTICE: Record<"info" | "frozen" | "error", { icon: IconName; box: string 
 export function Notice({ tone = "info", title, children }: { tone?: "info" | "frozen" | "error"; title: string; children?: ReactNode }) {
   const style = NOTICE[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`flex items-start gap-3 rounded-md border-text p-3 ${style.box}`}>
+    <div role={tone === "error" ? "alert" : "status"} className={`notice-in flex items-start gap-3 rounded-md border-text p-3 ${style.box}`}>
       <Icon name={style.icon} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-label">{title}</p>
@@ -308,7 +342,7 @@ export function Toast({ tone = "success", children }: { tone?: "success" | "info
   return (
     <div
       role="status"
-      className={`sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 mx-5 mb-4 flex items-center gap-2 rounded-md p-3 text-label text-surface ${
+      className={`toast-in sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 mx-5 mb-4 flex items-center gap-2 rounded-md p-3 text-label text-surface ${
         on ? "bg-primary" : "bg-text"
       }`}
     >
@@ -331,7 +365,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <span className="flex size-18 items-center justify-center rounded-full bg-sunken">
+      <span className="float flex size-18 items-center justify-center rounded-full bg-sunken">
         <Icon name={icon} />
       </span>
       <h2 className="text-h2">{title}</h2>
@@ -347,7 +381,7 @@ export function Skeleton({ kinds }: { kinds: Array<keyof typeof SKELETON> }) {
   return (
     <div role="status" aria-label="Loading" className="flex flex-col gap-4">
       {kinds.map((kind, index) => (
-        <div key={index} className={`pulse rounded-sm bg-sunken ${SKELETON[kind]}`} />
+        <div key={index} style={{ "--i": index } as CSSProperties} className={`shimmer rounded-sm bg-sunken ${SKELETON[kind]}`} />
       ))}
     </div>
   );
@@ -383,7 +417,9 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
       <p className="text-caption">Step {step} of 3</p>
       <div className="flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step} aria-label="Enrollment progress">
         {[1, 2, 3].map((i) => (
-          <span key={i} className={`h-1.5 flex-1 rounded-[3px] ${i <= step ? "bg-primary" : "bg-sunken"}`} />
+          <span key={i} className="relative h-1.5 flex-1 overflow-hidden rounded-[3px] bg-sunken">
+            <span className="stepper-fill absolute inset-0 rounded-[3px] bg-primary" style={{ "--on": i <= step ? 1 : 0 } as CSSProperties} />
+          </span>
         ))}
       </div>
     </div>
@@ -395,18 +431,18 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
 /** Root screens show the logo; detail screens show a back target and a title. */
 export function TopBar({ title, back, chip, tone }: { title?: string; back?: string; chip?: string; tone?: ChipTone }) {
   return (
-    <header className="flex h-14 items-center justify-between gap-1 pr-5 pl-1 pt-[env(safe-area-inset-top)]" data-root={back === undefined}>
+    <header className="drop-in flex h-14 items-center justify-between gap-1 pr-5 pl-1 pt-[env(safe-area-inset-top)]" data-root={back === undefined}>
       {back === undefined ? (
-        <Link href="/" aria-label="TAPat home" className="ml-4 block h-11 w-[88px] overflow-hidden">
+        <Link href="/" aria-label="TAPat home" className="fade-in ml-4 block h-11 w-[88px] overflow-hidden">
           {/* The icon file is square with wide margins; the top bar slot shows its middle band. */}
           <Image src="/tapat-app-icon-1024.png" alt="" width={88} height={88} className="-mt-[22px] max-w-none mix-blend-darken" priority />
         </Link>
       ) : (
         <>
-          <Link href={back} aria-label="Back" className="flex size-11 shrink-0 items-center justify-center">
+          <Link href={back} aria-label="Back" className="fade-in flex size-11 shrink-0 items-center justify-center">
             <Icon name="back" />
           </Link>
-          <h1 className="min-w-0 flex-1 truncate text-h2">{title}</h1>
+          <h1 className="fade-in min-w-0 flex-1 truncate text-h2">{title}</h1>
         </>
       )}
       {chip !== undefined ? <Chip tone={tone}>{chip}</Chip> : null}
@@ -421,7 +457,7 @@ function AccountControl() {
   const [open, setOpen] = useState(false);
   if (user === null) {
     return (
-      <Link href="/login" className="flex min-h-11 shrink-0 items-center px-2 text-caption underline">
+      <Link href="/login" style={{ "--i": 1 } as CSSProperties} className="fade-in flex min-h-11 shrink-0 items-center px-2 text-caption underline">
         Log in
       </Link>
     );
@@ -434,7 +470,8 @@ function AccountControl() {
         onClick={() => setOpen(true)}
         aria-label={`Account: ${user.displayName}`}
         aria-haspopup="dialog"
-        className="flex min-h-11 shrink-0 items-center gap-1"
+        style={{ "--i": 1 } as CSSProperties}
+        className="fade-in flex min-h-11 shrink-0 items-center gap-1"
       >
         <span className="max-w-[72px] truncate text-caption">{firstName}</span>
         <Chip tone={user.role === "officer" ? "mint" : "outline"}>{user.role}</Chip>
@@ -462,13 +499,13 @@ function AccountControl() {
 }
 
 export function Body({ children }: { children: ReactNode }) {
-  return <main className="flex flex-1 flex-col gap-4 px-5 pt-2 pb-6">{children}</main>;
+  return <main className="fade-in stagger flex flex-1 flex-col gap-4 px-5 pt-2 pb-6">{children}</main>;
 }
 
 /** Floating actions: no band behind them, and the content scrolls underneath. `solid` keeps them in the flow. */
 export function Actions({ children, solid = false }: { children: ReactNode; solid?: boolean }) {
   return (
-    <div className={`${solid ? "" : "sticky bottom-[calc(76px+env(safe-area-inset-bottom))]"} z-10 flex flex-col gap-2 px-5 pb-5`}>
+    <div className={`${solid ? "" : "sticky bottom-[calc(76px+env(safe-area-inset-bottom))]"} fade-in z-10 flex flex-col gap-2 px-5 pb-5`}>
       {children}
     </div>
   );

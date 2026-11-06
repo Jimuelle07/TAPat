@@ -9,6 +9,7 @@ import { ignoredSpike } from "@/lib/tranche";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
 import { PriceChart } from "../../_components/charts";
+import { CoinFlow, useValueChange } from "../../_components/motion";
 import { Actions, Body, Button, Card, DemoRate, ErrorBlock, KeyValues, LinkButton, ListCard, NoProgram, Notice, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
 const POLL_MS = 700;
@@ -20,10 +21,16 @@ export default function TrancheAgent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<{ code: string; message: string } | null>(null);
+  // Fired state as of the first successful load; null until then.
+  const [firedOnLoad, setFiredOnLoad] = useState<boolean | null>(null);
+  // 0 on mount, then one bump per flip: coins play only when the tranche fires while this screen is open.
+  const firedChange = useValueChange(tranche?.fired === true);
 
   const refresh = useCallback(async () => {
     try {
-      setTranche(await getTrancheState());
+      const next = await getTrancheState();
+      setTranche(next);
+      setFiredOnLoad((first) => (first === null ? next.fired : first));
       setLoadError(null);
     } catch (cause) {
       setLoadError(errorMessage(cause));
@@ -133,7 +140,12 @@ export default function TrancheAgent() {
                 />
               </Card>
             ) : null}
-            {ready.tranche.funds.length > 0 ? <ListCard heading="Funding" rows={fundingRows()} /> : null}
+            {ready.tranche.funds.length > 0 ? (
+              <div className="relative">
+                <ListCard heading="Funding" rows={fundingRows()} />
+                {ready.tranche.fired && firedOnLoad === false && firedChange > 0 ? <CoinFlow key={firedChange} /> : null}
+              </div>
+            ) : null}
             {ready.tranche.fired ? <DemoRate /> : null}
           </>
         ) : null}

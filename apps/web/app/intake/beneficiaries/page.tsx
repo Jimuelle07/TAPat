@@ -80,7 +80,7 @@ export default function Beneficiaries() {
         {error === null && rows !== null && rows.length === 0 && filter.status !== undefined ? (
           <EmptyState title="No one here" body={filter.empty ?? ""} />
         ) : null}
-        {error === null && rows !== null && rows.length > 0 ? <ListCard rows={rows.map(row)} /> : null}
+        {error === null && rows !== null && rows.length > 0 ? <ListCard key={filter.label} rows={rows.map(row)} /> : null}
       </Body>
     </>
   );

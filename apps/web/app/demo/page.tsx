@@ -6,6 +6,7 @@ import { postSettlementRun } from "@/lib/api";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../_components/Auth";
 import { StationRow } from "../_components/money";
+import { Stagger } from "../_components/motion";
 import { UnfreezeSheet } from "../_components/Unfreeze";
 import { Body, Button, DemoRate, ErrorBlock, LinkButton, NoProgram, Notice, SectionTitle, Skeleton, TopBar } from "../_components/ui";
 
@@ -85,9 +86,11 @@ export default function Agents() {
                     </div>
                   ) : null}
                   <SectionTitle>Stations</SectionTitle>
-                  {dashboard.stations.map((station) => (
-                    <StationRow key={station.id} station={station} phpPerXlm={dashboard.phpPerXlm} href={`/stations/${station.id}`} />
-                  ))}
+                  <Stagger className="flex flex-col gap-4">
+                    {dashboard.stations.map((station) => (
+                      <StationRow key={station.id} station={station} phpPerXlm={dashboard.phpPerXlm} href={`/stations/${station.id}`} />
+                    ))}
+                  </Stagger>
                   <DemoRate />
                   {frozen !== undefined ? (
                     <UnfreezeSheet

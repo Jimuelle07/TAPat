@@ -10,7 +10,9 @@ import { parseAmount, php, shortHash } from "@/lib/format";
 import { NfcReadError, readUid } from "@/lib/nfc";
 import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, OfficerNotice, useAuth } from "../../_components/Auth";
+import { Icon } from "../../_components/Icon";
 import { BalanceCard, Receipt } from "../../_components/money";
+import { Ripple } from "../../_components/motion";
 import { Actions, Body, Button, Card, Chip, DemoRate, EmptyState, ErrorBlock, FilterChip, KeyValues, ListCard, NoProgram, Notice, Sheet, Skeleton, TopBar, type ListRow } from "../../_components/ui";
 
 type SelectedCard = { kind: "read"; uid: string } | { kind: "simulated"; card: CardSummary };
@@ -256,7 +258,12 @@ export default function StationTerminal() {
               note={`${message} A receipt goes to the driver on Telegram if linked.`}
             />
             {balanceStroops !== null && card !== undefined ? (
-              <BalanceCard balance={php(balanceStroops, rate)} name={card.displayName} last4={card.uidLast4} />
+              <BalanceCard
+                balance={php(balanceStroops, rate)}
+                name={card.displayName}
+                last4={card.uidLast4}
+                live={{ to: Number(balanceStroops), format: (n) => php(String(Math.round(n)), rate) }}
+              />
             ) : null}
             <DemoRate />
           </Body>
@@ -300,9 +307,11 @@ export default function StationTerminal() {
       <Body>
         {switcher}
         {station.status === "frozen" ? (
-          <Notice tone="frozen" title="Station paused by the Freeze Agent">
-            New taps are refused until the LGU unfreezes this station.
-          </Notice>
+          <div className="shiver ice-sheen">
+            <Notice tone="frozen" title="Station paused by the Freeze Agent">
+              New taps are refused until the LGU unfreezes this station.
+            </Notice>
+          </div>
         ) : null}
         {readError !== null ? (
           <Notice tone="error" title="Could not read the card">
@@ -333,7 +342,11 @@ export default function StationTerminal() {
             </span>
           </label>
           {reading ? (
-            <Card className="!flex-row items-center gap-3">
+            <Card className="fade-in !flex-row items-center gap-3">
+              <span className="relative grid size-12 shrink-0 place-items-center rounded-full border-[1.5px] border-primary bg-mint">
+                <Ripple active={reading} />
+                <Icon name="tap" size={24} className="relative text-primary" />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <p className="text-label">Hold the card to the phone</p>
                 <p className="text-caption">Listening for up to 15 seconds</p>
@@ -341,14 +354,20 @@ export default function StationTerminal() {
               <Chip>Reading</Chip>
             </Card>
           ) : selected !== null ? (
-            <Card className="!flex-row items-center gap-3">
+            <Card key={selected.kind === "read" ? selected.uid : selected.card.id} className="pop-in !flex-row items-center gap-3">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <p className="text-label">{selected.kind === "read" ? `Card …${selected.uid.slice(-4)}` : cardLabel(selected.card)}</p>
                 <p className="text-caption">
                   {selected.kind === "read" ? "Stays selected until you read another or clear" : "Picked from the list, still a real on-chain payment"}
                 </p>
               </div>
-              {selected.kind === "read" ? <Chip tone="accent">Card read</Chip> : <Chip>simulated</Chip>}
+              {selected.kind === "read" ? (
+                <span className="stamp">
+                  <Chip tone="accent">Card read</Chip>
+                </span>
+              ) : (
+                <Chip>simulated</Chip>
+              )}
             </Card>
           ) : null}
         </OfficerOnly>

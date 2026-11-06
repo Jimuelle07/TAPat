@@ -77,7 +77,9 @@ export default function BeneficiaryDetail() {
             ) : null}
             <div className="flex items-start justify-between gap-2">
               <h2 className="min-w-0 flex-1 text-h2">{fullName(person)}</h2>
-              <Chip tone={chip.tone}>{chip.label}</Chip>
+              <span key={chip.label} className="stamp">
+                <Chip tone={chip.tone}>{chip.label}</Chip>
+              </span>
             </div>
             <Card>
               <KeyValues

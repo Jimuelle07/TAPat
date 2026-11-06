@@ -111,14 +111,36 @@ export default function Home() {
           <Chip tone={status.tone}>{status.label}</Chip>
         </div>
         <ListCard rows={[budgetRow(dashboard, () => setBudgetOpen(true))]} />
-        <StatCard tone="forest" full label="Funded" value={phpTile(dashboard.fundedStroops, rate)} />
+        <StatCard
+          tone="forest"
+          full
+          label="Funded"
+          value={phpTile(dashboard.fundedStroops, rate)}
+          live={{ to: Number(dashboard.fundedStroops), format: (n) => phpTile(String(Math.round(n)), rate) }}
+        />
         <StatRow>
-          <StatCard label="Spent" value={phpTile(dashboard.spentStroops, rate)} />
-          <StatCard label="Held" value={phpTile(dashboard.heldStroops, rate)} />
+          <StatCard
+            label="Spent"
+            value={phpTile(dashboard.spentStroops, rate)}
+            live={{ to: Number(dashboard.spentStroops), format: (n) => phpTile(String(Math.round(n)), rate) }}
+          />
+          <StatCard
+            label="Held"
+            value={phpTile(dashboard.heldStroops, rate)}
+            live={{ to: Number(dashboard.heldStroops), format: (n) => phpTile(String(Math.round(n)), rate) }}
+          />
         </StatRow>
         <StatRow>
-          <StatCard label="Pending" value={phpTile(dashboard.pendingStroops, rate)} />
-          <StatCard label="Returned" value={phpTile(dashboard.returnedStroops, rate)} />
+          <StatCard
+            label="Pending"
+            value={phpTile(dashboard.pendingStroops, rate)}
+            live={{ to: Number(dashboard.pendingStroops), format: (n) => phpTile(String(Math.round(n)), rate) }}
+          />
+          <StatCard
+            label="Returned"
+            value={phpTile(dashboard.returnedStroops, rate)}
+            live={{ to: Number(dashboard.returnedStroops), format: (n) => phpTile(String(Math.round(n)), rate) }}
+          />
         </StatRow>
         <Invariant ok={dashboard.invariantOk} escrow={php(dashboard.escrowRemainingStroops, rate)} />
         <DemoRate />

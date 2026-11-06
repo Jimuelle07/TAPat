@@ -28,9 +28,11 @@ export default function StationDetail() {
         {state.status === "ready" && station !== undefined ? (
           <>
             {frozen ? (
-              <Notice tone="frozen" title="Frozen by the Freeze Agent">
-                New taps are refused before signing, and this station is not settled until you unfreeze it.
-              </Notice>
+              <div className="shiver ice-sheen">
+                <Notice tone="frozen" title="Frozen by the Freeze Agent">
+                  New taps are refused before signing, and this station is not settled until you unfreeze it.
+                </Notice>
+              </div>
             ) : null}
             <StationRow station={station} phpPerXlm={state.dashboard.phpPerXlm} />
             <Card>
