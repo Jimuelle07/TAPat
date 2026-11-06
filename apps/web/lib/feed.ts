@@ -32,8 +32,11 @@ export function cardLabel(card: Pick<CardSummary, 'displayName' | 'uidLast4'>): 
 }
 
 /** Resolves `ctx_…` ids to hashes. */
-export function txLookup(dashboard: Pick<Dashboard, 'recentChainTxs'>): (id: string | null | undefined) => string | null {
-  const byId = new Map<string, ChainTx>(dashboard.recentChainTxs.map((tx) => [tx.id, tx]));
+export function txLookup(
+  dashboard: Partial<Pick<Dashboard, 'recentChainTxs'>>,
+): (id: string | null | undefined) => string | null {
+  // An API older than this web build omits `recentChainTxs`, so every id resolves to null instead of throwing.
+  const byId = new Map<string, ChainTx>((dashboard.recentChainTxs ?? []).map((tx) => [tx.id, tx]));
   return (id) => (id === null || id === undefined ? null : txHash(byId.get(id)));
 }
 
@@ -254,8 +257,8 @@ function decisionItem(decision: AgentDecision, dashboard: Dashboard, hashOf: Ret
 export function buildFeed(dashboard: Dashboard): FeedItem[] {
   const hashOf = txLookup(dashboard);
   return [
-    ...dashboard.recentTaps.map((tap) => tapItem(tap, dashboard, hashOf)),
-    ...dashboard.recentDecisions.map((decision) => decisionItem(decision, dashboard, hashOf)),
+    ...(dashboard.recentTaps ?? []).map((tap) => tapItem(tap, dashboard, hashOf)),
+    ...(dashboard.recentDecisions ?? []).map((decision) => decisionItem(decision, dashboard, hashOf)),
   ]
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, FEED_LIMIT);
