@@ -41,7 +41,7 @@ export function createHealthProbes(deps: HealthProbeDeps): HealthProbes {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getHealth' }),
-        signal: AbortSignal.timeout(1000),
+        signal: AbortSignal.timeout(5000), // public testnet RPC answers getHealth in 0.7–5.5 s
       });
       const body = (await response.json()) as { result?: { status?: unknown } };
       return body.result?.status === 'healthy';
