@@ -670,7 +670,7 @@ No request. Response 200:
 { "ok": true, "rpc": "ok", "velo": "ok", "telegram": "ok", "gasMode": "velo" }
 ```
 
-- `rpc`: `GET STELLAR_RPC_URL/health` (1 s timeout). `velo`: a `paymentIntents.retrieve` of a stored intent, or `gas.getStatus` on the last request, whichever is cheaper; `'down'` if the call throws. `telegram`: `getMe` result cached 30 s.
+- `rpc`: JSON-RPC `getHealth` POSTed to `STELLAR_RPC_URL` (1 s timeout), `ok` when `result.status === 'healthy'` (the RPC has no `GET /health` route; it answers 404). `velo`: `paymentIntents.list({ limit: 1 })` with `VELO_API_KEY` (2 s timeout, no retry), `'down'` if it throws. `telegram`: `getMe` (2 s timeout). `velo` and `telegram` are cached 30 s; `rpc` is checked on every request.
 - `ok` is `true` when `rpc === 'ok'`; Velo and Telegram being down is degraded, not fatal.
 - Errors: `500 INTERNAL`.
 
@@ -1256,7 +1256,7 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 | `velo.paymentIntents.retrieve(paymentIntentId)` | webhook `payment.succeeded`, 3 s poller | returns `status`, `receiverAddress`, `payerAddress`; `paid` requires a classic `payment` op to the project `ownerAddress` with the exact asset and amount |
 | `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `packages/agent/src/chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
 | `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `packages/agent/src/chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
-| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown`, and `/api/health` | polled every 5 s, only for rows younger than 6 min; a Velo `succeeded` settles the row; `failed`/`cancelled` are only a hint and get one chain read by `inner_hash` (no verdict writes nothing); a non-terminal status or a read error falls through to the chain; after the window the row stays `submission_unknown` for the logs |
+| `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown` | polled every 5 s, only for rows younger than 6 min; a Velo `succeeded` settles the row; `failed`/`cancelled` are only a hint and get one chain read by `inner_hash` (no verdict writes nothing); a non-terminal status or a read error falls through to the chain; after the window the row stays `submission_unknown` for the logs |
 | `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
 
 Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly — it is the current `latest`, so the handbook's "use the latest" is satisfied without `@alpha`); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; `GAS_FALLBACK_DIRECT=true` switches to the direct path only when `sponsor()` failed (nothing was handed off), never after `submit()`; never resubmit after a lost hand-off.
