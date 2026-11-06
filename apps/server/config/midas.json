@@ -1,0 +1,15 @@
+{
+  "threshold": 2.2,
+  "maxHonestScore": 1.763648,
+  "seedCount": 50,
+  "ticks": 60,
+  "decay": 0.6,
+  "depth": 2,
+  "width": 1024,
+  "hashSeeds": [
+    "0x9747b28c",
+    "0x85ebca6b"
+  ],
+  "generatedBy": "calibrate-midas.ts",
+  "generatedAt": "2026-11-06T11:31:24.139Z"
+}
