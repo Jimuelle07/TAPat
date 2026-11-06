@@ -1,5 +1,6 @@
 // Accounts and sessions (docs/api-and-data.md §5.2 #22–#25): scrypt password hashes, and sessions addressed by the
-// sha256 of the cookie token so a database read never yields a usable token. Officer gating is the web's job only.
+// sha256 of the cookie token so a database read never yields a usable token. Every write endpoint requires an
+// officer session, enforced by `registerOfficerGuard` in `routes/auth.ts`.
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { AuthUser, LoginBody, SignupBody, UserRole } from '@tapat/shared';
 import type { Db } from '../db/index';

@@ -28,13 +28,18 @@ export interface E2eArgs {
   budgetTimeoutS: number;
   /** S5 gate: run beats 1-4 and 6 only, without the S7 intake upload and D4 enrollment. */
   skipS7: boolean;
+  /** Officer email to seed and log in with; unset keeps `seed-demo`'s default. Validated by `parseSeedArgs`. */
+  officerEmail?: string;
+  /** Officer password for the run; unset keeps an existing hash (created accounts get a generated one). */
+  officerPassword?: string;
 }
 
 const DEFAULTS = { d3ExpiryOffsetS: 30, preTrancheWaitS: 35, budgetTimeoutS: 300, skipS7: false } as const;
 
 /**
- * Parses `--base-url=<origin>`, `--d3-expiry-offset=<s>`, `--pre-tranche-wait=<s>`, `--budget-timeout-s=<s>` and the
- * bare `--skip-s7`. Anything else throws, so a typo never silently runs the defaults.
+ * Parses `--base-url=<origin>`, `--d3-expiry-offset=<s>`, `--pre-tranche-wait=<s>`, `--budget-timeout-s=<s>`,
+ * `--officer-email=<email>`, `--officer-password=<password>` and the bare `--skip-s7`. Anything else throws, so a
+ * typo never silently runs the defaults.
  */
 export function parseE2eArgs(argv: readonly string[], defaultBaseUrl: string): E2eArgs {
   const args: E2eArgs = { baseUrl: defaultBaseUrl, ...DEFAULTS };
@@ -62,6 +67,14 @@ export function parseE2eArgs(argv: readonly string[], defaultBaseUrl: string): E
         throw new Error(`--base-url must be an absolute http(s) URL, got "${value}"`);
       }
       args.baseUrl = url.origin;
+      continue;
+    }
+    if (name === 'officer-email') {
+      args.officerEmail = value;
+      continue;
+    }
+    if (name === 'officer-password') {
+      args.officerPassword = value;
       continue;
     }
     if (name !== 'd3-expiry-offset' && name !== 'pre-tranche-wait' && name !== 'budget-timeout-s') {

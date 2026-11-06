@@ -7,6 +7,7 @@ import { fullName, score } from "@/lib/format";
 import { useStream } from "@/lib/sse";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Body, EmptyState, ErrorBlock, FilterChip, ListCard, Skeleton, TopBar, type ListRow } from "../../_components/ui";
+import { OfficerNotice, useAuth } from "../../_components/Auth";
 import { STATUS_CHIP } from "./status";
 
 const FILTERS: Array<{ label: string; status?: BeneficiaryStatus; empty?: string }> = [
@@ -31,28 +32,55 @@ function row(b: Beneficiary): ListRow {
 }
 
 export default function Beneficiaries() {
+  const { loading, isOfficer } = useAuth();
   const [filter, setFilter] = useState(FILTERS[0]);
   const [rows, setRows] = useState<Beneficiary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
-      setRows(await getBeneficiaries({ ...(filter.status === undefined ? {} : { status: filter.status }), limit: 500 }));
+      const next = await getBeneficiaries({ ...(filter.status === undefined ? {} : { status: filter.status }), limit: 500 });
+      setRows(next);
+      setError(null);
     } catch (cause) {
       setError(errorMessage(cause));
     }
   }, [filter]);
 
   useEffect(() => {
+    // Beneficiary reads are officer-only: a viewer never reaches GET /api/beneficiaries.
+    if (!isOfficer) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the list for the chosen filter
     void load();
-  }, [load]);
+  }, [isOfficer, load]);
 
   // A verified OR/CR file over Telegram moves a record while this page is open.
   useStream((event) => {
+    if (!isOfficer) return;
     if (event.event === "intake" || event.event === "enroll") void load();
   });
+
+  if (loading) {
+    return (
+      <>
+        <TopBar title="Beneficiaries" back="/intake" />
+        <Body>
+          <Skeleton kinds={["row", "row", "row", "row", "row"]} />
+        </Body>
+      </>
+    );
+  }
+
+  if (!isOfficer) {
+    return (
+      <>
+        <TopBar title="Beneficiaries" back="/intake" />
+        <Body>
+          <OfficerNotice />
+        </Body>
+      </>
+    );
+  }
 
   return (
     <>

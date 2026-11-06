@@ -395,6 +395,16 @@ describe('arguments', () => {
     expect(() => parseE2eArgs(['--skip-s7=maybe'], DEFAULT)).toThrow('--skip-s7 takes no value');
   });
 
+  it('carries the optional officer credentials', () => {
+    const parsed = parseE2eArgs(
+      ['--officer-email=officer@tapat.demo', '--officer-password=secret123'],
+      DEFAULT,
+    );
+    expect(parsed.officerEmail).toBe('officer@tapat.demo');
+    expect(parsed.officerPassword).toBe('secret123');
+    expect(parseE2eArgs([], DEFAULT).officerEmail).toBeUndefined();
+  });
+
   it('rejects an unknown flag, a bad URL and a non-positive second count', () => {
     expect(() => parseE2eArgs(['--uid-d1=X'], DEFAULT)).toThrow('unknown flag --uid-d1');
     expect(() => parseE2eArgs(['--base-url=localhost:4000'], DEFAULT)).toThrow('--base-url must be an absolute http(s) URL');

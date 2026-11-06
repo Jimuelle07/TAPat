@@ -7,13 +7,13 @@ import { getBeneficiaries, postRequestEvidence } from "@/lib/api";
 import { fullName, score } from "@/lib/format";
 import { errorMessage } from "@/lib/use-dashboard";
 import { Actions, Body, Button, Card, Chip, EmptyState, ErrorBlock, KeyValues, LinkButton, Notice, Sheet, Skeleton, TopBar } from "../../../_components/ui";
-import { OfficerOnly, useAuth } from "../../../_components/Auth";
+import { OfficerNotice, OfficerOnly, useAuth } from "../../../_components/Auth";
 import { STATUS_CHIP } from "../status";
 
 
 export default function BeneficiaryDetail() {
   const { id } = useParams<{ id: string }>();
-  const { isOfficer } = useAuth();
+  const { loading, isOfficer } = useAuth();
   const [person, setPerson] = useState<Beneficiary | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,19 +22,21 @@ export default function BeneficiaryDetail() {
 
   // There is no single-beneficiary endpoint (§5.2 #8), so the page reads the list and picks its row.
   const load = useCallback(async () => {
-    setLoadError(null);
     try {
       const rows = await getBeneficiaries({ limit: 500 });
       setPerson(rows.find((row) => row.id === id) ?? null);
+      setLoadError(null);
     } catch (cause) {
       setLoadError(errorMessage(cause));
     }
   }, [id]);
 
   useEffect(() => {
+    // Beneficiary reads are officer-only: a viewer never reaches GET /api/beneficiaries.
+    if (!isOfficer) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load of this record
     void load();
-  }, [load]);
+  }, [isOfficer, load]);
 
   const requestEvidence = async () => {
     // Requesting evidence is officer-only; a stale render must not reach the POST either.
@@ -52,6 +54,28 @@ export default function BeneficiaryDetail() {
       setBusy(false);
     }
   };
+
+  if (loading) {
+    return (
+      <>
+        <TopBar title="Beneficiary" back="/intake/beneficiaries" />
+        <Body>
+          <Skeleton kinds={["line", "card", "card"]} />
+        </Body>
+      </>
+    );
+  }
+
+  if (!isOfficer) {
+    return (
+      <>
+        <TopBar title="Beneficiary" back="/intake/beneficiaries" />
+        <Body>
+          <OfficerNotice />
+        </Body>
+      </>
+    );
+  }
 
   const chip = person === null || person === undefined ? null : STATUS_CHIP[person.status];
   return (

@@ -45,6 +45,7 @@ export type ApiErrorCode =
   | 'CHAIN_ERROR'
   | 'INTERNAL'
   | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
   | 'ACCOUNT_EXISTS';
 
 const API_ERROR_CODES: readonly ApiErrorCode[] = [
@@ -61,6 +62,7 @@ const API_ERROR_CODES: readonly ApiErrorCode[] = [
   'CHAIN_ERROR',
   'INTERNAL',
   'UNAUTHORIZED',
+  'FORBIDDEN',
   'ACCOUNT_EXISTS',
 ];
 
