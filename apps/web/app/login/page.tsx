@@ -76,33 +76,35 @@ export default function Login() {
             {error}
           </Notice>
         ) : null}
-        <div className={error === null ? undefined : "shake"}>
-          <Stagger className="flex flex-col gap-4">
-            <Field
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              error={errorFor("email")}
-              required
-            />
-            <Field
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              error={errorFor("password")}
-              required
-            />
-            <p className="text-small">
-              No account?{" "}
-              <Link href="/signup" className="text-primary underline">
-                Create an account
-              </Link>
-            </p>
-          </Stagger>
+        <div>
+          <div className={error === null ? undefined : "shake"}>
+            <Stagger className="flex flex-col gap-4">
+              <Field
+                label="Email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                error={errorFor("email")}
+                required
+              />
+              <Field
+                label="Password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                error={errorFor("password")}
+                required
+              />
+              <p className="text-small">
+                No account?{" "}
+                <Link href="/signup" className="text-primary underline">
+                  Create an account
+                </Link>
+              </p>
+            </Stagger>
+          </div>
         </div>
       </Body>
       <Actions>

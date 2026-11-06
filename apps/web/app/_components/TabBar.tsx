@@ -36,7 +36,7 @@ function ActiveCurve() {
 
 export function TabBar() {
   const path = usePathname();
-  // -1 when no tab matches (login, signup, create program): no orb, so no raised circle points at the wrong tab.
+  // -1 when no tab matches (login, signup): no orb, so no raised circle points at the wrong tab.
   const activeIndex = TABS.findIndex((tab) => tab.active(path));
   return (
     <nav

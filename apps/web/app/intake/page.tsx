@@ -167,10 +167,14 @@ export default function Intake() {
                   event.preventDefault();
                   setDragging(false);
                   const dropped = event.dataTransfer.files[0];
-                  if (dropped !== undefined) {
-                    setFile(dropped);
-                    setError(null);
+                  if (dropped === undefined) return;
+                  // Dropping bypasses the picker's accept filter, so hold the same set of types here.
+                  if (!/\.(csv|png|jpe?g)$/i.test(dropped.name) && !/^(text\/csv|image\/(png|jpeg))$/.test(dropped.type)) {
+                    setError({ title: "Check the file", body: "Use a CSV, PNG or JPG." });
+                    return;
                   }
+                  setFile(dropped);
+                  setError(null);
                 }}
                 className={`flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-text bg-raised px-4 py-6 text-center focus-within:border-[2.5px] focus-within:border-primary ${
                   dragging || busy ? "pulse" : ""
