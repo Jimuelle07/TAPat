@@ -932,6 +932,8 @@ No body. Response 202: `{ "accepted": true, "edges": 30, "tickMs": 100 }`. Repla
 
 Freezing happens when MIDAS-F crosses `apps/server/config/midas.json.threshold` or `NEAR_CAP_STREAK`/`VOLUME_SPIKE` fires; the freeze writes a `freeze/FROZEN` decision (`midas_score`, `threshold`, `rule`) and SSE `freeze` (`FreezeEvent`).
 
+The decision's keys, so the dashboard and `demo:e2e` read one shape: `inputs = { midasScore, threshold, nearCapStreak, tapsLast10Ticks, baselineMeanPer10 }`, `outputs = { rule, stationId, stationName, frozenReason, frozenAt }` (`rule` is `MIDAS_F` \| `NEAR_CAP_STREAK` \| `VOLUME_SPIKE`), `txIds` empty, and `frozenReason` is the §5.2 #16 example string `MIDAS <score> >= <threshold> (<rule>)`. When both the model and an LGU rule fire on the same tick the model wins the `rule` field. `BASELINE_SET` (the warm-up) carries `inputs = { seeds, ticks }` and `outputs = { perStation }`; `UNFROZEN` carries `outputs = { stationId, stationName }`. The 60-tick honest replay is warm-up only: it sets the baselines and never freezes a station.
+
 - The 2 D2 taps at ₱480 are **not** part of this fixture; they come through `POST /api/taps` before the burst (runbook order). The gate is **at least one `authorized` tap at Station B**, whatever its origin: a tap made with **Read card** or with **Simulate tap** counts, because a Simulate-tap tap is a real on-chain `authorize` (`simulated` only records how the UID was supplied). Until such a tap exists, burst returns `409 INVALID_STATE` with `message: "Tap D2 at Station B first"` (the `/demo` button renders that message verbatim).
 - Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (no prior authorized Station-B tap, or already frozen), `500 INTERNAL`.
 
@@ -982,6 +984,8 @@ No body. Response 200: `SettlementResponse`.
 ```
 
 Per station, using the same query as #16: `pending == 0` → `NOTHING_PENDING`. `pending > 0` and the station is `frozen` → `HELD` with the amount, **no tx**. `pending > 0` and the station is `active` → `claim(XLM_SAC, station)` signed by the station key → `CLAIMED`. SSE `settlement` per station.
+
+The decision's keys, one row per station per run: `inputs = { stationStatus, pendingStroops }` and `outputs = { stationId, stationName, amountStroops }`, plus `held: true` on `HELD` and `claimed: true|false` on `CLAIMED`; a failed claim adds `outputs.error` and keeps its `chain_txs` id in `txIds`. A failed claim is `502 CHAIN_ERROR` only after the remaining stations have run.
 
 Errors: `404 NOT_FOUND` (no program), `502 CHAIN_ERROR` (a claim failed; other stations still run).
 

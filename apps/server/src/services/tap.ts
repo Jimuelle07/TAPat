@@ -35,7 +35,7 @@ interface StationRow {
   status: 'active' | 'frozen';
 }
 
-interface TapRow {
+export interface TapRow {
   id: string;
   card_id: string | null;
   card_ref: string | null;
@@ -74,6 +74,8 @@ export interface TapDeps {
   chain: ChainDeps;
   bus: SseBus;
   config: Pick<Config, 'KEY_ENCRYPTION_SECRET' | 'XLM_SAC_ID' | 'PHP_PER_XLM'>;
+  /** The Freeze Agent's queue: called for every tap row written, so the next freeze tick can score it. */
+  onTap?: (tap: Tap) => void;
   now?: () => number;
   id?: () => string;
 }
@@ -158,7 +160,10 @@ export async function recordTap(deps: TapDeps, body: TapBody): Promise<TapRespon
         tap.tick,
         tap.created_at,
       );
-    deps.bus.publish('tap', toTap(tap));
+    const payload = toTap(tap);
+    deps.bus.publish('tap', payload);
+    // Queue it for scoring (SDD §6.5 step 3): the Freeze Agent re-emits the scored row under the same `id`.
+    deps.onTap?.(payload);
     return tap;
   };
 
