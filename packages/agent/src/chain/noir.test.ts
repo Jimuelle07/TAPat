@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NoirAgentClient, TESTNET } from '@noirx402/agent-sdk';
-import { createNoirClient, type NoirClientConfig } from './noir';
+import { createNoirClient, getTransactionOutcome, type NoirClientConfig } from './noir';
 
 function testnet(): NoirClientConfig {
   return {
@@ -30,5 +30,30 @@ describe('createNoirClient', () => {
 
   it('builds the Testnet client when the deployment matches exactly', () => {
     expect(createNoirClient(testnet())).toBeInstanceOf(NoirAgentClient);
+  });
+});
+
+describe('getTransactionOutcome', () => {
+  function fakeClient(status: string) {
+    const getTransaction = vi.fn().mockResolvedValue({ status });
+    return { noir: { server: { getTransaction } } as unknown as NoirAgentClient, getTransaction };
+  }
+
+  it.each([
+    ['SUCCESS', 'succeeded'],
+    ['FAILED', 'failed'],
+    ['NOT_FOUND', 'not_found'],
+  ] as const)('maps %s to %s and reads the hash passed in', async (status, outcome) => {
+    const { noir, getTransaction } = fakeClient(status);
+
+    await expect(getTransactionOutcome(noir, 'inner_hash_1')).resolves.toBe(outcome);
+    expect(getTransaction).toHaveBeenCalledWith('inner_hash_1');
+  });
+
+  it('propagates a read failure', async () => {
+    const error = new Error('rpc down');
+    const noir = { server: { getTransaction: vi.fn().mockRejectedValue(error) } } as unknown as NoirAgentClient;
+
+    await expect(getTransactionOutcome(noir, 'inner_hash_1')).rejects.toBe(error);
   });
 });

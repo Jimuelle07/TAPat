@@ -1,7 +1,7 @@
 # TAPat MVP Sprint — "Demo-ready by Nov 7"
 
 The sprint that ends with the full TAPat MVP working on Stellar testnet: all six features run the 3-minute demo end to end by the **Nov 7, 09:00 feature freeze** (submission at 11:00, closing 12:00 noon).
-Last updated: 2026-11-05
+Last updated: 2026-11-06
 
 This is the **sprint view**: what the MVP is, what counts as "working", and what we cut if we fall behind. Per-task owners, dependencies, and acceptance checks live in [build-schedule.md](build-schedule.md); this doc points to its task IDs (`C4`, `TR`, `UI2`, …) and does not repeat them.
 
@@ -91,3 +91,26 @@ Decide at each checkpoint in §3, in this order. **Never cut a money decision** 
 - **Blocked > 30 min:** post in the team chat with the task ID and the exact error; Jim or Dev2 picks it up.
 - **Beginners (BegA, BegB):** run the app on your own machine with [test-guide.md](test-guide.md) before you report "done".
 - **Bugs on Nov 7:** file with the task ID, steps, expected vs actual, screenshot; Jim triages, no feature work after 09:00.
+
+## 7. Solo sprints (Nov 6 18:00 → Nov 7 09:00)
+
+Jim is the only developer from Nov 6 PM. The tasks, specs and acceptance checks are still the ones in [build-schedule.md](build-schedule.md); this section only re-orders them into sprints for one person: the **money loop first**, then the UI hook-up, then F1, and the cut-line items (§5) last. The UI pages are being built separately; Sprint 6 only hooks them up to the API.
+
+Every sprint is one branch `jim/sN-<slug>` and one PR: `pnpm test` green → merge to `main` → on the VM `bash /opt/tapat/deploy/update.sh` (over `ssh -i ~/.ssh/tapat_aws_ed25519 ubuntu@<AWS_HOST>`; if SSH times out, re-run `deploy/wizard-aws-vercel.sh`, which re-reads the IP and redeploys) → run the exit check **on the Funnel URL**. A sprint is done when its exit check passes, not when the code is written.
+
+| Sprint | Target end | Builds (task IDs) | Exit check |
+|---|---|---|---|
+| **S1 — Testable deploy** | Nov 6 19:30 | Merge `fix/c2-followups` (C2) and PR #12 (BOC); `GET /api/health`, `GET /api/program`, the `INTERNAL` error envelope | `/api/health` → `{"ok":true,"rpc":"ok","velo":"ok","telegram":"ok","gasMode":"velo"}`; `/api/program` → `{"program":null,"phpPerXlm":10}`; both also through the Vercel URL with basic auth |
+| **S2 — Cards on chain** | Nov 6 22:00 | DEV-ENV (dev profile, so the laptop can run the API), `POST /api/program` (row + salt; the CRC recompute lands in S7), `fixtures/masterlist/masterlist.csv` (12 rows), C3 enroll, C4 taps, SED `seed-demo.ts` + `reset-demo.ts` | `reset-demo` → `seed-demo` twice with no `AlreadyRegistered`; D1/D2/D3/D5 `active` with `register` + `register_agent` `succeeded`; ₱800 → `OVER_CAP`, D3 → `EXPIRED`, both with no chain tx |
+| **S3 — Money in** | Nov 7 00:30 | C5 budget checkout + webhook + 3 s poller, TR tranche (BOCPD from S1), SSE bus + `GET /api/stream` | Freighter pays the checkout → `budget_verified_stroops = 10000000000`; tranche start → 3 `fund` txs `succeeded`, D3 skipped; D1 ₱350 → `authorized` + tx; `curl -N /api/stream` shows `price`, `tranche`, `tap` |
+| **S4 — Freeze + settle** | Nov 7 02:30 | MID (`cms.ts`, `midas.ts`, `calibrate-midas.ts` → `config/midas.json`), FRZ burst, SET settlement, `GET /api/stations`, `POST /api/stations/:id/unfreeze` | 2 × D2 ₱480 at B + burst → B `frozen`; settlement → A claimed (tx), B `HELD ₱960` (no tx); A never freezes |
+| **S5 — Money out + totals** | Nov 7 04:00 | SW `POST /api/program/end`, `GET /api/dashboard`, root `demo:e2e` for beats 1–4 and 6 | `pnpm demo:e2e` green **on the VM**: funded ₱4,500 / spent ₱350 / held ₱960 / pending ₱0 / returned ₱3,190. **This is the minimum demo.** |
+| **S6 — UI hook-up** | Nov 7 05:30 | Merge the UI branch; `apps/web/lib/api.ts` (fetch `/api/*`), `lib/sse.ts` `useStream`, `lib/nfc.ts` `readUid`; simulated/precomputed labels | Beats 1–4 and 6 click through on the Funnel URL; the phone reads a tag on `/station/A` |
+| **S7 — F1 + D4** | Nov 7 07:00 | NM + MT (`names.ts`, `matcher.ts`, `crc.ts`), `POST /api/intake/upload` (CSV branch), `GET /api/intake/calibration`, `GET /api/beneficiaries`, request-evidence (deep link only), D4 enroll with `d4-photo.jpg`; extend `demo:e2e` with the intake + D4 assertions | `demo:e2e` green including intake `summary` `{total:12,approved:4,rejected:2,uncertain:2,enrolled:4}` and D4 `active` |
+| **S8 — Cut-line items** | only if a rehearsal slot frees up | TG1 Telegram, CSV export, OCR image branch — in §5 order | Otherwise cut per §5 and use the fallbacks in §2 |
+
+Rules:
+
+- Nov 7 07:00–09:00 is rehearsals (build-schedule §6) whatever state S6–S8 are in. A sprint that misses its target end takes time from the *next non-money* sprint (S6 → S7 → S8), never from S2–S5.
+- If the UI branch is not ready when S6 starts, swap S6 and S7.
+- Until S2's DEV-ENV lands, the laptop only holds the prod `.env`: test on the VM, never by booting the API locally (AGENTS.md §2.1).

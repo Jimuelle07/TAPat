@@ -46,6 +46,17 @@ describe('server cache headers', () => {
     expect(response.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'No route for GET /api/nope' } });
     expect(response.headers['cache-control']).toBe('no-store');
   });
+
+  it('answers a throwing route with the INTERNAL envelope, also no-store', async () => {
+    app = await buildServer();
+    app.get('/api/boom', async () => {
+      throw new Error('boom');
+    });
+    const response = await app.inject({ method: 'GET', url: '/api/boom' });
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ error: { code: 'INTERNAL', message: 'Internal error' } });
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
 });
 
 describe('@tapat/shared from apps/server', () => {

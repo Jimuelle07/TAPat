@@ -1,6 +1,6 @@
 // Builder Handbook requirement 2: every Noir write goes through the Noir SDK on the deployed testnet IDs.
 // This module and its callers use `@noirx402/agent-sdk` only; nothing here talks to the chain directly.
-import { Keypair } from '@stellar/stellar-sdk';
+import { Keypair, rpc } from '@stellar/stellar-sdk';
 import {
   NoirAgentClient,
   TESTNET,
@@ -43,6 +43,22 @@ export async function signNoirCall(
   const unsigned = await noir.prepare(signer.publicKey(), op);
   const signed = await keypairSigner(signer.secret()).signTransaction(unsigned, { networkPassphrase });
   return typeof signed === 'string' ? signed : signed.signedTxXdr;
+}
+
+/** What the chain says about a hash: applied, applied but failed, or not indexed (yet). */
+export type OnChainOutcome = 'succeeded' | 'failed' | 'not_found';
+
+/**
+ * Reads one transaction's outcome over Soroban RPC. This is a read, not a contract call: it needs no signer. A
+ * fee-bump transaction is indexed under both its outer and the inner hash, so the locally computed inner hash is
+ * enough to confirm a sponsored hand-off. Throws propagate from `getTransaction`; callers decide what a failed read
+ * means.
+ */
+export async function getTransactionOutcome(noir: NoirAgentClient, hash: string): Promise<OnChainOutcome> {
+  const { status } = await noir.server.getTransaction(hash);
+  if (status === rpc.Api.GetTransactionStatus.SUCCESS) return 'succeeded';
+  if (status === rpc.Api.GetTransactionStatus.FAILED) return 'failed';
+  return 'not_found';
 }
 
 /** GAS_MODE=direct: the Noir SDK submits the signed envelope itself and resolves with the transaction hash. */

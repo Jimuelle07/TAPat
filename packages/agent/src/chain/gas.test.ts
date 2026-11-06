@@ -74,6 +74,35 @@ describe('submitSponsored', () => {
     expect(out.status).toBe('succeeded');
   });
 
+  it('reports the reservation once, before the single hand-off', async () => {
+    const { gas, submit } = fakeGas();
+    const onReserved = vi.fn();
+
+    await submitSponsored(gas, XDR, { idempotencyKey: KEY, retryDelayMs: 0, onReserved });
+
+    expect(onReserved).toHaveBeenCalledTimes(1);
+    expect(onReserved).toHaveBeenCalledWith(IDENTITY);
+    expect(onReserved.mock.invocationCallOrder[0] as number).toBeLessThan(
+      submit.mock.invocationCallOrder[0] as number,
+    );
+  });
+
+  it('propagates a throwing onReserved unchanged and never submits', async () => {
+    const { gas, submit } = fakeGas();
+    const fault = new Error('disk I/O error');
+
+    const error: unknown = await submitSponsored(gas, XDR, {
+      idempotencyKey: KEY,
+      retryDelayMs: 0,
+      onReserved: () => {
+        throw fault;
+      },
+    }).catch((thrown: unknown) => thrown);
+
+    expect(error).toBe(fault);
+    expect(submit).not.toHaveBeenCalled();
+  });
+
   it('stops after sponsorAttempts and wraps the last provider error', async () => {
     const { gas, sponsor, submit } = fakeGas();
     const providerError = new VeloProviderError('still 502', { status: 502 });

@@ -6,7 +6,9 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { Velo, createNoirClient } from '@tapat/agent';
 import { loadConfig } from './config';
 import { openDb } from './db/index';
-import { startReconciler, type ChainDeps } from './services/chain';
+import { registerRoutes } from './routes/index';
+import { recoverInterruptedTxs, startReconciler, type ChainDeps } from './services/chain';
+import { createHealthProbes } from './services/health';
 
 const STREAM_PATH = '/api/stream';
 
@@ -28,6 +30,11 @@ export async function buildServer(options: FastifyServerOptions = {}): Promise<F
   app.setNotFoundHandler((request, reply) => {
     const path = request.url.split('?', 1)[0];
     void reply.code(404).send({ error: { code: 'NOT_FOUND', message: `No route for ${request.method} ${path}` } });
+  });
+
+  app.setErrorHandler((error, request, reply) => {
+    request.log.error({ err: error }, 'unhandled route error');
+    void reply.code(500).send({ error: { code: 'INTERNAL', message: 'Internal error' } });
   });
 
   return app;
@@ -56,11 +63,17 @@ async function main(): Promise<void> {
         }).gas
       : null;
   const app = await buildServer({ logger: true });
-  // Routes are registered by C3/C4, which take `chain` as a dependency; the reconciler needs it now.
+  // Chain-writing routes take `chain` as they land (Sprint 2+); the reconciler needs it now.
   const chain: ChainDeps = { db, noir, gas, config, log: app.log };
-  const stopReconciler = gas === null ? null : startReconciler(chain);
+  // The general Velo client (payment intents now, checkout in C5); the default baseUrl is the testnet one.
+  const velo = new Velo({ apiKey: config.VELO_API_KEY, environment: 'testnet', timeoutMs: 30_000 });
+  registerRoutes(app, { db, config, probes: createHealthProbes({ config, velo }) });
+  // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
+  recoverInterruptedTxs(chain);
+  // Always: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
+  const stopReconciler = startReconciler(chain);
   app.addHook('onClose', async () => {
-    stopReconciler?.();
+    stopReconciler();
     db.close();
   });
   await app.listen({ port: config.PORT, host: '127.0.0.1' });
