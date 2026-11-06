@@ -61,7 +61,8 @@ function parseSignatureHeader(header: string): { t: number; v1: Buffer } | null 
       v1 = value;
     }
   }
-  if (t === undefined || !/^\d{1,12}$/.test(t) || v1 === undefined || !/^[0-9a-f]{64}$/.test(v1)) return null;
+  // `t` is canonical decimal like the SDK requires (no leading zeros), so the MAC input matches what Velo signed.
+  if (t === undefined || !/^(?:0|[1-9]\d{0,11})$/.test(t) || v1 === undefined || !/^[0-9a-f]{64}$/.test(v1)) return null;
   return { t: Number(t), v1: Buffer.from(v1, 'hex') };
 }
 
