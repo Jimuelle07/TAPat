@@ -65,8 +65,8 @@ export interface CreateProgramDeps {
 
 /**
  * Inserts the one program row (docs/api-and-data.md §5.2 #3) with a fresh id and a fresh 16-byte salt. The CRC
- * thresholds are not recomputed here: `POST /api/program` stores the configured α/β/threshold only, and the intake
- * service's threshold cache lands with S7.
+ * thresholds are not recomputed here: §5.2 #3 keeps `α`/`β` as stored values and leaves the threshold computation to
+ * the intake service, which reads them once at boot (`loadCalibration`).
  */
 export function createProgram(db: Db, body: CreateProgramBody, deps: CreateProgramDeps): Program {
   if (getCurrentProgram(db) !== null) throw new ApiError(409, 'INVALID_STATE', 'a program already exists');

@@ -1,9 +1,11 @@
 // Every REST route, registered in one place (docs/index.md §3). Later sprints add their calls here and widen RouteDeps.
 import type { FastifyInstance } from 'fastify';
 import type { Keypair } from '@stellar/stellar-sdk';
+import type { CrcThresholds } from '@tapat/agent';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import type { BudgetDeps } from '../services/budget';
+import type { EvidenceNotifier } from '../services/beneficiaries';
 import type { ChainDeps } from '../services/chain';
 import { createDashboardService, loadMidasThreshold } from '../services/dashboard';
 import type { FreezeService } from '../services/freeze';
@@ -11,10 +13,12 @@ import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
 import type { TrancheService } from '../services/tranche';
 import { registerAgentRoutes } from './agents';
+import { registerBeneficiaryRoutes } from './beneficiaries';
 import { registerBudgetRoutes } from './budget';
 import { registerDashboardRoutes } from './dashboard';
 import { registerEnrollRoutes } from './enroll';
 import { registerHealthRoutes } from './health';
+import { registerIntakeRoutes } from './intake';
 import { registerProgramRoutes } from './program';
 import { registerSettlementRoutes } from './settlement';
 import { registerStationRoutes } from './stations';
@@ -45,6 +49,12 @@ export interface RouteDeps {
   midasThreshold?: number;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
+  /** Boot-time CRC thresholds from `fixtures/calibration/labeled.json` (§5.2 #7); `main()` computes them once. */
+  calibration: CrcThresholds;
+  /** Tests point this at a temp dir holding the precomputed `*.ocr.json` masterlist files. */
+  ocrFixturesDir?: string;
+  /** The Telegram sender for the evidence flow; absent until the Telegram bot lands. */
+  notifier?: EvidenceNotifier;
 }
 
 export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
@@ -89,4 +99,17 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   registerAgentRoutes(app, { freeze: deps.freeze });
   registerUnfreezeRoutes(app, { freeze: deps.freeze });
   registerSettlementRoutes(app, { db: deps.db, chain: deps.chain, bus: deps.bus, config: deps.config });
+  registerIntakeRoutes(app, {
+    db: deps.db,
+    bus: deps.bus,
+    config: deps.config,
+    calibration: deps.calibration,
+    ...(deps.ocrFixturesDir === undefined ? {} : { ocrFixturesDir: deps.ocrFixturesDir }),
+    ...(deps.notifier === undefined ? {} : { notifier: deps.notifier }),
+  });
+  registerBeneficiaryRoutes(app, {
+    db: deps.db,
+    config: deps.config,
+    ...(deps.notifier === undefined ? {} : { notifier: deps.notifier }),
+  });
 }
