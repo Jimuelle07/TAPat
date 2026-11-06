@@ -155,6 +155,8 @@ describe('runSettlement', () => {
   it('finds nothing pending at the claimed station on the next run', async () => {
     insertTap('tap_a1', 'A', 350_000_000);
     await runSettlement(deps);
+    // Run 1: A `CLAIMED`, B `NOTHING_PENDING` (no taps at B). Only the rows run 2 writes are new.
+    const afterFirstRun = decisions().length;
 
     const second = await runSettlement(deps);
 
@@ -162,9 +164,13 @@ describe('runSettlement', () => {
     expect(second.stations.map((station) => station.pendingStroops)).toEqual(['0', '0']);
     // No second claim transaction.
     expect(claims()).toHaveLength(1);
-    const nothing = decisions().filter((row) => row.decision === 'NOTHING_PENDING');
-    expect(nothing).toHaveLength(2);
-    expect(JSON.parse(nothing[0]?.outputs_json ?? '{}')).toMatchObject({ stationId: 'A', amountStroops: '0' });
+    // One decision per station per run (SDD §6.7): run 2 adds exactly two, one for A and one for B.
+    const runTwo = decisions().slice(afterFirstRun);
+    expect(runTwo.map((row) => row.decision)).toEqual(['NOTHING_PENDING', 'NOTHING_PENDING']);
+    expect(runTwo.map((row) => JSON.parse(row.outputs_json))).toMatchObject([
+      { stationId: 'A', amountStroops: '0' },
+      { stationId: 'B', amountStroops: '0' },
+    ]);
   });
 
   it('answers 502 CHAIN_ERROR after the other stations have run', async () => {
