@@ -498,7 +498,7 @@ export interface Dashboard {
   program: Program;
   phpPerXlm: number;            // demo rate, for formatPhp()
   midasThreshold: number;       // from apps/server/config/midas.json; the freeze line on the edge chart
-  fundedStroops: Stroops;       // = program.budget_funded_stroops (chain_txs has no amount column)
+  fundedStroops: Stroops;       // Σ tranche-decision fund amounts whose chain_txs row is succeeded (§5.2 #18)
   spentStroops: Stroops;        // Σ authorized taps already covered by a succeeded claim (§5.2 #18)
   heldStroops: Stroops;         // unclaimed taps at frozen stations, same rule
   pendingStroops: Stroops;      // unclaimed taps at active stations, same rule
@@ -849,7 +849,7 @@ Steps: photo check (`samplePhoto` → the fixture's `{plate,toda}` must equal th
 No body. Response 202: `{ "started": true, "points": 45, "tickMs": 700 }`. Resets the stream, deletes prior `price_points` for the program, replays `fixtures/prices/doe-diesel-sim.json` one point per `PRICE_TICK_MS`, and fires at most once per program (`tranche_fired`).
 
 - A second call while running → `409 INVALID_STATE` (`"tranche already running"`). After it fired → `409 INVALID_STATE` (`"tranche already fired"`). With `budget_verified_stroops = 0` → `409 INVALID_STATE` (`"no verified budget"`).
-- Eligibility: cards `active` with `expires_at_s > now`, in enrollment order. `amount = min(tranche_stroops, budget_verified - budget_funded)`: the card that finds less than a full tranche left takes the remainder (never more than the budget), the decision becomes `BUDGET_EXHAUSTED`, and every later card is `skipped` with `reason: "BUDGET_EXHAUSTED"`. `program.tranche_fired` is set to `1` before the first `fund_escrow` is signed, so a crash mid-funding can never fund a second tranche. `budget_funded_stroops` grows only for a `succeeded` fund tx. The program must be `draft` or `active` (`ending`/`ended` → `409 INVALID_STATE`), like enroll and taps.
+- Eligibility: cards `active` with `expires_at_s > now`, in enrollment order. `amount = min(tranche_stroops, budget_verified - budget_funded)`: the card that finds less than a full tranche left takes the remainder (never more than the budget), the decision becomes `BUDGET_EXHAUSTED`, and every later card is `skipped` with `reason: "BUDGET_EXHAUSTED"`. `program.tranche_fired` is set to `1` before the first `fund_escrow` is signed, so a crash mid-funding can never fund a second tranche. `budget_funded_stroops` grows only for a `succeeded` fund tx, while a `submission_unknown` hand-off keeps counting against the remaining budget (the money may have moved, and the row is never resubmitted), so a later card can never take the same stroops; `Dashboard.fundedStroops` reads the chain row's current status, so that fund counts once the reconciler settles it `succeeded`. The program must be `draft` or `active` (`ending`/`ended` → `409 INVALID_STATE`), like enroll and taps.
 - The single `tranche` decision row carries `inputs_json = { pricePhp, segmentMeanPhp, thresholdPhp, cpRecent, mapR, budgetBeforeStroops }` and `outputs_json = { budgetAfterStroops, funded: [{ cardId, deviceHashPrefix, amountStroops, chainTxId }], skipped: [{ cardId, reason }] }`; `tx_ids_json` = the funding tx ids in order.
 - Errors: `404 NOT_FOUND`, `409 INVALID_STATE`, `502 CHAIN_ERROR` (a `fund_escrow` failed; the run continues with the next card and the failure appears in `outputs.funded` with that card's `chainTxId`).
 
@@ -1056,11 +1056,11 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 
 The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
 
-`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves the documented `1.78` fallback instead of failing.
+`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves a `2.2` fallback — the calibrated threshold the Freeze Agent also uses — instead of failing.
 
 Numbers are computed from our tables plus one chain read:
 
-- `fundedStroops` = `program.budget_funded_stroops` (incremented by the Tranche Agent as each `fund_escrow` succeeds; `chain_txs` has no amount column)
+- `fundedStroops` = Σ of the tranche decision's `outputs.funded[].amountStroops` whose `chain_txs` row is `succeeded`, read from the row's **current** status: each funded entry carries its own chain tx id, so a `submission_unknown` fund the reconciler settles `succeeded` later is counted exactly once (`program.budget_funded_stroops` only sees the synchronous result; `chain_txs` has no amount column)
 - `spentStroops` = Σ `amount_stroops` of `authorized` taps **at or below** their station's claim boundary (the `#16` query inverted: `t.created_at <=` the station's `MAX(chain_txs.updated_at)` for a `succeeded` claim)
 - `heldStroops` = the `#16` sum over `frozen` stations
 - `pendingStroops` = the `#16` sum over `active` stations
@@ -1076,7 +1076,7 @@ No request. Response 200, `text/csv; charset=utf-8`, filename `tapat-coa-<progra
 
 Header exactly: `timestamp,event,card_hash_prefix,station,amount_php,amount_xlm,tx_hash,agent_decision_id`
 
-Rows: one per money-ish event, oldest first — `fund`, `tap_authorized`, `tap_rejected`, `settlement_claimed`, `settlement_held`, `sweep`, `budget_credited`. `timestamp` is ISO-8601 with `+08:00`. `card_hash_prefix` = first 8 hex chars of `device_hash` (never the full hash, never a UID). `amount_php`/`amount_xlm` have 2 decimals; empty for events with no amount. `tx_hash` = `chain_txs.outer_hash ?? inner_hash` (empty for `HELD`). `agent_decision_id` empty when the row came from a tap.
+Rows: one per money-ish event, oldest first — `fund`, `tap_authorized`, `tap_rejected`, `settlement_claimed`, `settlement_held`, `sweep`, `budget_credited`. `timestamp` is ISO-8601 with `+08:00`. `card_hash_prefix` = first 8 hex chars of `device_hash` (never the full hash, never a UID). `amount_php`/`amount_xlm` have 2 decimals; empty for events with no amount. `tx_hash` = `chain_txs.outer_hash ?? inner_hash` (empty for `HELD`). `agent_decision_id` empty when the row came from a tap. `station` is the `stations.id` (`A`/`B`), empty for card-level and program-level events. A `refused` tap is exported as `tap_rejected` unless it is a synthetic burst edge (`simulated=1`: it is not a money event); a `failed` tap is not exported.
 
 Example line:
 

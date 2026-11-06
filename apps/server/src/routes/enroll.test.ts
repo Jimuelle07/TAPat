@@ -181,4 +181,35 @@ describe('POST /api/enroll', () => {
     expect(response.statusCode).toBe(400);
     expect(ErrorBody.parse(response.json()).error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('answers 400 VALIDATION_ERROR when the multipart carries too many fields', async () => {
+    const parts: Part[] = [
+      { name: 'beneficiaryId', value: 'ben_D1' },
+      { name: 'uid', value: D1_UID },
+      ...Array.from({ length: 10 }, (_unused, index) => ({ name: `extra${index}`, value: 'x' })),
+    ];
+    const response = await post(parts);
+    expect(response.statusCode).toBe(400);
+    expect(ErrorBody.parse(response.json()).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('answers 400 VALIDATION_ERROR for an oversized field', async () => {
+    const response = await post([
+      { name: 'beneficiaryId', value: 'ben_D1' },
+      { name: 'uid', value: 'A'.repeat(5_000) },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(ErrorBody.parse(response.json()).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('answers 400 VALIDATION_ERROR for a photo over the 5 MB cap', async () => {
+    const response = await post([
+      { name: 'beneficiaryId', value: 'ben_D1' },
+      { name: 'uid', value: D1_UID },
+      { name: 'photo', filename: 'huge.jpg', type: 'image/jpeg', value: 'x'.repeat(5 * 1024 * 1024 + 1) },
+      { name: 'officerConfirmed', value: 'true' },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(ErrorBody.parse(response.json()).error.code).toBe('VALIDATION_ERROR');
+  });
 });

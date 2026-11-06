@@ -114,8 +114,9 @@ function numericField(json: string, keys: readonly string[]): number | null {
 }
 
 /** The table-level audit docs/test-plan.md §3.2 asks for; no endpoint exposes `chain_txs` or `price_points`. */
-function readAudit(db: Db, dashboard: Dashboard): ChainAudit {
+function readAudit(db: Db, dashboard: Dashboard, trancheIdx: number): ChainAudit {
   return {
+    trancheIdx,
     moneyTxs: db
       .prepare(`SELECT kind, status FROM chain_txs WHERE kind IN ('fund','authorize','claim','sweep')`)
       .all<MoneyTx>(),
@@ -161,8 +162,9 @@ const api = createApi(args.baseUrl);
 const db = openDb(config.DATABASE_PATH);
 const { chain } = createChainRuntime(config, db, log);
 
-/** Filled in by the steps: the seed instant, the last dashboard, and the health report's gas mode. */
-const run = { seededAt: 0, dashboard: null as Dashboard | null, gasMode: 'unknown' };
+/** Filled in by the steps: the seed instant, the last dashboard, the health report's gas mode and the tranche's
+ * fired price index (the replay stops there, so it is what `price_points` must hold). */
+const run = { seededAt: 0, dashboard: null as Dashboard | null, gasMode: 'unknown', trancheIdx: 0 };
 
 const s7Steps: E2eStep[] = [
   {
@@ -296,7 +298,11 @@ const steps: E2eStep[] = [
         { timeoutMs: start.points * start.tickMs + 90_000, intervalMs: 1000 },
       );
       assertNoFailures(checkTranche(state), 'tranche');
-      console.log(`   funded ${state.budgetFundedStroops} stroops over ${state.funds.length} cards (D3 skipped)`);
+      run.trancheIdx = state.idx;
+      console.log(
+        `   funded ${state.budgetFundedStroops} stroops over ${state.funds.length} cards (D3 skipped); ` +
+          `fired at point ${state.idx}/${state.total}`,
+      );
     },
   },
   {
@@ -428,8 +434,11 @@ const steps: E2eStep[] = [
     run: () => {
       const dashboard = run.dashboard;
       if (dashboard === null) throw new Error('no dashboard snapshot for the audit');
-      assertNoFailures(checkAudit(readAudit(db, dashboard)), 'audit');
-      console.log(`   money txs succeeded: 3 fund + 3 authorize + 1 claim + 3 sweep; 45 simulated prices; 30 simulated edges`);
+      assertNoFailures(checkAudit(readAudit(db, dashboard, run.trancheIdx)), 'audit');
+      console.log(
+        `   money txs succeeded: 3 fund + 3 authorize + 1 claim + 3 sweep; ` +
+          `${run.trancheIdx} simulated prices; 30 simulated edges`,
+      );
     },
   },
 ];

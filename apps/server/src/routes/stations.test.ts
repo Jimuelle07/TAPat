@@ -1,6 +1,6 @@
 // GET /api/stations (api-and-data.md §5.2 #16): the pending/spent split at each station's last succeeded claim.
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
 import { buildServer } from '../server';
@@ -15,10 +15,20 @@ beforeEach(() => {
   db = openDb(':memory:');
 });
 
-afterEach(async () => {
+// The first `buildServer()` in a worker pays Fastify's boot (~1 s of module JIT; past the 5 s test budget while the
+// whole suite runs in parallel), so it happens once per file inside this hook's longer timeout. Routes register before
+// the first `inject` — Fastify refuses them after it has booted.
+beforeAll(async () => {
+  app = await buildServer();
+}, 20_000);
+
+afterAll(async () => {
   await app?.close();
-  db?.close();
   app = undefined;
+});
+
+afterEach(() => {
+  db?.close();
   db = undefined;
 });
 
@@ -55,10 +65,10 @@ describe('GET /api/stations', () => {
     claim('ctx_claim_a', stationA.publicKey(), 1_500);
     tap('tap_b1', 'B', 480_000_000, 2_500);
 
-    app = await buildServer();
-    registerStationRoutes(app, { db: db as Db });
-    const response = await app.inject({ method: 'GET', url: '/api/stations' });
-
+    // `beforeAll` built the app; routes must land before the first `inject` (see the hook's comment).
+    const server = app as FastifyInstance;
+    registerStationRoutes(server, { db: db as Db });
+    const response = await server.inject({ method: 'GET', url: '/api/stations' });
     expect(response.statusCode).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.json()).toEqual([

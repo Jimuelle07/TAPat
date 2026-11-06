@@ -19,6 +19,7 @@ import { loadCalibration } from './services/intake';
 import { getCurrentProgram, PROGRAM_DEFAULTS } from './services/program';
 import { createSseBus } from './services/sse';
 import { createTrancheService } from './services/tranche';
+import { createTelegramService } from './services/telegram';
 
 const STREAM_PATH = '/api/stream';
 
@@ -73,6 +74,8 @@ async function main(): Promise<void> {
     alpha: program?.alpha ?? PROGRAM_DEFAULTS.alpha,
     beta: program?.beta ?? PROGRAM_DEFAULTS.beta,
   });
+  // The bot: `/start` linking, tap receipts/declines, evidence requests and the OR/CR match (SDD §7).
+  const telegram = createTelegramService({ db, config, bus, log: app.log });
   registerRoutes(app, {
     db,
     config,
@@ -84,6 +87,7 @@ async function main(): Promise<void> {
     tranche,
     freeze,
     calibration,
+    telegram,
   });
   // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
   recoverInterruptedTxs(chain);
@@ -93,10 +97,13 @@ async function main(): Promise<void> {
   const stopBudgetPoller = startBudgetPoller(budget);
   // The Freeze Agent's ticker: one scoring pass per FREEZE_TICK_MS (SDD §6.5); `stopFreeze` cancels it on close.
   const stopFreeze = freeze.start();
+  // One long-polling bot per token: a second poller on the same bot answers 409 Conflict (deployment.md §4).
+  const stopTelegram = telegram.start();
   app.addHook('onClose', async () => {
     stopReconciler();
     stopBudgetPoller();
     stopFreeze();
+    stopTelegram();
     tranche.stop();
     db.close();
   });

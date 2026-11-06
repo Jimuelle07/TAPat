@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
 import { insertDecision } from './decisions';
-import { ESCROW_CACHE_MS, createDashboardService, loadMidasThreshold } from './dashboard';
-import { seedBeneficiary, seedCard, seedProgram, seedStation, fakeNoir, XLM_SAC_ID, T0 } from './test-fakes';
+import { reconcileOnce } from './chain';
+import { ESCROW_CACHE_MS, MIDAS_THRESHOLD_FALLBACK, createDashboardService, loadMidasThreshold } from './dashboard';
+import { seedBeneficiary, seedCard, seedProgram, seedStation, fakeLog, fakeNoir, XLM_SAC_ID, T0 } from './test-fakes';
 
 const NOW = 1_793_810_000_000; // the demo's closing clock, seconds 1793810000
 const CLAIM_AT = 1_793_809_000_000;
@@ -147,12 +148,31 @@ async function seedDemoEndState(db: Db): Promise<{ hashes: string[] }> {
      VALUES ('pi_test_7f21', 'budget', '1000.00', 'XLM', 'paid', ?, 'abc', 'GPAYER', ?, ?)`,
   ).run('https://pay.velo-build.dev/cs_test_7f21', CLAIM_AT - 10_000, CLAIM_AT - 5_000);
 
+  // The tranche's three fund txs, plus the per-card amounts its decision recorded: `fundedStroops` (SDD §6.10) joins
+  // the two, so a row the reconciler settles late still counts exactly once.
+  const fundCards = ['card_D1', 'card_D2', 'card_D5'] as const;
+  const fundTxIds = ['ctx_f1', 'ctx_f2', 'ctx_f3'] as const;
+  for (const txId of fundTxIds) {
+    db.prepare(
+      `INSERT INTO chain_txs (id, kind, contract_id, method, source_public, status, gas_mode, created_at, updated_at)
+       VALUES (?, 'fund', ?, 'fund_escrow', 'GPROGRAMWALLET', 'succeeded', 'direct', ?, ?)`,
+    ).run(txId, XLM_SAC_ID, B_TAP_AT - 2_000, B_TAP_AT - 2_000);
+  }
+
   insertDecision(db, {
     agent: 'tranche',
     decision: 'FUNDED',
     inputs: { pricePhp: 71.2, segmentMeanPhp: 70.9, thresholdPhp: 65, cpRecent: 0.94, mapR: 5 },
-    outputs: { budgetAfterStroops: '4500000000' },
-    txIds: ['ctx_f1', 'ctx_f2', 'ctx_f3'],
+    outputs: {
+      budgetAfterStroops: '5500000000',
+      funded: fundCards.map((cardId, index) => ({
+        cardId,
+        deviceHashPrefix: (hashes[cards.findIndex((card) => `card_${card.id}` === cardId)] as string).slice(0, 8),
+        amountStroops: '1500000000',
+        chainTxId: fundTxIds[index],
+      })),
+    },
+    txIds: [...fundTxIds],
     createdAt: B_TAP_AT - 1_000,
   });
 
@@ -248,6 +268,88 @@ describe('createDashboardService', () => {
     expect(dashboard.recentDecisions[0]).toMatchObject({ agent: 'tranche', decision: 'FUNDED' });
   });
 
+  it('counts a fund tx the reconciler settles late exactly once, so the invariant holds', async () => {
+    db = openDb(':memory:');
+    seedProgram(db);
+    db.prepare(
+      `UPDATE program SET status = 'active', tranche_fired = 1, budget_verified_stroops = ?, budget_funded_stroops = ?`,
+    ).run(10_000_000_000, 1_500_000_000);
+    seedBeneficiary(db, { id: 'ben_D1', status: 'enrolled' });
+    seedBeneficiary(db, { id: 'ben_D2', status: 'enrolled' });
+    const hashD1 = await seedCard(db, {
+      id: 'card_D1',
+      beneficiaryId: 'ben_D1',
+      uid: '04A1B2C3D1',
+      agent: Keypair.random(),
+      secretEnc: 'v1:unused',
+    });
+    const hashD2 = await seedCard(db, {
+      id: 'card_D2',
+      beneficiaryId: 'ben_D2',
+      uid: '04A1B2C3D2',
+      agent: Keypair.random(),
+      secretEnc: 'v1:unused',
+    });
+
+    // D1's fund succeeded synchronously; D2's hand-off was uncertain and only the chain can settle it.
+    for (const [txId, status, innerHash] of [
+      ['ctx_f1', 'succeeded', 'inner_f1'],
+      ['ctx_f2', 'submission_unknown', 'inner_f2'],
+    ] as const) {
+      db.prepare(
+        `INSERT INTO chain_txs (id, kind, contract_id, method, source_public, status, gas_mode, inner_hash,
+                                created_at, updated_at)
+         VALUES (?, 'fund', ?, 'fund_escrow', 'GPROGRAMWALLET', ?, 'direct', ?, ?, ?)`,
+      ).run(txId, XLM_SAC_ID, status, innerHash, NOW - 2_000, NOW - 2_000);
+    }
+    insertDecision(db, {
+      agent: 'tranche',
+      decision: 'FUNDED',
+      outputs: {
+        budgetAfterStroops: '7000000000',
+        funded: [
+          { cardId: 'card_D1', deviceHashPrefix: hashD1.slice(0, 8), amountStroops: '1500000000', chainTxId: 'ctx_f1' },
+          { cardId: 'card_D2', deviceHashPrefix: hashD2.slice(0, 8), amountStroops: '1500000000', chainTxId: 'ctx_f2' },
+        ],
+      },
+      txIds: ['ctx_f1', 'ctx_f2'],
+      createdAt: NOW - 2_500,
+    });
+
+    const fake = fakeNoir();
+    fake.getEscrowBalance.mockImplementation(async () => 1_500_000_000n);
+    const service = createDashboardService({
+      db,
+      noir: fake.noir,
+      config: { PHP_PER_XLM: 10 },
+      midasThreshold: 1.78,
+      now: () => NOW,
+    });
+
+    // Before the reconciler settles it, only the synchronous fund counts: 3,000 escrowed vs 1,500 funded.
+    const before = await service.get();
+    expect(before.fundedStroops).toBe('1500000000');
+    expect(before.budget.fundedStroops).toBe('1500000000');
+    expect(before.invariantOk).toBe(false);
+
+    const server = fake.noir.server as unknown as { getTransaction: (hash: string) => Promise<{ status: string }> };
+    server.getTransaction = async () => ({ status: 'SUCCESS' });
+    await expect(reconcileOnce({ db, noir: fake.noir, gas: null, log: fakeLog(), now: () => NOW })).resolves.toBe(1);
+
+    const after = await service.get();
+    expect(after.fundedStroops).toBe('3000000000');
+    expect(after.budget.fundedStroops).toBe('3000000000');
+    expect(after.invariantOk).toBe(true);
+    // The dashboard reads the chain rows, not the running column: the column only ever saw the synchronous fund.
+    expect(db.prepare('SELECT budget_funded_stroops AS funded FROM program').get<{ funded: number }>()?.funded).toBe(
+      1_500_000_000,
+    );
+
+    // Exactly once: a second pass finds nothing left to settle and the total does not move.
+    await expect(reconcileOnce({ db, noir: fake.noir, gas: null, log: fakeLog(), now: () => NOW })).resolves.toBe(0);
+    expect((await service.get()).fundedStroops).toBe('3000000000');
+  });
+
   it('reads the active cards escrow once per 5 s window and shares it with the total', async () => {
     db = openDb(':memory:');
     seedProgram(db);
@@ -336,7 +438,7 @@ describe('createDashboardService', () => {
     expect(dashboard.budget.state).not.toBe('verified');
   });
 
-  it('reports no budget intent as none and falls back to the documented MIDAS threshold', async () => {
+  it('reports no budget intent as none and falls back to the calibrated MIDAS threshold', async () => {
     db = openDb(':memory:');
     seedProgram(db);
     const service = createDashboardService({
@@ -347,6 +449,7 @@ describe('createDashboardService', () => {
     });
     const dashboard = await service.get();
     expect(dashboard.budget).toMatchObject({ state: 'none', checkoutUrl: null, paymentIntentId: null });
-    expect(dashboard.midasThreshold).toBeGreaterThan(0);
+    // Matches the Freeze Agent's fallback, so the chart line and the agent agree without the generated file.
+    expect(dashboard.midasThreshold).toBe(MIDAS_THRESHOLD_FALLBACK);
   });
 });

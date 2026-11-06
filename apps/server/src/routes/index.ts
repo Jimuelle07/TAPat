@@ -4,8 +4,8 @@ import type { Keypair } from '@stellar/stellar-sdk';
 import type { CrcThresholds } from '@tapat/agent';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
+import { telegramEvidenceNotifier, type EvidenceNotifier } from '../services/beneficiaries';
 import type { BudgetDeps } from '../services/budget';
-import type { EvidenceNotifier } from '../services/beneficiaries';
 import type { ChainDeps } from '../services/chain';
 import { createDashboardService, loadMidasThreshold } from '../services/dashboard';
 import type { FreezeService } from '../services/freeze';
@@ -16,7 +16,9 @@ import { registerAgentRoutes } from './agents';
 import { registerBeneficiaryRoutes } from './beneficiaries';
 import { registerBudgetRoutes } from './budget';
 import { registerDashboardRoutes } from './dashboard';
+import type { TelegramService } from '../services/telegram';
 import { registerEnrollRoutes } from './enroll';
+import { registerExportRoutes } from './export';
 import { registerHealthRoutes } from './health';
 import { registerIntakeRoutes } from './intake';
 import { registerProgramRoutes } from './program';
@@ -47,13 +49,15 @@ export interface RouteDeps {
   freeze: FreezeService;
   /** `MIDAS` task writes `apps/server/config/midas.json`; absent, the documented threshold is used. */
   midasThreshold?: number;
+  /** The bot: tap receipts/declines here, and `request-evidence` sends through it via `telegramEvidenceNotifier`. */
+  telegram?: TelegramService;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
   /** Boot-time CRC thresholds from `fixtures/calibration/labeled.json` (§5.2 #7); `main()` computes them once. */
   calibration: CrcThresholds;
   /** Tests point this at a temp dir holding the precomputed `*.ocr.json` masterlist files. */
   ocrFixturesDir?: string;
-  /** The Telegram sender for the evidence flow; absent until the Telegram bot lands. */
+  /** Overrides the Telegram-backed notifier `registerRoutes` builds from `telegram`; only tests set it. */
   notifier?: EvidenceNotifier;
 }
 
@@ -66,6 +70,12 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     midasThreshold: deps.midasThreshold ?? loadMidasThreshold(),
   });
 
+  // The bot's methods are closures (`createTelegramService` never uses `this`), so the reference travels on its own.
+  const notifyTap = deps.telegram?.notifyTap;
+  // `request-evidence` hands the notifier the response shape but the bot needs the row; without an injected notifier,
+  // bridge the two so a real Telegram send still happens (and `telegramSent` stays truthful).
+  const notifier =
+    deps.notifier ?? (deps.telegram === undefined ? undefined : telegramEvidenceNotifier(deps.db, deps.telegram));
   registerHealthRoutes(app, { probes: deps.probes, gasMode: deps.config.GAS_MODE });
   registerProgramRoutes(app, {
     db: deps.db,
@@ -78,6 +88,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   registerStreamRoutes(app, { bus: deps.bus });
   registerStationRoutes(app, { db: deps.db });
   registerDashboardRoutes(app, { dashboard });
+  registerExportRoutes(app, { db: deps.db, phpPerXlm: deps.config.PHP_PER_XLM });
   registerEnrollRoutes(app, {
     db: deps.db,
     chain: deps.chain,
@@ -92,6 +103,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     bus: deps.bus,
     config: deps.config,
     onTap: (tap) => deps.freeze.enqueue(tap),
+    ...(notifyTap === undefined ? {} : { notify: notifyTap }),
   });
   registerBudgetRoutes(app, deps.budget);
   registerWebhookRoutes(app, deps.budget);
@@ -105,11 +117,11 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     config: deps.config,
     calibration: deps.calibration,
     ...(deps.ocrFixturesDir === undefined ? {} : { ocrFixturesDir: deps.ocrFixturesDir }),
-    ...(deps.notifier === undefined ? {} : { notifier: deps.notifier }),
+    ...(notifier === undefined ? {} : { notifier }),
   });
   registerBeneficiaryRoutes(app, {
     db: deps.db,
     config: deps.config,
-    ...(deps.notifier === undefined ? {} : { notifier: deps.notifier }),
+    ...(notifier === undefined ? {} : { notifier }),
   });
 }

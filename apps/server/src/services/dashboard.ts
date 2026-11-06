@@ -12,15 +12,20 @@ import { toAgentDecision, type DecisionRow } from './decisions';
 import { getCurrentProgram } from './program';
 import { listStations } from './stations';
 import { toTap, type TapRow } from './tap';
+import { fundedStroops } from './tranche';
 
 const MIDAS_CONFIG_PATH = fileURLToPath(new URL('../../config/midas.json', import.meta.url));
 
-/** Until `calibrate-midas.ts` writes `config/midas.json` (task MID), the doc's expected threshold is the line. */
-export const MIDAS_THRESHOLD_FALLBACK = 1.78;
+/**
+ * Until `calibrate-midas.ts` writes `config/midas.json` (task MID), the dashboard must still draw a line. This is the
+ * calibrated threshold the Freeze Agent falls back to as well (`MidAlgos`: honest max 1.688 → 2.2), so the chart line
+ * and the agent never disagree on a checkout without the generated file.
+ */
+export const MIDAS_THRESHOLD_FALLBACK = 2.2;
 
 /**
  * `apps/server/config/midas.json.threshold` — the freeze line the edge chart draws. The file is generated output and
- * may not exist yet on a fresh checkout, so a missing or malformed file falls back to the documented threshold
+ * may not exist yet on a fresh checkout, so a missing or malformed file falls back to `MIDAS_THRESHOLD_FALLBACK`
  * instead of failing the dashboard.
  */
 export function loadMidasThreshold(path: string = MIDAS_CONFIG_PATH): number {
@@ -162,7 +167,10 @@ export function createDashboardService(deps: DashboardDeps): DashboardService {
         else pending += BigInt(station.pendingStroops);
       }
 
-      const funded = BigInt(program.budgetFundedStroops);
+      // Authoritative and late-confirmation-safe (SDD §6.10): the tranche decision's per-card amounts joined to the
+      // chain row's current status, so a fund the reconciler settles `succeeded` after a `submission_unknown` counts
+      // exactly once. `program.budget_funded_stroops` only sees the synchronous result.
+      const funded = fundedStroops(deps.db);
       const invariantOk = funded === spent + held + pending + escrowRemaining + returned;
 
       const latestIntent = deps.db

@@ -201,7 +201,7 @@ export function createTrancheService(deps: TrancheDeps): TrancheService {
       if (amount < tranche) exhausted = true;
 
       let chainTxId: string | null = null;
-      let succeeded = false;
+      let status: ChainTxStatus = 'failed';
       try {
         const result = await runChainTx(deps.chain, deps.programWallet, {
           kind: 'fundEscrow',
@@ -210,23 +210,32 @@ export function createTrancheService(deps: TrancheDeps): TrancheService {
           amount,
         });
         chainTxId = result.chainTxId;
-        succeeded = result.status === 'succeeded';
+        status = result.status;
       } catch (error) {
         // `runChainTx` wrote its row before simulating and threw before returning the id.
         chainTxId = latestFailedChainTxId(deps.db, 'fund', deps.programWallet.publicKey());
         deps.chain.log.warn({ cardId: card.id, cause: messageOf(error) }, 'tranche fund_escrow failed');
+        // A throw with no `failed` row is a persistence fault after a possible hand-off (the row is still `pending`):
+        // the money may have moved, so it keeps counting against the budget like a `submission_unknown` one.
+        if (chainTxId === null) status = 'submission_unknown';
       }
       if (chainTxId !== null) {
         txIds.push(chainTxId);
         const tx = readChainTx(deps.db, chainTxId);
-        if (tx !== null) deps.bus.publish('chain_tx', tx);
+        if (tx !== null) {
+          status = tx.status;
+          deps.bus.publish('chain_tx', tx);
+        }
       }
-      if (succeeded) {
+      if (status === 'succeeded') {
         deps.db
           .prepare('UPDATE program SET budget_funded_stroops = budget_funded_stroops + ? WHERE id = ?')
           .run(amount, program.id);
-        remaining -= amount;
       }
+      // Conservative: only a definitively `failed` fund frees its amount again. A `submission_unknown` row may have
+      // moved the money (it is never resubmitted; the reconciler decides), so it keeps counting against the budget and
+      // a later card can never take the same stroops — the run can never over-fund the verified budget.
+      if (status !== 'failed') remaining -= amount;
       funded.push({
         cardId: card.id,
         deviceHashPrefix: card.device_hash.slice(0, 8),
@@ -358,7 +367,7 @@ export function createTrancheService(deps: TrancheDeps): TrancheService {
         mapR: last?.mapR ?? null,
         thresholdPhp: program.priceThresholdPhp,
         budgetVerifiedStroops: program.budgetVerifiedStroops,
-        budgetFundedStroops: program.budgetFundedStroops,
+        budgetFundedStroops: String(fundedStroops(deps.db)),
         points,
         funds: readFunds(deps.db),
       };
@@ -370,6 +379,32 @@ export function createTrancheService(deps: TrancheDeps): TrancheService {
       if (run !== null) endRun(run);
     },
   };
+}
+
+/**
+ * Σ of the `fund_escrow` amounts whose `chain_txs` row is `succeeded`, read from the tranche decision's per-card
+ * amounts joined to each row's *current* status. `program.budget_funded_stroops` only sees the synchronous result, so
+ * a row left `submission_unknown` and settled `succeeded` later by the reconciler would never be counted there; this
+ * query counts it exactly once, because every `outputs.funded` entry carries its own chain tx id.
+ */
+export function fundedStroops(db: Db): bigint {
+  const amounts = new Map<string, bigint>();
+  for (const row of db
+    .prepare(`SELECT outputs_json FROM agent_decisions WHERE agent = 'tranche' ORDER BY created_at, rowid`)
+    .all<{ outputs_json: string }>()) {
+    const { funded = [] } = JSON.parse(row.outputs_json) as { funded?: FundedEntry[] };
+    for (const entry of funded) {
+      if (entry.chainTxId !== null) amounts.set(entry.chainTxId, BigInt(entry.amountStroops));
+    }
+  }
+  let total = 0n;
+  for (const [chainTxId, amount] of amounts) {
+    const status = db
+      .prepare(`SELECT status FROM chain_txs WHERE id = ? AND kind = 'fund'`)
+      .get<{ status: ChainTxStatus }>(chainTxId)?.status;
+    if (status === 'succeeded') total += amount;
+  }
+  return total;
 }
 
 /** `TrancheState.funds`, rebuilt from the latest tranche decision so a reload or API restart still shows it. */

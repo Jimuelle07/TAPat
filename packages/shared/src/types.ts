@@ -195,7 +195,7 @@ export interface Dashboard {
   program: Program;
   phpPerXlm: number;            // demo rate, for formatPhp()
   midasThreshold: number;       // from apps/server/config/midas.json; the freeze line on the edge chart
-  fundedStroops: Stroops;       // = program.budget_funded_stroops (chain_txs has no amount column)
+  fundedStroops: Stroops;       // Σ tranche-decision fund amounts whose chain_txs row is succeeded (§5.2 #18)
   spentStroops: Stroops;        // Σ authorized taps already covered by a succeeded claim (§5.2 #18)
   heldStroops: Stroops;         // unclaimed taps at frozen stations, same rule
   pendingStroops: Stroops;      // unclaimed taps at active stations, same rule

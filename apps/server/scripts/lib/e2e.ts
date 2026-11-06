@@ -222,6 +222,10 @@ export function checkProgramSeeded(program: Program | null): string[] {
   return failures;
 }
 
+/** The tranche stops the replay at the fire point, so the last point the state carries is the changepoint (1-based):
+ * `tranche.test.ts` pins the 0-based BOCPD index into `[33, 36]`, i.e. `idx` into `[34, 37]`. */
+export const TRANCHE_FIRE_IDX = { min: 34, max: 37 } as const;
+
 /** Beat 2: three escrows funded, D3 skipped because its 30 s policy had expired. */
 export function checkTranche(state: TrancheState): string[] {
   const failures: string[] = [];
@@ -229,7 +233,17 @@ export function checkTranche(state: TrancheState): string[] {
   expectEqual(failures, 'tranche.running', state.running, false);
   expectEqual(failures, 'tranche.fired', state.fired, true);
   expectEqual(failures, 'tranche.total', state.total, 45);
-  expectEqual(failures, 'tranche.idx', state.idx, state.total);
+  // `tick()` cancels → fires → ends the run, so the series is short: the points up to the changepoint, never all 45.
+  if (!(state.idx > 0 && state.idx <= state.total)) {
+    failures.push(`tranche.idx: expected 1..${state.total}, got ${state.idx}`);
+  } else if (state.idx < TRANCHE_FIRE_IDX.min || state.idx > TRANCHE_FIRE_IDX.max) {
+    failures.push(
+      `tranche.idx: expected the fire point ${TRANCHE_FIRE_IDX.min}..${TRANCHE_FIRE_IDX.max}, got ${state.idx}`,
+    );
+  }
+  expectEqual(failures, 'tranche.points.length', state.points.length, state.idx);
+  const lastPoint = state.points.at(-1);
+  if (lastPoint !== undefined) expectEqual(failures, 'tranche.points[last].idx', lastPoint.idx, state.idx);
   expectEqual(failures, 'tranche.budgetFundedStroops', state.budgetFundedStroops, RUNBOOK_TOTALS.funded);
   expectEqual(failures, 'tranche.funds.length', state.funds.length, 4);
   const byCard = new Map(state.funds.map((fund) => [fund.cardId, fund]));
@@ -337,7 +351,9 @@ export function checkSettlement(response: SettlementResponse): string[] {
   if (a === undefined) failures.push('station A: missing from the settlement response');
   else {
     expectEqual(failures, 'A.action', a.action, 'claimed');
-    expectEqual(failures, 'A.pendingStroops', a.pendingStroops, '0');
+    // A claimed row reports the amount it claimed, not the residual: `settlement.ts` pushes `pendingStroops` as it
+    // was before the claim, which is D1's ₱350 tap — the runbook's "spent" tile after settlement.
+    expectEqual(failures, 'A.pendingStroops', a.pendingStroops, RUNBOOK_TOTALS.spent);
     if (a.chainTxId === null) failures.push('A.chainTxId: expected a claim tx id, got null');
   }
   const b = byStation.get('B');
@@ -496,6 +512,9 @@ export interface ChainAudit {
   rejectedTaps: ReadonlyArray<{ chainTxId: string | null }>;
   /** Every `price_points` row for the program. */
   pricePoints: ReadonlyArray<{ simulated: number }>;
+  /** The tranche's fired `idx` from `GET /api/agents/tranche/state`: the replay stops at the changepoint, so the
+   * table holds exactly that many rows — never the fixture's full 45. */
+  trancheIdx: number;
   /** Every burst tap (`reason_code='SIMULATED_EDGE'`). */
   burstEdges: ReadonlyArray<{ simulated: number }>;
   /** `agent_decisions` rows with `agent='tranche'`. */
@@ -526,7 +545,7 @@ export function checkAudit(audit: ChainAudit): string[] {
   for (const [index, tap] of audit.rejectedTaps.entries()) {
     if (tap.chainTxId !== null) failures.push(`rejected tap #${index + 1}: chain_tx_id must be NULL, got ${tap.chainTxId}`);
   }
-  expectEqual(failures, 'price_points', audit.pricePoints.length, 45);
+  expectEqual(failures, 'price_points', audit.pricePoints.length, audit.trancheIdx);
   const notSimulated = [...audit.pricePoints, ...audit.burstEdges].filter((row) => row.simulated !== 1).length;
   expectEqual(failures, 'rows with simulated != 1 (price points + burst edges)', notSimulated, 0);
   expectEqual(failures, 'burst edges', audit.burstEdges.length, 30);

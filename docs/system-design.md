@@ -1036,11 +1036,11 @@ The order matters when several conditions could apply: on chain the checks run n
 5. On fire:
    1. Eligible cards = `cards.status='active'` AND `cards.expires_at_s > now`, ordered by `cards.created_at` (enrollment order). A skipped card is an entry in `outputs_json.skipped` with `reason='EXPIRED'` — it never gets its own decision row.
    2. `amount = min(tranche_stroops, budget_remaining)`. The card that finds `budget_remaining < tranche_stroops` takes the remainder; once `budget_remaining` is `0`, every later card is a `skipped` entry with `reason='BUDGET_EXHAUSTED'`.
-   3. For each eligible card sequentially: `fundEscrow(XLM_SAC_ID, programWallet, deviceHash, amount)`; on success `program.budget_funded_stroops += amount`. A failed funding does not abort the loop: that card keeps its `funded` entry with the failed `chainTxId`, and the cause is on `chain_txs`.
+   3. For each eligible card sequentially: `fundEscrow(XLM_SAC_ID, programWallet, deviceHash, amount)`; on success `program.budget_funded_stroops += amount`. A `submission_unknown` hand-off keeps counting against `budget_remaining` (the money may have moved, and the row is never resubmitted), so a later card can never take the same stroops; only a definitively `failed` fund frees its amount again, and `Dashboard.fundedStroops` counts the uncertain fund once the reconciler settles it `succeeded`. A failed funding does not abort the loop: that card keeps its `funded` entry with the failed `chainTxId`, and the cause is on `chain_txs`.
    4. One `agent_decisions` row (`agent='tranche'`, `decision='BUDGET_EXHAUSTED'` when funding stopped because the budget ran out — even if some cards were funded first — otherwise `FUNDED`) with `inputs_json = { pricePhp, segmentMeanPhp, thresholdPhp, cpRecent, mapR, budgetBeforeStroops }` and `outputs_json = { budgetAfterStroops, funded: [{ cardId, deviceHashPrefix, amountStroops, chainTxId }], skipped: [{ cardId, reason }] }`, plus `tx_ids_json` = the fund tx ids.
    5. `program.tranche_fired = 1` is written **before** the first `fund_escrow` (so a crash mid-funding can never fund a second tranche); after the decision row: stop the stream; SSE `tranche` with the `AgentDecision`, then SSE `budget` with the updated `Program`.
 
-**State** — `GET /api/agents/tranche/state` returns `TrancheState` ([api-and-data.md](api-and-data.md) #12): `running`, `fired`, `idx`, `total`, `lastPricePhp`, `cpRecent`, `mapR`, `thresholdPhp`, both budget totals, `points: PricePoint[]` (the whole series so `/demo` can redraw after a reload), and `funds[]` with `status: ChainTxStatus | 'skipped'`.
+**State** — `GET /api/agents/tranche/state` returns `TrancheState` ([api-and-data.md](api-and-data.md) #12): `running`, `fired`, `idx`, `total`, `lastPricePhp`, `cpRecent`, `mapR`, `thresholdPhp`, both budget totals (`budgetFundedStroops` derived exactly like the dashboard's `fundedStroops`, so the two views never disagree), `points: PricePoint[]` (the whole series so `/demo` can redraw after a reload), and `funds[]` with `status: ChainTxStatus | 'skipped'`.
 
 Demo numbers: 3 cards × ₱1,500 = ₱4,500 funded from a ₱10,000 verified budget; D3 skipped as expired.
 
@@ -1147,8 +1147,8 @@ Poller — every 3 s, `velo_intents` rows with `status != 'paid'` and `created_a
 
 | Number | Definition |
 |---|---|
-| `fundedStroops` | `program.budget_funded_stroops` (incremented by the Tranche Agent per successful `fund_escrow`, so it equals Σ successful fund txs) |
-| `budget` | `{ state, verifiedStroops, fundedStroops, remainingStroops, checkoutUrl, paymentIntentId }` — `state` is `none` (no intent), `waiting` (the latest budget `velo_intents` row is unpaid; `checkoutUrl` is that row's) or `verified`; `remainingStroops = budget_verified_stroops - budget_funded_stroops` |
+| `fundedStroops` | Σ of the tranche decision's `outputs.funded[].amountStroops` whose `chain_txs` row is `succeeded`, read from the row's **current** status — each funded entry carries its own tx id, so a `submission_unknown` fund the reconciler settles later counts exactly once. `program.budget_funded_stroops` is the Tranche Agent's running total and only sees the synchronous result. |
+| `budget` | `{ state, verifiedStroops, fundedStroops, remainingStroops, checkoutUrl, paymentIntentId }` — `state` is `none` (no intent), `waiting` (the latest budget `velo_intents` row is unpaid; `checkoutUrl` is that row's) or `verified`; `remainingStroops = budget_verified_stroops - fundedStroops` |
 | `spentStroops` | Σ over stations of Σ `taps.amount_stroops` with `status='authorized'`, `created_at <= lastClaimAt(station)` |
 | `heldStroops` | Σ `taps.amount_stroops` with `status='authorized'`, `created_at > lastClaimAt(station)`, station `frozen` |
 | `pendingStroops` | same but station `active` |
