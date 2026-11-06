@@ -1056,7 +1056,7 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 
 The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
 
-`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves the documented `1.78` fallback instead of failing.
+`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves a `2.2` fallback — the calibrated threshold the Freeze Agent also uses — instead of failing.
 
 Numbers are computed from our tables plus one chain read:
 
