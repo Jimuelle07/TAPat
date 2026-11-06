@@ -1068,7 +1068,7 @@ No request. Response 200, `text/csv; charset=utf-8`, filename `tapat-coa-<progra
 
 Header exactly: `timestamp,event,card_hash_prefix,station,amount_php,amount_xlm,tx_hash,agent_decision_id`
 
-Rows: one per money-ish event, oldest first — `fund`, `tap_authorized`, `tap_rejected`, `settlement_claimed`, `settlement_held`, `sweep`, `budget_credited`. `timestamp` is ISO-8601 with `+08:00`. `card_hash_prefix` = first 8 hex chars of `device_hash` (never the full hash, never a UID). `amount_php`/`amount_xlm` have 2 decimals; empty for events with no amount. `tx_hash` = `chain_txs.outer_hash ?? inner_hash` (empty for `HELD`). `agent_decision_id` empty when the row came from a tap.
+Rows: one per money-ish event, oldest first — `fund`, `tap_authorized`, `tap_rejected`, `settlement_claimed`, `settlement_held`, `sweep`, `budget_credited`. `timestamp` is ISO-8601 with `+08:00`. `card_hash_prefix` = first 8 hex chars of `device_hash` (never the full hash, never a UID). `amount_php`/`amount_xlm` have 2 decimals; empty for events with no amount. `tx_hash` = `chain_txs.outer_hash ?? inner_hash` (empty for `HELD`). `agent_decision_id` empty when the row came from a tap. `station` is the `stations.id` (`A`/`B`), empty for card-level and program-level events. A `refused` tap is exported as `tap_rejected` unless it is a synthetic burst edge (`simulated=1`: it is not a money event); a `failed` tap is not exported.
 
 Example line:
 

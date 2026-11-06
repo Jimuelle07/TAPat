@@ -69,13 +69,40 @@ export function toTap(row: TapRow): Tap {
   };
 }
 
+/** What the Telegram bot needs after a tap row is final (SDD §7 receipt/decline table). */
+export interface TapNotice {
+  status: 'authorized' | 'rejected' | 'refused';
+  /** `null` when the tap was refused before a card was resolved: there is no beneficiary to message. */
+  cardId: string | null;
+  stationName: string;
+  amountStroops: string;
+  balanceStroops: string | null;
+  /** `chain_txs.outer_hash ?? inner_hash`, the hash the receipt links to. */
+  txHash: string | null;
+  reasonCode: TapReasonCode | null;
+}
+
+export type TapNotifier = (notice: TapNotice) => Promise<void>;
+
 export interface TapDeps {
   db: Db;
   chain: ChainDeps;
   bus: SseBus;
   config: Pick<Config, 'KEY_ENCRYPTION_SECRET' | 'XLM_SAC_ID' | 'PHP_PER_XLM'>;
+  /** Receipt/decline side channel (Telegram). Called after the row is final; a throw is logged, never rethrown. */
+  notify?: TapNotifier;
   now?: () => number;
   id?: () => string;
+}
+
+/** A notification failure must never fail a tap: the money already moved, or the decline is already recorded. */
+async function notify(deps: TapDeps, notice: TapNotice): Promise<void> {
+  if (deps.notify === undefined) return;
+  try {
+    await deps.notify(notice);
+  } catch (error) {
+    deps.chain.log.warn({ tapStatus: notice.status, cause: error }, 'tap notification failed');
+  }
 }
 
 /** Contract code -> reason (§5.2 #13 row 1); `requireEscrow: false` means `insufficient_escrow` never comes back. */
@@ -167,6 +194,15 @@ export async function recordTap(deps: TapDeps, body: TapBody): Promise<TapRespon
   if (station === undefined) throw new ApiError(404, 'NOT_FOUND', `station ${body.stationId} not found`);
   if (station.status === 'frozen') {
     insertTap({ cardId: null, nonce: null, status: 'refused', reasonCode: 'STATION_FROZEN', chainTxId: null });
+    await notify(deps, {
+      status: 'refused',
+      cardId: null,
+      stationName: station.name,
+      amountStroops: String(amountStroops),
+      balanceStroops: null,
+      txHash: null,
+      reasonCode: 'STATION_FROZEN',
+    });
     throw new ApiError(423, 'STATION_FROZEN', `station ${station.id} is frozen`);
   }
 
@@ -184,6 +220,15 @@ export async function recordTap(deps: TapDeps, body: TapBody): Promise<TapRespon
   }
   if (card === undefined || card.status !== 'active') {
     insertTap({ cardId: null, nonce: null, status: 'refused', reasonCode: 'CARD_NOT_ENROLLED', chainTxId: null });
+    await notify(deps, {
+      status: 'refused',
+      cardId: null,
+      stationName: station.name,
+      amountStroops: String(amountStroops),
+      balanceStroops: null,
+      txHash: null,
+      reasonCode: 'CARD_NOT_ENROLLED',
+    });
     throw new ApiError(404, 'CARD_NOT_ENROLLED', 'no active card for this tap');
   }
 
@@ -231,6 +276,15 @@ export async function recordTap(deps: TapDeps, body: TapBody): Promise<TapRespon
         reasonCode = REFUSAL_REASONS[refusal];
       }
       const tap = insertTap({ cardId: card.id, nonce, status: 'rejected', reasonCode, chainTxId: null });
+      await notify(deps, {
+        status: 'rejected',
+        cardId: card.id,
+        stationName: station.name,
+        amountStroops: String(amountStroops),
+        balanceStroops: null,
+        txHash: null,
+        reasonCode,
+      });
       return {
         tap: toTap(tap),
         balanceStroops: null,
@@ -268,5 +322,14 @@ export async function recordTap(deps: TapDeps, body: TapBody): Promise<TapRespon
     balanceStroops === null
       ? `Paid ${formatPhp(amountStroops)} at ${station.name}.`
       : `Paid ${formatPhp(amountStroops)} at ${station.name} — escrow balance ${formatPhp(balanceStroops)}.`;
+  await notify(deps, {
+    status: 'authorized',
+    cardId: card.id,
+    stationName: station.name,
+    amountStroops: String(amountStroops),
+    balanceStroops,
+    txHash: chainTx?.outerHash ?? chainTx?.innerHash ?? result.outerHash ?? result.innerHash,
+    reasonCode: null,
+  });
   return { tap: toTap(tap), balanceStroops, message };
 }

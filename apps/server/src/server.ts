@@ -14,6 +14,7 @@ import { createChainRuntime } from './runtime';
 import { recoverInterruptedTxs, startReconciler } from './services/chain';
 import { createHealthProbes } from './services/health';
 import { createSseBus } from './services/sse';
+import { createTelegramService } from './services/telegram';
 
 const STREAM_PATH = '/api/stream';
 
@@ -56,13 +57,26 @@ async function main(): Promise<void> {
   const bus = createSseBus();
   // The device owner: every card's `register`/`register_agent` is signed by it (SDD §2.4).
   const programWallet = Keypair.fromSecret(config.PROGRAM_WALLET_SECRET);
-  registerRoutes(app, { db, config, probes: createHealthProbes({ config, velo }), bus, chain, programWallet });
+  // The bot: `/start` linking, tap receipts/declines, evidence requests and the OR/CR match (SDD §7).
+  const telegram = createTelegramService({ db, config, bus, log: app.log });
+  registerRoutes(app, {
+    db,
+    config,
+    probes: createHealthProbes({ config, velo }),
+    bus,
+    chain,
+    programWallet,
+    telegram,
+  });
   // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
   recoverInterruptedTxs(chain);
   // Always: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
   const stopReconciler = startReconciler(chain);
+  // One long-polling bot per token: a second poller on the same bot answers 409 Conflict (deployment.md §4).
+  const stopTelegram = telegram.start();
   app.addHook('onClose', async () => {
     stopReconciler();
+    stopTelegram();
     db.close();
   });
   await app.listen({ port: config.PORT, host: '127.0.0.1' });
