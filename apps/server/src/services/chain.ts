@@ -22,6 +22,7 @@ import {
   type OnChainOutcome,
   type SubmitSponsoredOptions,
 } from '@tapat/agent';
+import type { ChainTx } from '@tapat/shared';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 
@@ -708,4 +709,52 @@ export function startReconciler(
     );
   }, intervalMs);
   return () => clearInterval(timer);
+}
+
+/** `chain_txs` row -> the REST shape (docs/api-and-data.md §3); the SSE `chain_tx` payload. */
+export function toChainTx(row: ChainTxRow): ChainTx {
+  return {
+    id: row.id,
+    kind: row.kind,
+    contractId: row.contract_id,
+    method: row.method,
+    sourcePublic: row.source_public,
+    status: row.status,
+    gasMode: row.gas_mode,
+    veloRequestId: row.velo_request_id,
+    innerHash: row.inner_hash,
+    outerHash: row.outer_hash,
+    errorCode: row.error_code,
+    error: row.error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** One row by id, as the REST shape, or null. */
+export function readChainTx(db: Db, id: string): ChainTx | null {
+  const row = db.prepare('SELECT * FROM chain_txs WHERE id = ?').get<ChainTxRow>(id);
+  return row === undefined ? null : toChainTx(row);
+}
+
+/**
+ * The newest `failed` row of this kind and signer. `runChainTx` throws on a `prepare()` rejection before it returns
+ * the id, so the caller that owns the audit link finds it here; only `failed` rows qualify, which keeps a concurrent
+ * attempt's still-`pending` row from being picked.
+ */
+export function latestFailedChainTxId(db: Db, kind: ChainKind, sourcePublic: string): string | null {
+  const row = db
+    .prepare(
+      `SELECT id FROM chain_txs WHERE kind = ? AND source_public = ? AND status = 'failed' ORDER BY rowid DESC LIMIT 1`,
+    )
+    .get<{ id: string }>(kind, sourcePublic);
+  return row?.id ?? null;
+}
+
+/**
+ * Drops a `failed` row that never reached the network: `prepare()` refused the call during simulation, so there is no
+ * hash and nothing to reconcile. A declined tap leaves no `chain_txs` row (api-and-data.md §2.1, §5.2 #13).
+ */
+export function discardUnsubmittedChainTx(db: Db, id: string): void {
+  db.prepare(`DELETE FROM chain_txs WHERE id = ? AND status = 'failed' AND inner_hash IS NULL`).run(id);
 }

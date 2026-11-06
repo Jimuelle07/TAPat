@@ -205,6 +205,8 @@ Seed enrolls D1, D2, D3, D5. The Tranche Agent funds D1, D2, D5 — "funds three
 
 `seed-demo.ts --d3-expiry-offset=<seconds>` sets D3's offset from seed time (default `600`). The value **must be greater than 0**: `register_agent` panics `InvalidPolicy=4` when `expires_at != 0 && expires_at <= ledger now`, so a past or negative offset can never be enrolled. `pnpm demo:e2e` uses `--d3-expiry-offset=30` and waits until D3 is expired before starting the tranche. Scripts are always invoked as `pnpm --filter server tsx scripts/<name>.ts`.
 
+The seed reads D1, D2, D3 and D5 from `fixtures/masterlist/masterlist.csv` (matched by last + first name), inserts them `approved`, and enrolls them through the same service as `POST /api/enroll` with the photo check `officer_confirmed` (the seed is the officer). Which UID each card gets: `--uid-d1=<UID>`, `--uid-d2`, `--uid-d3`, `--uid-d5` name the normalized UID of a physical tag (what **Read card** shows, minus the ellipsis); a driver without a flag gets the virtual UID `TAPATVIRTUAL01`/`02`/`03`/`05`, and any `TAPATVIRTUAL…` UID is stored `virtual=1`. It creates the two stations from `STATION_A_SECRET`/`STATION_B_SECRET` and flips the program `draft` → `active` after the four enrollments. A failed enrollment aborts with the driver named; run `reset-demo.ts` before seeding again.
+
 ### 2.6 Honesty labels (D7)
 
 | Data | Label in DB | Label in UI |
@@ -1105,7 +1107,7 @@ Errors: `404 NOT_FOUND` (no program), `502 CHAIN_ERROR` (a claim failed; the rem
    3. `balanceBefore = 0` → `cards.status='swept'`, `returned_stroops=0`, decision `SKIPPED` with `reason='EMPTY_ESCROW'`, **no sweep transaction**. `sweep_on_revoke` would return `0` without panicking, so this is an optimisation that saves a sponsored transaction and a useless line in the audit trail, not a correctness guard.
    4. Else `sweepOnRevoke(XLM_SAC_ID, deviceHash, agentPublic)`; on success `cards.status='swept'`, `returned_stroops = balanceBefore`, decision `SWEPT`. On failure the card stays `active`, `outputs_json.error` records the code and the SDK's synthesized message from `chain_txs.error` (a nested `device_registry` panic surfaces as the escrow table's own name, so the text does not identify the nested frame), and the loop continues with the next card.
 3. `program.status='ended'`; one `agent_decisions` row (`agent='sweep'`, `decision='PROGRAM_ENDED'`) with the returned total; SSE `sweep`.
-4. `device_registry.revoke` is **not** called here. `scripts/reset-demo.ts` calls `revokeDevice` for every card of the previous program so the same physical cards can enroll again. Run it as `pnpm --filter server tsx scripts/reset-demo.ts`.
+4. `device_registry.revoke` is **not** called here. `scripts/reset-demo.ts` calls `revokeDevice` for every card of the previous program so the same physical cards can enroll again. Run it as `pnpm --filter server tsx scripts/reset-demo.ts`. It first reads each registered card's escrow and **refuses while any balance is above zero** (revoking the device would strand those funds: run End program first); it deletes every row only after every revoke succeeded, and skips a card whose device is not registered to the Program Wallet.
 
 Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status='draft'`), `502 CHAIN_ERROR` (a sweep failed; that card keeps its `status` and `reason`, the rest still run).
 

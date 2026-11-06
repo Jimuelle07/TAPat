@@ -694,7 +694,8 @@ Request body (all optional; omitted fields take the demo defaults):
 
 Response 201: `{ "program": Program }` (the server generates `id` (`prog_` + 8 chars) and `salt` (16 random bytes hex). `status` starts `'draft'`.)
 
-- The endpoint recomputes the CRC thresholds from `fixtures/calibration/labeled.json` and caches them in-process.
+- The CRC thresholds are not computed or stored by this endpoint: `α`/`β` are stored as given, and the threshold computation from `fixtures/calibration/labeled.json` belongs to the intake service (`GET /api/intake/calibration`, §5.2 #7).
+- The program stays `draft` until `seed-demo.ts` has enrolled the seeded cards and flips it to `active`; a program created through this endpoint alone is `draft`, which `POST /api/enroll` and `POST /api/taps` accept (`draft` or `active`).
 - Errors: `400 VALIDATION_ERROR` (bad `expiresAt`, `alpha` not in (0,1), PHP amount not 2 decimals), `409 INVALID_STATE` (a program already exists).
 
 #### 4. `POST /api/program/budget-checkout`
@@ -835,7 +836,7 @@ Response 201: `EnrollResponse`.
 
 Steps: photo check (`samplePhoto` → the fixture's `{plate,toda}` must equal the record, plates compared normalized: uppercase, spaces/dashes removed, else `422 PHOTO_MISMATCH`; `photo` → requires `officerConfirmed=true`, and `photoCheck.source = 'officer_confirmed'` with `plate`/`toda` `null`) → generate card agent keypair + friendbot → `device_registry.register` → `agent_registry.register_agent(max_amount = per_tap_cap_stroops, asset = XLM_SAC_ID, expires_at = program.expires_at_s)` → card `active`, beneficiary `enrolled`, SSE `enroll`.
 
-- Duplicate: the UID already has a non-`failed` card in this program → `409 CARD_ALREADY_ENROLLED`.
+- Duplicate: the UID already has a non-`failed` card in this program → `409 CARD_ALREADY_ENROLLED`. This check runs before the beneficiary-status check, so re-posting an already enrolled card's UID answers `CARD_ALREADY_ENROLLED`, never `INVALID_STATE`. It also runs before the photo check.
 - **Chain failure and retry**: the card row is `status='failed'` with `error` stored. Retrying `POST /api/enroll` with the same `uid` **reuses that same card row and the same agent keypair** and resumes from the failed step: read `device_registry.get_owner(device_hash)`; if it already returns the Program Wallet, `register` succeeded, so skip to `register_agent`. A second card row is never created (`cards.device_hash` is `UNIQUE`); the audit trail is `chain_txs`.
 - Errors: `400 VALIDATION_ERROR` (bad fields, or a `uid` failing `^[0-9A-Z]{4,32}$` after normalization), `404 NOT_FOUND` (beneficiary or program), `409 CARD_ALREADY_ENROLLED`, `409 INVALID_STATE` (beneficiary not `approved`), `422 PHOTO_MISMATCH` (sample-photo plate or TODA ≠ the record; `message` names the field), `422 PHOTO_CONFIRMATION_REQUIRED` (uploaded photo without confirmation), `502 CHAIN_ERROR`.
 
@@ -1099,7 +1100,7 @@ Tap reason codes are **never** HTTP error codes. `EXPIRED`, `OVER_CAP`, `POLICY_
 
 ### 5.4 SSE — `GET /api/stream`
 
-`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, no compression (compression buffers events). One JSON object per `data:` line — the **camelCase REST shape from §3**, never the DB row.
+`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, no compression (compression buffers events). The headers are flushed on connect. One JSON object per `data:` line — the **camelCase REST shape from §3**, never the DB row. Each frame also carries an `id:` line, a per-connection counter starting at 1 (diagnostic only: there is no replay, so `Last-Event-ID` is ignored).
 
 ```
 event: tap

@@ -2,22 +2,29 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
-import { Velo, createNoirClient } from '@tapat/agent';
+import { Keypair } from '@stellar/stellar-sdk';
+import { Velo } from '@tapat/agent';
 import { loadConfig } from './config';
 import { openDb } from './db/index';
+import { errorHandler } from './errors';
 import { registerRoutes } from './routes/index';
-import { recoverInterruptedTxs, startReconciler, type ChainDeps } from './services/chain';
+import { createChainRuntime } from './runtime';
+import { recoverInterruptedTxs, startReconciler } from './services/chain';
 import { createHealthProbes } from './services/health';
+import { createSseBus } from './services/sse';
 
 const STREAM_PATH = '/api/stream';
 
-/** The Fastify app with CORS, the /api/* cache rule and the NOT_FOUND envelope; routes are registered by callers. */
+/** The Fastify app with CORS, the /api/* cache rule, multipart and the error envelopes; routes are registered by callers. */
 export async function buildServer(options: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const app = Fastify(options);
 
   // Only the laptop's manual SSE fallback (/?sse=direct) calls the API cross-origin.
   await app.register(cors, { origin: 'http://localhost:3000', methods: ['GET'] });
+  // `POST /api/enroll` is the only multipart endpoint.
+  await app.register(multipart);
 
   // Every /api/* response is no-store, except the SSE stream, which keeps no-cache (never no-store).
   app.addHook('onSend', async (request, reply, payload) => {
@@ -32,42 +39,24 @@ export async function buildServer(options: FastifyServerOptions = {}): Promise<F
     void reply.code(404).send({ error: { code: 'NOT_FOUND', message: `No route for ${request.method} ${path}` } });
   });
 
-  app.setErrorHandler((error, request, reply) => {
-    request.log.error({ err: error }, 'unhandled route error');
-    void reply.code(500).send({ error: { code: 'INTERNAL', message: 'Internal error' } });
-  });
+  app.setErrorHandler(errorHandler);
 
   return app;
 }
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  // Handbook requirement: refuse to boot on any deployment the Noir SDK does not know (SDD §4.2).
-  const noir = createNoirClient({
-    rpcUrl: config.STELLAR_RPC_URL,
-    networkPassphrase: config.STELLAR_NETWORK_PASSPHRASE,
-    contracts: {
-      deviceRegistry: config.NOIR_DEVICE_REGISTRY_ID,
-      agentRegistry: config.NOIR_AGENT_REGISTRY_ID,
-      paymentEscrow: config.NOIR_PAYMENT_ESCROW_ID,
-    },
-  });
   const db = openDb(config.DATABASE_PATH);
-  const gas =
-    config.GAS_MODE === 'velo'
-      ? new Velo({
-          apiKey: config.VELO_GAS_API_KEY,
-          baseUrl: config.VELO_GAS_BASE_URL,
-          environment: 'testnet',
-          timeoutMs: 30_000,
-        }).gas
-      : null;
   const app = await buildServer({ logger: true });
-  // Chain-writing routes take `chain` as they land (Sprint 2+); the reconciler needs it now.
-  const chain: ChainDeps = { db, noir, gas, config, log: app.log };
+  // Refuses to boot on any deployment the Noir SDK does not know (SDD §4.2); the listener has not started yet.
+  const { chain } = createChainRuntime(config, db, app.log);
   // The general Velo client (payment intents now, checkout in C5); the default baseUrl is the testnet one.
   const velo = new Velo({ apiKey: config.VELO_API_KEY, environment: 'testnet', timeoutMs: 30_000 });
-  registerRoutes(app, { db, config, probes: createHealthProbes({ config, velo }) });
+  // In-process SSE fan-out: services publish after writing their row, `GET /api/stream` subscribes.
+  const bus = createSseBus();
+  // The device owner: every card's `register`/`register_agent` is signed by it (SDD §2.4).
+  const programWallet = Keypair.fromSecret(config.PROGRAM_WALLET_SECRET);
+  registerRoutes(app, { db, config, probes: createHealthProbes({ config, velo }), bus, chain, programWallet });
   // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
   recoverInterruptedTxs(chain);
   // Always: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
