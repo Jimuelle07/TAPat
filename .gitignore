@@ -5,3 +5,4 @@ apps/server/data/
 .next
 dist
 coverage
+deploy/.wizard.env

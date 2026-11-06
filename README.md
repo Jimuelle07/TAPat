@@ -150,7 +150,7 @@ TAPat/
 │  │              midas — planned NM/MT/BOC/MIDAS); pure — no env, no SQLite, no HTTP
 │  └─ shared/     @tapat/shared: types, zod schemas, money.ts, constants.ts (TS source)
 ├─ fixtures/      calibration, prices, taps — simulated/precomputed inputs, labelled as such
-├─ deploy/        Caddyfile, systemd units, provision.sh, update.sh (protected: Jim only)
+├─ deploy/        Caddyfile, systemd units, provision.sh, update.sh, wizard-aws-vercel.sh (protected: Jim only)
 ├─ docs/          every design document; start at docs/index.md
 └─ .env.example   every variable in one place, no real values (server + web sections)
 ```
@@ -172,6 +172,7 @@ Docs:
 - [`docs/setup.md`](docs/setup.md) — one-time manual setup: accounts, Freighter, the Velo project and Gas Station key, the public HTTPS origin, the Telegram bot.
 - [`docs/test-guide.md`](docs/test-guide.md) — run and test the app locally, step by step.
 - [`docs/deployment.md`](docs/deployment.md) — the $0 deployment: one always-free VM under systemd, Caddy, Tailscale Funnel, and the fallback ladder.
+- [`deploy/wizard-aws-vercel.sh`](deploy/wizard-aws-vercel.sh) — the interactive AWS EC2 + Vercel deploy (Jim; Git Bash, repo root: `bash deploy/wizard-aws-vercel.sh`). Design: [`docs/deployment.md`](docs/deployment.md) §6.4.
 - [`docs/demo-runbook.md`](docs/demo-runbook.md) — the kit, the T-minus timeline, the 3-minute script, and the judge Q&A.
 - [`docs/index.md`](docs/index.md) — the doc map and the glossary.
 

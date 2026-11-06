@@ -90,7 +90,8 @@ TAPat/
 │  ├─ enroll/                  d4-photo.jpg + .json
 │  └─ orcr/                    OR/CR evidence photos + .json
 ├─ deploy/                     PROTECTED (Jim only): Caddyfile, tapat-api.service, tapat-web.service,
-│                              provision.sh, update.sh — the VM's routing, systemd units, and scripts
+│                              provision.sh, update.sh, wizard-aws-vercel.sh — the VM's routing,
+│                              systemd units, and scripts
 ├─ docs/                       this set
 ├─ pnpm-workspace.yaml         apps/*, packages/* — workspace package names: `apps/server/package.json`
 │                              has `"name": "server"`, `apps/web/package.json` has `"name": "web"`, so
@@ -111,7 +112,7 @@ Folder responsibilities:
 - `apps/web/lib/api.ts` is the single fetch module (mock JSON in UI1, `/api/*` in UI2); `apps/web/lib/sse.ts` `useStream(onEvent)` is the single SSE entry point. Pages hold no fetch calls of their own.
 - `fixtures/` feeds the precomputed and simulated paths. Their consumers are listed in `docs/api-and-data.md` §4.
 - `apps/server/scripts/` holds the one-shot operational scripts; they are not part of the request path.
-- `deploy/` is the free-deployment surface described in `docs/deployment.md` §5: the Caddyfile that routes `/api/*` to Fastify and adds basic auth, the two systemd units, and `provision.sh` / `update.sh`. It holds no secret. It is a protected path — only Jim edits it, and it is never a place for `.env` values.
+- `deploy/` is the free-deployment surface described in `docs/deployment.md` §5: the Caddyfile that routes `/api/*` to Fastify and adds basic auth, the two systemd units, `provision.sh` / `update.sh`, and `wizard-aws-vercel.sh` (the AWS EC2 + Vercel deploy, §6.4). It holds no committed secret. It is a protected path — only Jim edits it, and it is never a place for `.env` values; the wizard's local state file `deploy/.wizard.env` is git-ignored and never committed.
 
 ## 4. Glossary
 
