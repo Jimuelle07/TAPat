@@ -35,7 +35,8 @@ interface StationRow {
   status: 'active' | 'frozen';
 }
 
-interface TapRow {
+/** `taps` row as stored; `toTap` maps it to the REST shape the dashboard and SSE also use. */
+export interface TapRow {
   id: string;
   card_id: string | null;
   card_ref: string | null;

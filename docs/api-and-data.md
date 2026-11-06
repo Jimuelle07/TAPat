@@ -744,7 +744,7 @@ Steps (sequential, per card in enrollment order): program → `ending`; for each
 Program → `ended`. `device_registry.revoke` is **not** called here (`reset-demo.ts` does that).
 
 - This is not idempotent by request id, but it is safe to re-call: cards already `swept`/`revoked` are skipped.
-- Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status='draft'`), `502 CHAIN_ERROR` (a sweep failed; the response is still 200 with that card's `reason` and `status` unchanged — a hard failure only when `program` cannot be updated).
+- Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status` is `draft`, or `ended` on a second call; a program left `ending` by an interrupted call is resumed), `502 CHAIN_ERROR` (a sweep failed; the response is still 200 with that card's `reason` and `status` unchanged — a hard failure only when `program` cannot be updated).
 
 #### 6. `POST /api/intake/upload`
 
@@ -1048,7 +1048,7 @@ Page placement of this response (see also §5.6 and [SDD §8](system-design.md))
 
 The activity feed is **one list**: `recentTaps` and `recentDecisions` merged, sorted by `createdAt` descending, capped at 50 rows.
 
-`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`.
+`midasThreshold` draws the freeze line on the `/demo` edge chart; the chart's points are `recentTaps` (upserted by `id`) plus SSE `tap`. It is `apps/server/config/midas.json.threshold`; while that generated file is absent (before `calibrate-midas.ts` runs) the dashboard serves the documented `1.78` fallback instead of failing.
 
 Numbers are computed from our tables plus one chain read:
 
