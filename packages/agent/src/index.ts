@@ -6,6 +6,29 @@ export type { SubmitSponsoredOptions } from './chain/gas';
 export { decryptSecret, encryptSecret, fundWithFriendbot, generateAgentKeypair } from './chain/keys';
 export { Bocpd, bocpdRun, trancheShouldFire, DEFAULT_BOCPD } from './algorithms/bocpd';
 export type { BocpdConfig, BocpdPoint } from './algorithms/bocpd';
+export {
+  ageOn,
+  normalizePerson,
+  normalizePlate,
+  normalizeSurname,
+  normalizeToken,
+  stripDiacritics,
+} from './algorithms/names';
+export type { NameSuffix, NormalizedName, RawName } from './algorithms/names';
+export {
+  applyHardRules,
+  decideIntake,
+  genuinenessScores,
+  jaro,
+  jaroWinkler,
+  middleInitialScore,
+  pairProbability,
+  sigmoid,
+  toMatchRecord,
+} from './algorithms/matcher';
+export type { HardRuleCode, IntakeDecision, IntakeStatus, MatchRecord, PersonInput } from './algorithms/matcher';
+export { CRC_GRID, calibrateCrc, crcDecide, riskAdmission, riskDenial } from './algorithms/crc';
+export type { CalibrationPoint, CrcThresholds } from './algorithms/crc';
 
 // These SDK pins live here, so callers that build the Velo client, type an operation or triage SDK errors use the
 // same copies this package does. They are pass-throughs, not extra behaviour.
