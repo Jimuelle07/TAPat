@@ -610,7 +610,7 @@ All fixtures are committed files; no model is bundled in the demo build.
 | `fixtures/enroll/d4-photo.jpg` + `.json` | BegB photo; `.json` = `{ "plate": "...", "toda": "..." }` precomputed | `POST /api/enroll` `samplePhoto=d4-photo.jpg` |
 | `fixtures/orcr/<plate>.jpg` + `.json` | BegB photo; `.json` = `{ "plate": "...", "sha256": "..." }` | Telegram evidence matching |
 
-**Masterlist rule (from the plan, non-negotiable):** the masterlist is **12 rows = 8 genuine (including D1–D5) + 1 ghost + 1 underage + 2 uncertain**, and after calibration it must produce exactly that outcome (1 ghost rejected, 1 underage rejected, 2 uncertain). Because the demo uploads it after the seed, `IntakeResponse.summary` reads `{ total: 12, approved: 4, rejected: 2, uncertain: 2, enrolled: 4 }` — the 8 genuine rows are 4 approved + 4 already enrolled, and the officer-visible count is never "8 approved". If the rows do not produce these counts, edit the fixture rows. Never change `alpha`, `beta`, or the matcher weights to make the demo look right.
+**Masterlist rule (from the plan, non-negotiable):** the masterlist is **12 rows = 8 genuine (including D1–D5) + 1 ghost + 1 underage + 2 name variants**. The committed calibration set lands both thresholds on the same grid point (`lambdaLo = lambdaHi = 0.05`, both empirical rates `0`), so the uncertain band is empty and the two variants are approved at `0.741513` and `0.731059` instead of held: the outcome is 1 ghost rejected (`DUPLICATE_PLATE`), 1 underage rejected (`UNDERAGE`), 0 uncertain. Because the demo uploads it after the seed, `IntakeResponse.summary` reads `{ total: 12, approved: 6, rejected: 2, uncertain: 0, enrolled: 4 }` — the 10 non-blocked rows are 6 approved + 4 already enrolled, and the officer-visible count is never "10 approved". If the rows do not produce these counts, edit the fixture rows. Never change `alpha`, `beta`, or the matcher weights to make the demo look right.
 
 Fixture JSON shapes:
 
@@ -752,34 +752,38 @@ Program → `ended`. `device_registry.revoke` is **not** called here (`reset-dem
 
 CSV columns (header required, this order): `last_name,first_name,middle_name,suffix,birthdate,plate,toda,barangay`. `birthdate` = `YYYY-MM-DD`; `middle_name`/`suffix` may be empty.
 
-Response 200: `IntakeResponse`.
+Response 200: `IntakeResponse` — every uploaded row in file order (three of the twelve are shown).
 
 ```json
 {
   "rows": [
-    { "id": "ben_01", "programId": "prog_a1b2c3d4", "lastName": "Dela Cruz", "firstName": "Juan", "middleName": "Santos", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 1.0, "status": "approved", "ruleCode": null, "decisionReason": "genuine", "linkCode": "k7m2x9qp", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=k7m2x9qp", "createdAt": 1793808000123 }
+    { "id": "ben_10", "programId": "prog_a1b2c3d4", "lastName": "Santos", "firstName": "Maria Theresa", "middleName": "C", "suffix": null, "birthdate": "1982-03-04", "plate": "BCD 1357", "toda": "Concepcion TODA", "barangay": "Concepcion", "source": "ocr_precomputed", "score": 0.741513, "status": "approved", "ruleCode": null, "decisionReason": "genuineness 0.741513 at or above 0.05", "linkCode": "k7m2x9qp", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=k7m2x9qp", "createdAt": 1793808000123 },
+    { "id": "ben_D1", "programId": "prog_a1b2c3d4", "lastName": "Dela Cruz", "firstName": "Juan", "middleName": "Santos", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 1, "status": "enrolled", "ruleCode": null, "decisionReason": "genuineness 1 at or above 0.05", "linkCode": "q3v7n1md", "telegramLinked": true, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=q3v7n1md", "createdAt": 1793807999000 },
+    { "id": "ben_08", "programId": "prog_a1b2c3d4", "lastName": "De la Cruz", "firstName": "Juan", "middleName": "S", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 0.00407, "status": "rejected", "ruleCode": "DUPLICATE_PLATE", "decisionReason": "plate ABC1234 duplicates record 0", "linkCode": "w8x4c2rt", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=w8x4c2rt", "createdAt": 1793808000124 }
   ],
-  "summary": { "total": 12, "approved": 4, "rejected": 2, "uncertain": 2, "enrolled": 4 },
-  "calibration": { "alpha": 0.05, "beta": 0.02, "lambdaLo": 0.62, "lambdaHi": 0.81, "n": 400, "wrongfulDenialRate": 0.041, "ghostAdmissionRate": 0.013, "feasible": true }
+  "summary": { "total": 12, "approved": 6, "rejected": 2, "uncertain": 0, "enrolled": 4 },
+  "calibration": { "alpha": 0.05, "beta": 0.02, "lambdaLo": 0.05, "lambdaHi": 0.05, "n": 400, "wrongfulDenialRate": 0, "ghostAdmissionRate": 0, "feasible": true }
 }
 ```
 
 Image branch: SHA-256 the bytes; compare to `scanned-list.ocr.json.sha256`; on match ingest its `rows` with `source='ocr_precomputed'`. On mismatch → `422 OCR_UNAVAILABLE`, message: `"OCR model not bundled in demo build; upload CSV"`. CSV branch: ingest with `source='csv'`.
 
-After ingest: hard rules → matcher → CRC (see [algorithms.md](algorithms.md)); each row gets `status` and one `agent_decisions` row; every `uncertain`/`evidence_requested` beneficiary with a linked chat gets the Telegram evidence request.
+After ingest: hard rules → matcher → CRC (see [algorithms.md](algorithms.md)); each row gets `status`, and the upload writes one `agent_decisions` row (`agent='intake'`, `decision` = `REJECTED` when any row was rejected, else `UNCERTAIN`, else `APPROVED`; `inputs_json` = `lambdaLo`, `lambdaHi`, `alpha`, `beta`, `n`; `outputs_json` = the counts plus `source`). An `uncertain` row with a linked chat gets the Telegram evidence request and moves to `evidence_requested`.
 
-The fixture masterlist is **12 rows = 8 genuine (including D1–D5) + 1 ghost + 1 underage + 2 uncertain**. The demo uploads it *after* the seed, when D1, D2, D3 and D5 are already `enrolled`; those four rows keep `status='enrolled'` (they are genuine, and the card must not be orphaned), so the officer-visible counts are `approved 4 + enrolled 4` — the 8 genuine rows, never "8 approved". `summary` buckets are disjoint and always sum to `total`: the example above is `4 + 2 + 2 + 4 = 12`. After D4 enrolls live, the same program reads `approved 3, enrolled 5` (§5.2 #18).
+The fixture masterlist is **12 rows = 8 genuine (including D1–D5) + 1 ghost + 1 underage + 2 name variants**. The committed calibration set puts both thresholds on the same grid point (`lambdaLo = lambdaHi = 0.05`), so the band is empty and the two variants are approved at `0.741513` and `0.731059`; the ghost is blocked as a `DUPLICATE_PLATE` and the underage row by `UNDERAGE`. The demo uploads it *after* the seed, when D1, D2, D3 and D5 are already `enrolled`; those four rows keep `status='enrolled'` (they are genuine, and the card must not be orphaned), so the officer-visible counts are `approved 6 + enrolled 4` — the 10 non-blocked rows, never "10 approved". `summary` buckets are disjoint and always sum to `total`: the example above is `6 + 2 + 0 + 4 = 12` (`evidence_requested` counts in the `uncertain` bucket). After D4 enrolls live, the same program reads `approved 5, enrolled 5` (§5.2 #18).
 
 - Re-uploading for the same program deletes prior non-enrolled rows first (enrolled beneficiaries are untouched, so a demo re-run never orphans a card).
-- Errors: `400 VALIDATION_ERROR` (missing field, bad MIME, bad CSV header), `404 NOT_FOUND` (no program), `422 OCR_UNAVAILABLE`.
+- Errors: `400 VALIDATION_ERROR` (missing file, bad MIME, bad CSV header, oversized file — over 1 MB for a CSV or 5 MB for an image), `404 NOT_FOUND` (no program), `422 OCR_UNAVAILABLE`.
 
 #### 7. `GET /api/intake/calibration`
 
-No request. Response 200: `CalibrationResponse` — λ_lo, λ_hi, α, β, calibration size `n`, and the two empirical rates measured on the calibration fixture. Computed once at boot from `fixtures/calibration/labeled.json`.
+No request. Response 200: `CalibrationResponse` — λ_lo, λ_hi, α, β, calibration size `n`, and the two empirical rates measured on the calibration fixture. Computed once at boot from `fixtures/calibration/labeled.json` with the current program's α/β (or the defaults when there is no program yet), and served as the `CrcThresholds` object verbatim.
 
 ```json
-{ "alpha": 0.05, "beta": 0.02, "lambdaLo": 0.62, "lambdaHi": 0.81, "n": 400, "wrongfulDenialRate": 0.041, "ghostAdmissionRate": 0.013, "feasible": true }
+{ "alpha": 0.05, "beta": 0.02, "lambdaLo": 0.05, "lambdaHi": 0.05, "n": 400, "wrongfulDenialRate": 0, "ghostAdmissionRate": 0, "feasible": true }
 ```
+
+With `lambdaLo = lambdaHi` the uncertain band is empty: every record is decided, and the two name variants in the demo masterlist are approved rather than held (algorithms.md §5.4).
 
 Errors: `500 INTERNAL`.
 
@@ -789,8 +793,8 @@ Query: `?status=<BeneficiaryStatus>` (optional, repeatable: `?status=uncertain&s
 
 ```json
 [
-  { "id": "ben_D1", "programId": "prog_a1b2c3d4", "lastName": "Dela Cruz", "firstName": "Juan", "middleName": "Santos", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 1, "status": "enrolled", "ruleCode": null, "decisionReason": "genuine", "linkCode": "k7m2x9qp", "telegramLinked": true, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=k7m2x9qp", "createdAt": 1793808000123 },
-  { "id": "ben_07", "programId": "prog_a1b2c3d4", "lastName": "Santos", "firstName": "Maria Teresa", "middleName": "C", "suffix": null, "birthdate": "1979-07-19", "plate": "XYZ 7788", "toda": "Rotonda TODA", "barangay": "Rotonda", "source": "ocr_precomputed", "score": 0.71, "status": "uncertain", "ruleCode": null, "decisionReason": "score 0.71 inside [0.62, 0.81)", "linkCode": "p4wq8zr2", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=p4wq8zr2", "createdAt": 1793808000124 }
+  { "id": "ben_D1", "programId": "prog_a1b2c3d4", "lastName": "Dela Cruz", "firstName": "Juan", "middleName": "Santos", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 1, "status": "enrolled", "ruleCode": null, "decisionReason": "genuineness 1 at or above 0.05", "linkCode": "k7m2x9qp", "telegramLinked": true, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=k7m2x9qp", "createdAt": 1793808000123 },
+  { "id": "ben_10", "programId": "prog_a1b2c3d4", "lastName": "Santos", "firstName": "Maria Theresa", "middleName": "C", "suffix": null, "birthdate": "1982-03-04", "plate": "BCD 1357", "toda": "Concepcion TODA", "barangay": "Concepcion", "source": "ocr_precomputed", "score": 0.741513, "status": "approved", "ruleCode": null, "decisionReason": "genuineness 0.741513 at or above 0.05", "linkCode": "p4wq8zr2", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=p4wq8zr2", "createdAt": 1793808000124 }
 ]
 ```
 
@@ -802,9 +806,9 @@ No body. Sends the evidence request and moves the beneficiary to `evidence_reque
 
 ```json
 {
-  "beneficiary": { "id": "ben_07", "programId": "prog_a1b2c3d4", "lastName": "Santos", "firstName": "Maria Teresa", "middleName": "C", "suffix": null, "birthdate": "1979-07-19", "plate": "XYZ 7788", "toda": "Rotonda TODA", "barangay": "Rotonda", "source": "ocr_precomputed", "score": 0.71, "status": "evidence_requested", "ruleCode": null, "decisionReason": "score 0.71 inside [0.62, 0.81)", "linkCode": "p4wq8zr2", "telegramLinked": true, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=p4wq8zr2", "createdAt": 1793808000124 },
-  "telegramSent": true,
-  "deepLink": "https://t.me/tapat_demo_bot?start=p4wq8zr2"
+  "beneficiary": { "id": "ben_08", "programId": "prog_a1b2c3d4", "lastName": "De la Cruz", "firstName": "Juan", "middleName": "S", "suffix": null, "birthdate": "1980-03-02", "plate": "ABC 1234", "toda": "San Roque TODA", "barangay": "San Roque", "source": "ocr_precomputed", "score": 0.00407, "status": "evidence_requested", "ruleCode": "DUPLICATE_PLATE", "decisionReason": "plate ABC1234 duplicates record 0", "linkCode": "w8x4c2rt", "telegramLinked": false, "telegramDeepLink": "https://t.me/tapat_demo_bot?start=w8x4c2rt", "createdAt": 1793808000124 },
+  "telegramSent": false,
+  "deepLink": "https://t.me/tapat_demo_bot?start=w8x4c2rt"
 }
 ```
 
@@ -1013,7 +1017,7 @@ No request. Response 200: `Dashboard`. Snapshot after the demo's close (post-swe
     "checkoutUrl": "https://pay.velo-build.dev/cs_test_7f21",
     "paymentIntentId": "pi_test_7f21"
   },
-  "counts": { "beneficiaries": 12, "approved": 3, "uncertain": 2, "enrolled": 5, "cardsActive": 0, "tapsAuthorized": 3, "tapsRejected": 2, "tapsRefused": 30 },
+  "counts": { "beneficiaries": 12, "approved": 5, "uncertain": 0, "enrolled": 5, "cardsActive": 0, "tapsAuthorized": 3, "tapsRejected": 2, "tapsRefused": 30 },
   "cards": [
     { "id": "card_D1", "beneficiaryId": "ben_D1", "displayName": "Juan D.", "uidLast4": "9C7E", "deviceHashPrefix": "3f9c1a0b", "virtual": false, "status": "swept", "expiresAtS": 1796054399, "expired": false, "escrowStroops": "0", "returnedStroops": "1150000000" },
     { "id": "card_D2", "beneficiaryId": "ben_D2", "displayName": "Pedro R.", "uidLast4": "3A54", "deviceHashPrefix": "a71d4c22", "virtual": false, "status": "swept", "expiresAtS": 1796054399, "expired": false, "escrowStroops": "0", "returnedStroops": "540000000" },
@@ -1037,7 +1041,7 @@ No request. Response 200: `Dashboard`. Snapshot after the demo's close (post-swe
 
 (`recentTaps` holds up to 50 rows and `recentDecisions` up to 20; both are truncated here. `cards` is in enrollment order and carries every card, whatever its status.)
 
-`counts` buckets are **disjoint**: `approved` counts only beneficiaries still awaiting enrollment, so the four beneficiary status buckets (`approved` + `uncertain` + `enrolled` + the rejected rows) sum to `beneficiaries` (12 = 3 + 2 + 5 + 2). After the scripted demo `enrolled` is **5** (D1, D2, D3, D5 seeded + D4 enrolled on stage).
+`counts` buckets are **disjoint**: `approved` counts only beneficiaries still awaiting enrollment, so the four beneficiary status buckets (`approved` + `uncertain` + `enrolled` + the rejected rows) sum to `beneficiaries` (12 = 5 + 0 + 5 + 2). After the scripted demo `enrolled` is **5** (D1, D2, D3, D5 seeded + D4 enrolled on stage).
 
 `budget.state` drives the badge on `/`: `none` → **Fund budget** button; `waiting` (a budget `velo_intents` row exists but is not `paid`) → "Waiting for Velo…" + **Open checkout** link to `checkoutUrl`; `verified` → "Velo verified ✓ ₱{verified}" + remaining. `Fund budget` navigates the same tab to `checkoutUrl`; `/?budget=success` → toast "Payment sent — waiting for Velo verification" + refetch; `/?budget=cancel` → toast "Checkout cancelled".
 
