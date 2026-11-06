@@ -5,16 +5,20 @@ import type { Config } from '../config';
 import type { Db } from '../db/index';
 import type { BudgetDeps } from '../services/budget';
 import type { ChainDeps } from '../services/chain';
+import type { FreezeService } from '../services/freeze';
 import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
 import type { TrancheService } from '../services/tranche';
+import { registerAgentRoutes } from './agents';
 import { registerBudgetRoutes } from './budget';
 import { registerEnrollRoutes } from './enroll';
 import { registerHealthRoutes } from './health';
 import { registerProgramRoutes } from './program';
+import { registerSettlementRoutes } from './settlement';
 import { registerStreamRoutes } from './stream';
 import { registerTapRoutes } from './taps';
 import { registerTrancheRoutes } from './tranche';
+import { registerUnfreezeRoutes } from './unfreeze';
 import { registerWebhookRoutes } from './webhooks';
 
 export interface RouteDeps {
@@ -32,6 +36,8 @@ export interface RouteDeps {
   budget: BudgetDeps;
   /** The Tranche Agent; `main()` stops it on close. */
   tranche: TrancheService;
+  /** The Freeze Agent: `POST /api/agents/freeze/burst`, unfreeze, and the tap hand-off; `main()` starts it. */
+  freeze: FreezeService;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
 }
@@ -53,8 +59,12 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     chain: deps.chain,
     bus: deps.bus,
     config: deps.config,
+    onTap: (tap) => deps.freeze.enqueue(tap),
   });
   registerBudgetRoutes(app, deps.budget);
   registerWebhookRoutes(app, deps.budget);
   registerTrancheRoutes(app, { tranche: deps.tranche });
+  registerAgentRoutes(app, { freeze: deps.freeze });
+  registerUnfreezeRoutes(app, { freeze: deps.freeze });
+  registerSettlementRoutes(app, { db: deps.db, chain: deps.chain, bus: deps.bus, config: deps.config });
 }
