@@ -13,7 +13,7 @@ import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
 import type { TrancheService } from '../services/tranche';
 import { registerAgentRoutes } from './agents';
-import { registerAuthRoutes } from './auth';
+import { registerAuthRoutes, registerOfficerGuard } from './auth';
 import { registerBeneficiaryRoutes } from './beneficiaries';
 import { registerBudgetRoutes } from './budget';
 import { registerDashboardRoutes } from './dashboard';
@@ -77,6 +77,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   // bridge the two so a real Telegram send still happens (and `telegramSent` stays truthful).
   const notifier =
     deps.notifier ?? (deps.telegram === undefined ? undefined : telegramEvidenceNotifier(deps.db, deps.telegram));
+  // Every write under /api/* needs the officer's session; registered before the routes so it runs first.
+  registerOfficerGuard(app, { db: deps.db });
   registerHealthRoutes(app, { probes: deps.probes, gasMode: deps.config.GAS_MODE });
   registerAuthRoutes(app, { db: deps.db });
   registerProgramRoutes(app, {

@@ -18,14 +18,14 @@ Owner: **Jim** (prod `.env`, Velo, cut-over) · **Dev2** (VM provisioning, no se
 
 ## 2. Decision
 
-> **One always-free Linux VM runs both apps under systemd. A local Caddy routes `/api/*` straight to Fastify and everything else to Next.js, and adds basic auth. Tailscale Funnel publishes Caddy at a free, stable `https://tapat.<tailnet>.ts.net` URL. No domain is bought, no inbound port is opened, and no TLS is managed by us.**
+> **One always-free Linux VM runs both apps under systemd. A local Caddy routes `/api/*` straight to Fastify and everything else to Next.js. Tailscale Funnel publishes Caddy at a free, stable `https://tapat.<tailnet>.ts.net` URL. No domain is bought, no inbound port is opened, and no TLS is managed by us.**
 
 | Layer | Choice | Fallback |
 |---|---|---|
 | Host | **Oracle Cloud Always Free**, Ampere A1 (Arm), Ubuntu 24.04, 2 OCPU / 12 GB, 50 GB boot volume | **Google Cloud** free `e2-micro` (1 GB RAM + 2 GB swap) in `us-west1`/`us-central1`/`us-east1`; then **Jim's laptop** (§10) |
 | Host (AWS option) | **AWS EC2** in `ap-southeast-1`, Ubuntu 24.04, `t3.small` (else `t3.micro`, whichever is free-tier eligible), 30 GB gp3 — provisioned by `deploy/wizard-aws-vercel.sh` (§6.4); same Funnel/Caddy/systemd stack | as the row above |
 | Public HTTPS | **Tailscale Funnel** (free plan, `*.ts.net` hostname, automatic certificate) | Cloudflare quick tunnel, phone pages only (§10) |
-| Local routing + auth | **Caddy** on `127.0.0.1:8080` | — |
+| Local routing | **Caddy** on `127.0.0.1:8080` | — |
 | Processes | **systemd**: `tapat-api`, `tapat-web`, `caddy`, `tailscaled` | — |
 | Data | SQLite file on the VM boot volume, as today | — |
 
@@ -52,7 +52,7 @@ flowchart LR
     Velo["Velo webhooks"] -->|HTTPS POST| Funnel
 
     subgraph VM["Always-free VM (Ubuntu)"]
-        Funnel["tailscaled<br/>Funnel :443<br/>tapat.&lt;tailnet&gt;.ts.net"] --> Caddy["Caddy 127.0.0.1:8080<br/>basic auth, router"]
+        Funnel["tailscaled<br/>Funnel :443<br/>tapat.&lt;tailnet&gt;.ts.net"] --> Caddy["Caddy 127.0.0.1:8080<br/>router"]
         Caddy -->|"/api/*"| API["tapat-api<br/>Fastify 127.0.0.1:4000"]
         Caddy -->|"everything else"| Web["tapat-web<br/>next start 127.0.0.1:3000"]
         API --> DB[("SQLite<br/>apps/server/data/tapat.db")]
@@ -106,7 +106,7 @@ No changes to the money path or to any request/response shape. Only these files:
 | `apps/web/package.json` scripts | `"dev": "next dev -H 127.0.0.1 -p 3000"`, `"build": "next build"`, `"start": "next start -H 127.0.0.1 -p 3000"` |
 | `apps/server/src/server.ts` | `listen({ port: config.PORT, host: '127.0.0.1' })`. The API never listens on a LAN interface, locally or in prod |
 | `apps/server/src/server.ts` + the `/api/*` route hooks | `Cache-Control: no-store` on every `/api/*` response except `/api/stream`, which keeps `no-cache` ([api-and-data.md §1](api-and-data.md)). Required because the optional Vercel rewrite (§9) honours upstream cache headers; harmless on the Funnel path |
-| `apps/web/middleware.ts` | HTTP basic auth **only** when the optional web env var `WEB_BASIC_AUTH` is set: exempts `/api/webhooks/velo` and `/api/health`, constant-time compare, `401` with `WWW-Authenticate: Basic realm="TAPat"`. Unset (local dev, the VM's web behind Caddy) → no-op. Needed only for §9; Jim reviews changes |
+| `apps/web/middleware.ts` | HTTP basic auth **only** when the optional web env var `WEB_BASIC_AUTH` is set: exempts `/api/webhooks/velo` and `/api/health`, constant-time compare, `401` with `WWW-Authenticate: Basic realm="TAPat"`. Unset (local dev, the VM's web behind Caddy, Vercel) → no-op, which is the current state: writes are guarded by the API's officer session, not the proxy (§5.1, [api-and-data.md §5.2](api-and-data.md)) |
 | `deploy/Caddyfile` | §5.1 |
 | `deploy/tapat-api.service`, `deploy/tapat-web.service` | §5.2 |
 | `deploy/provision.sh` | §6, one-time VM setup |
@@ -126,12 +126,7 @@ No changes to the money path or to any request/response shape. Only these files:
 :8080 {
 	bind 127.0.0.1
 
-	# Velo must reach the webhook and uptime checks the health route without a password.
-	@protected not path /api/webhooks/velo /api/health
-	basic_auth @protected {
-		import /etc/caddy/tapat-users
-	}
-
+	# No proxy password: every write requires the API's officer session (docs/api-and-data.md §5.2).
 	handle /api/* {
 		reverse_proxy 127.0.0.1:4000
 	}
@@ -141,7 +136,7 @@ No changes to the money path or to any request/response shape. Only these files:
 }
 ```
 
-`/etc/caddy/tapat-users` lives only on the VM and is never committed. It holds one line, `<user> <hash>`, where the hash comes from `caddy hash-password`. Basic auth keeps random visitors from pressing **End program** on a public URL. Phone, laptop, and judges log in once per browser. `EventSource` and `fetch` are same-origin, so the browser resends the credentials.
+Caddy adds no password: the site is public. Protection moved into the API — every write endpoint requires an officer session cookie and returns `401`/`403` without one ([api-and-data.md §5.2](api-and-data.md)); reads stay public, and the Velo webhook is HMAC-verified. `WEB_BASIC_AUTH` is consequently left unset on Vercel (§9), and `/etc/caddy/tapat-users`, which `provision.sh` still creates, is unused: no `basic_auth` directive reads it.
 
 ### 5.2 systemd units
 
@@ -211,7 +206,7 @@ The repo URL is passed a second time as the script's argument (`$1`): the script
 2. If RAM < 2 GB (the GCP `e2-micro` case), create `/swapfile` (2 GB) with `fallocate -l 2G /swapfile`, `chmod 600 /swapfile`, `mkswap /swapfile`, `swapon /swapfile`, then append `/swapfile none swap sw 0 0` to `/etc/fstab` so it survives a reboot, and confirm with `swapon --show`. `next build` needs it.
 3. Install Node 22 (≥ 22.23.4, the `@noirx402/agent-sdk` engine floor) from NodeSource, then `corepack enable && npm install -g pnpm@9` (a pinned pnpm on the image, not corepack's on-demand download).
 4. Create the service user with a home, a login shell and its own group, then create the checkout root and clone into it: `useradd --system --create-home -U --shell /bin/bash tapat`, `install -d -o tapat -g tapat -m 755 /opt/tapat`, then `sudo -H -u tapat git clone "$1" /opt/tapat`, where `$1` is the repo URL passed to the script (`sudo bash /tmp/tapat/deploy/provision.sh <repo-url>`). The repo must be public, or add a read-only deploy key: `sudo install -d -o tapat -g tapat -m 700 /home/tapat/.ssh`, then `sudo -H -u tapat ssh-keygen -t ed25519 -N '' -f /home/tapat/.ssh/id_ed25519`, and register `/home/tapat/.ssh/id_ed25519.pub` on the repository. `/opt/tapat` ends up owned by `tapat`.
-5. Install Caddy from its official apt repository. Copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`. Create an empty `/etc/caddy/tapat-users` with mode `640`, group `caddy`.
+5. Install Caddy from its official apt repository. Copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`. Create an empty `/etc/caddy/tapat-users` with mode `640`, group `caddy` — no `basic_auth` directive reads it any more (the site is public), so it is only a leftover file.
 6. Install Tailscale: `curl -fsSL https://tailscale.com/install.sh | sh`.
 7. Copy both units to `/etc/systemd/system/` and run `systemctl daemon-reload`. **Do not start them yet**: there is no `.env`.
 
@@ -220,15 +215,14 @@ Then, once, interactively:
 ```bash
 sudo tailscale up --hostname=tapat          # opens a login URL; approve in the browser
 sudo tailscale funnel --bg 8080             # prints https://tapat.<tailnet>.ts.net; if it says Funnel is not enabled, open the URL it prints and enable Funnel for the tailnet, then re-run
-caddy hash-password                         # prints the hash; write it as the single line below (run as a sudo-er)
-sudo tee /etc/caddy/tapat-users > /dev/null <<< '<user> <hash>'
 sudo systemctl enable caddy
-sudo systemctl restart caddy                # with `admin off`, only a restart re-adapts the users file
+sudo systemctl restart caddy                # with `admin off`, only a restart re-adapts a changed Caddyfile
 ```
 
 `--bg` keeps Funnel running across reboots ([Tailscale funnel CLI](https://tailscale.com/kb/1311/tailscale-funnel)). Dev2 posts the `https://tapat.<tailnet>.ts.net` URL in the team chat.
+There is no Caddy password to set: the site is public and the API's officer session guards writes (§5.1).
 
-✅ DEP1 is done when `curl -s https://tapat.<tailnet>.ts.net/api/health` gets `502` from Caddy (the API isn't running yet) and any other path returns `401`. Once `tapat-api` and `tapat-web` are up (DEP2), `curl -u <user>:<password> https://tapat.<tailnet>.ts.net/` returns the app, not `401`.
+✅ DEP1 is done when `curl -s https://tapat.<tailnet>.ts.net/api/health` gets `502` from Caddy (the API isn't running yet) and any other path returns `502` too. Once `tapat-api` and `tapat-web` are up (DEP2), `curl -s https://tapat.<tailnet>.ts.net/` returns the app, not `401`.
 
 ### 6.3 Secrets and first start (Jim, Nov 6 PM)
 
@@ -301,7 +295,7 @@ sudo systemctl restart tapat-api tapat-web
 | Logs | `sudo journalctl -u tapat-api -f`, `sudo journalctl -u tapat-web -f` |
 | DB backup before the pitch | `sudo -H -u tapat sqlite3 /opt/tapat/apps/server/data/tapat.db ".backup /opt/tapat/apps/server/data/pre-pitch.db"` |
 | Funnel status | `sudo tailscale funnel status` |
-| Change basic-auth credentials | edit `/etc/caddy/tapat-users`, then `sudo systemctl restart caddy` |
+| Caddy config | `/etc/caddy/Caddyfile` is a copy made by `provision.sh`; after pulling, reload Caddy: `sudo systemctl reload caddy` |
 
 - **No redeploys after the Nov 7 09:00 feature freeze**, except a bug fix with a repro ([build-schedule.md](build-schedule.md)). The site must stay live and seeded from submission (Nov 7 11:00) through judging.
 - **The first API restart after this release migrates SQLite automatically:** schema `user_version` 1 → 2 adds the `users` and `sessions` tables; existing rows are untouched. Back up the DB first with the backup row's command above.
@@ -311,7 +305,7 @@ sudo systemctl restart tapat-api tapat-web
 
 | Concern | Control |
 |---|---|
-| Public URL with money buttons | Caddy basic auth on everything except `/api/webhooks/velo` (HMAC-verified) and `/api/health`. Credentials go to the team and, in the submission, to judges |
+| Public URL with money buttons | The API requires an officer session cookie on every write (`401`/`403` without one, [api-and-data.md §5.2](api-and-data.md)); reads are public; the Velo webhook is HMAC-verified. Caddy adds no password, so anyone with the URL can watch the dashboard but cannot press a money button |
 | Secrets | Only in `/opt/tapat/apps/server/.env` (mode 600, owner `tapat`) and Jim's USB backup. Never in the repo, `deploy/`, or `apps/web` — except the basic-auth password in the git-ignored `deploy/.wizard.env` on the laptop that runs the §6.4 wizard (never committed; protected by the clone folder's permissions) |
 | Exposure | API and Next bind `127.0.0.1`. Caddy binds `127.0.0.1`. Only Funnel (outbound) publishes, and only port 8080. Inbound: SSH only |
 | Cross-instance clashes | Prod and dev profiles (§4); one live API per profile |
@@ -332,15 +326,15 @@ sudo systemctl restart tapat-api tapat-web
 
 - **Wiring:** browser → Vercel → Next.js rewrite `/api/:path*` → `API_ORIGIN` (the Vercel project's env value `https://tapat.<tailnet>.ts.net`, read at build time) → Funnel → Caddy `/api/*` → Fastify. One origin for the browser, so no CORS.
 - **SSE survives the proxy.** Vercel holds an external request open while the origin sends a byte at least every 120 s ([Vercel changelog](https://vercel.com/changelog/cdn-origin-timeout-increased-to-two-minutes)); the 15 s `: ping` heartbeat covers the gap ([system-design.md §8](system-design.md)).
-- **Auth:** the same user and password go in the Vercel project's `WEB_BASIC_AUTH` and in Caddy's `/etc/caddy/tapat-users`. The rewrite forwards the browser's `Authorization` header to Caddy [INFERENCE — §9.4 is the proof]. If it does not, use Vercel's documented secret-header transform (`vercel.json` `routes` → `request.headers` sets `x-origin-secret`) and have Caddy accept that header on `/api/*` ([rewrite origin restriction](https://vercel.com/docs/routing/rewrites#restricting-your-origin-to-vercel-traffic)).
-- **Deployment Protection:** turn Vercel Authentication **off** for previews. Teammates cannot log in to a Hobby account, and the middleware is the protection instead.
+- **Auth:** none in the proxy. `WEB_BASIC_AUTH` is left unset on Vercel, `apps/web/middleware.ts` stays a no-op, and Caddy has no `basic_auth`; the officer session cookie is what guards writes, on the Funnel path and through Vercel alike ([api-and-data.md §5.2](api-and-data.md)). Reads are public.
+- **Deployment Protection:** turn Vercel Authentication **off** for previews. Teammates cannot log in to a Hobby account; the API's officer session is the protection instead, since the middleware is inert without `WEB_BASIC_AUTH`.
 - **`PUBLIC_BASE_URL` does not change.** It stays `https://tapat.<tailnet>.ts.net` even with this option on: that URL is what Velo's webhook and the checkout `successUrl`/`cancelUrl` use. Only the browser's entry URL changes, and the Vercel rewrite reaches the same API. The exemption for `/api/webhooks/velo` in `apps/web/middleware.ts` stays (harmless: no delivery ever lands on Vercel).
 
 ### 9.2 Setup when chosen (Jim, ~15 min, not on the critical path)
 
 1. Import the GitHub repo into Vercel (Hobby): **Root Directory** `apps/web`, framework Next.js. pnpm comes from the lockfile and the workspace package `@tapat/shared` is included. The repo must be importable by the Hobby account — public, or owned by Jim [INFERENCE].
 2. Production branch `main`; previews per PR.
-3. Environment variables for **Production and Preview**: `API_ORIGIN`, `WEB_BASIC_AUTH`. Before the VM exists, `API_ORIGIN=http://127.0.0.1:4000` is fine for mock-only previews.
+3. Environment variables for **Production and Preview**: `API_ORIGIN` only; leave `WEB_BASIC_AUTH` unset. Before the VM exists, `API_ORIGIN=http://127.0.0.1:4000` is fine for mock-only previews.
 4. Nothing to change on the VM: leave `PUBLIC_BASE_URL=https://tapat.<tailnet>.ts.net` in `/opt/tapat/apps/server/.env`. It is what Velo's webhook and the checkout redirect use; only the browser's entry URL changes, and the Vercel rewrite reaches the same API.
 
 `deploy/wizard-aws-vercel.sh` stages 11–13 perform §9.2 and the automatable part of §9.4 (§6.4).
@@ -351,7 +345,7 @@ Everyone opens `https://tapat.<tailnet>.ts.net`; the VM's `tapat-web` never stop
 
 ### 9.4 Acceptance (only if the option is on)
 
-- [ ] `/` on `https://<project>.vercel.app` asks for basic auth; `/api/health` and `/api/webhooks/velo` do not.
+- [ ] `/` on `https://<project>.vercel.app` loads without a password (public), and a write such as `POST /api/program/end` returns `401` until an officer logs in.
 - [ ] `/api/dashboard` through Vercel is never `x-vercel-cache: HIT`.
 - [ ] `/api/stream` through Vercel stays connected > 5 min with live events.
 - [ ] A Velo test delivery to `https://tapat.<tailnet>.ts.net/api/webhooks/velo` still returns `200`.
@@ -370,7 +364,7 @@ Everyone opens `https://tapat.<tailnet>.ts.net`; the VM's `tapat-web` never stop
 
 ## 11. Judging period
 
-- The submission (Nov 7 11:00) lists the Funnel URL plus the basic-auth user and password, and says "testnet, demo rate ₱10/XLM".
+- The submission (Nov 7 11:00) lists the Funnel URL, says the site is public and that any write needs the officer login, and announces "testnet, demo rate ₱10/XLM".
 - The site stays live and seeded **from submission through judging**: no redeploys except a bug fix with a repro.
 - Before submitting (Nov 7 11:00), leave the instance freshly reset and seeded with the budget verified, so a judge can run the beats from `/demo` using **Simulate tap**.
 - Keep `tapat-api` and `tapat-web` running. Check `/api/health` daily until results are announced.
@@ -397,7 +391,7 @@ Everyone opens `https://tapat.<tailnet>.ts.net`; the VM's `tapat-web` never stop
 
 Baseline only. If the optional Vercel frontend (§9) is on, add its own checklist (§9.4).
 
-- [ ] `https://tapat.<tailnet>.ts.net/` asks for basic auth; `/api/health` and `/api/webhooks/velo` do not. `curl -u <user>:<password> https://tapat.<tailnet>.ts.net/` returns the app, not `401`.
+- [ ] `https://tapat.<tailnet>.ts.net/` loads without a password, and a write (e.g. `curl -s -o /dev/null -w '%{http_code}' -X POST https://tapat.<tailnet>.ts.net/api/program/end` without a session cookie) returns `401`.
 - [ ] `/api/health` → `ok:true`, `gasMode:"velo"`.
 - [ ] `ls -l /opt/tapat/apps/server/data/tapat.db` exists and is owned by `tapat`.
 - [ ] Velo test delivery → `200`; a real budget checkout flips the badge to **Velo verified ✓** within 3 s.

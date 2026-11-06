@@ -609,7 +609,9 @@ export interface RequestEvidenceResponse {
 export interface BurstResponse { accepted: boolean; edges: number; tickMs: number }
 export interface TrancheStartResponse { started: boolean; points: number; tickMs: number }
 
-// Accounts (§5.2 #22–#25). Officer gating is in the web UI only; the API endpoints stay open behind Caddy basic auth.
+// Accounts (§5.2 #22–#25). Every other write under /api/*, and GET/HEAD on /api/beneficiaries*, requires the officer's
+// session (401 UNAUTHORIZED without one, 403 FORBIDDEN for a viewer); other reads stay public, and /api/auth/* and
+// /api/webhooks/velo are exempt.
 export type UserRole = 'officer' | 'viewer';
 export interface AuthUser {
   id: string;                   // 'usr_…'
@@ -677,7 +679,7 @@ Base path `/api`. Server: Fastify 5 on `PORT` (4000), listening on `127.0.0.1` o
 | 5 | POST | `/api/program/end` | revoke + sweep every card | PRD F6 |
 | 6 | POST | `/api/intake/upload` | masterlist in, decisions out | PRD F1 |
 | 7 | GET | `/api/intake/calibration` | λ_lo, λ_hi, empirical rates | algorithms §CRC |
-| 8 | GET | `/api/beneficiaries` | list with scores/status | PRD F1 |
+| 8 | GET | `/api/beneficiaries` | list with scores/status (**officer-only**) | PRD F1 |
 | 9 | POST | `/api/beneficiaries/:id/request-evidence` | Telegram evidence request / appeal | PRD F1 |
 | 10 | POST | `/api/enroll` | card + agent + on-chain policy | PRD F2 |
 | 11 | POST | `/api/agents/tranche/start` | play the simulated price feed | PRD F3 |
@@ -825,6 +827,8 @@ Errors: `500 INTERNAL`.
 
 #### 8. `GET /api/beneficiaries`
 
+**Officer-only.** Without a valid session it is `401 UNAUTHORIZED`; with a `viewer` session it is `403 FORBIDDEN`. The response carries full names, birthdates and plates, and `linkCode`/`telegramDeepLink` would let any Telegram user bind to a driver, so the list is not public.
+
 Query: `?status=<BeneficiaryStatus>` (optional, repeatable: `?status=uncertain&status=evidence_requested`), `?limit=` (default 200, max 500). Response 200: `Beneficiary[]`, newest first.
 
 ```json
@@ -834,7 +838,7 @@ Query: `?status=<BeneficiaryStatus>` (optional, repeatable: `?status=uncertain&s
 ]
 ```
 
-Errors: `400 VALIDATION_ERROR`, `500 INTERNAL`.
+Errors: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED` (no session), `403 FORBIDDEN` (viewer), `500 INTERNAL`.
 
 #### 9. `POST /api/beneficiaries/:id/request-evidence`
 
@@ -1168,7 +1172,7 @@ No request. Response 200: `{ "user": AuthUser | null }` — `null` when there is
 
 The cookie is parsed by hand from the `cookie` header (no `@fastify/cookie`); expired sessions are treated as absent. Errors: none.
 
-**Officer gating is UI-only.** None of the other endpoints check the session: #1–#21 stay open exactly as before, protected in production by Caddy basic auth (and by the optional `WEB_BASIC_AUTH` on the Vercel front end). The web app hides or locks every state-changing control unless the logged-in user's `role` is `officer` (`OfficerOnly` in `apps/web/app/_components/Auth.tsx`; the fallback is `OfficerNotice`: "Officer login required" / "Log in with the officer account to use this action." with a **Log in** link to `/login`). `seed-demo.ts` creates the single officer; signup always creates a viewer.
+**The API enforces the officer role.** One `onRequest` hook (`registerOfficerGuard` in `apps/server/src/routes/auth.ts`) guards every non-`GET`/`HEAD`/`OPTIONS` request under `/api/*`, plus `GET`/`HEAD` on the officer-only read prefixes in `OFFICER_READ_PREFIXES` (`/api/beneficiaries*`, which carries PII and Telegram link codes): without a valid session it is `401 UNAUTHORIZED` (`"Log in as the officer to do this."`), and with a `viewer` session it is `403 FORBIDDEN` (`"Only the officer can do this."`). Other `GET` endpoints stay public, `OPTIONS` (CORS preflight) never needs a session, and `/api/auth/*` (their own 401 on a bad login) plus `/api/webhooks/velo` (HMAC-verified) are exempt. The web app still hides or locks every state-changing control unless the logged-in user's `role` is `officer` (`OfficerOnly` in `apps/web/app/_components/Auth.tsx`; the fallback is `OfficerNotice`: "Officer login required" / "Log in with the officer account to use this action." with a **Log in** link to `/login`) — that is now convenience on top of the server check, not the check itself. `seed-demo.ts` creates the single officer; signup always creates a viewer.
 
 ### 5.3 Error codes (closed set)
 
@@ -1176,7 +1180,8 @@ The cookie is parsed by hand from the `cookie` header (no `@fastify/cookie`); ex
 |---|---|---|---|
 | `VALIDATION_ERROR` | 400 | any | zod parse or business validation failed; `message` names the field |
 | `NOT_FOUND` | 404 | any `:id` route | id unknown, or no program exists |
-| `UNAUTHORIZED` | 401 | `POST /api/auth/login` | wrong email or password |
+| `UNAUTHORIZED` | 401 | any write under `/api/*`, `GET`/`HEAD` on `/api/beneficiaries*`, `POST /api/auth/login` | no session, expired session, or wrong email and password |
+| `FORBIDDEN` | 403 | any write under `/api/*`, `GET`/`HEAD` on `/api/beneficiaries*` | the session belongs to a `viewer`, not the officer |
 | `CARD_NOT_ENROLLED` | 404 | `POST /api/taps` | no card for that device hash in this program |
 | `WEBHOOK_SIGNATURE_INVALID` | 400 | `POST /api/webhooks/velo` | HMAC verify failed |
 | `ACCOUNT_EXISTS` | 409 | `POST /api/auth/signup` | an account with that email is already registered |
@@ -1479,7 +1484,7 @@ Names the plan did not specify, chosen minimally here. The integrator must recon
 
 1. `Stroops` JSON encoding = decimal string; `nonce`/`u64` = decimal string.
 2. `packages/shared/money.ts` exports: `STROOPS_PER_XLM`, `DEFAULT_PHP_PER_XLM`, `phpToStroops`, `stroopsToPhp`, `formatPhp`, `stroopsToXlmString`.
-3. Extra error codes: `NOT_FOUND`, `INVALID_STATE`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `ACCOUNT_EXISTS`, `CHAIN_ERROR`, `INTERNAL`, `WEBHOOK_SIGNATURE_INVALID`, `PHOTO_MISMATCH`.
+3. Extra error codes: `NOT_FOUND`, `INVALID_STATE`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `ACCOUNT_EXISTS`, `CHAIN_ERROR`, `INTERNAL`, `WEBHOOK_SIGNATURE_INVALID`, `PHOTO_MISMATCH`.
 4. `agent_decisions.decision` vocabulary beyond `BUDGET_EXHAUSTED` and `HELD`: `APPROVED`, `REJECTED`, `UNCERTAIN`, `EVIDENCE_REQUESTED`, `EVIDENCE_VERIFIED`, `EVIDENCE_UNMATCHED`, `FUNDED`, `BASELINE_SET`, `FROZEN`, `UNFROZEN`, `CLAIMED`, `NOTHING_PENDING`, `SWEPT`, `SKIPPED`, `PROGRAM_ENDED`.
 5. `chain_txs.kind` vocabulary: `register`, `register_agent`, `fund`, `authorize`, `claim`, `revoke_agent`, `sweep`, `revoke_device`.
 6. `stations.id` values `A` and `B`.

@@ -178,11 +178,11 @@ Docs:
 
 ## For judges
 
-Open the demo URL — the submission form has the URL and the basic-auth login the site asks for first.
+Open the demo URL — the submission form has it. The site is public: browse freely, no password or login prompt to look around.
 
-Then press **Log in** in the top-right and use the **officer account**; its email and password are in the submission form. The officer unlocks every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program. **Create an account** makes a **viewer**: read-only dashboards, and every action shows "Officer login required".
+To act, press **Log in** in the top-right and use the **officer account**; its email and password are in the submission form. The officer unlocks every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program. **Create an account** makes a **viewer**: read-only dashboards, and every action shows "Officer login required".
 
-Honesty note: the officer role is a **UI gate for the demo** — the API endpoints themselves are protected by the site's basic auth, not by the role.
+Honesty note: this is enforced by the API, not just the UI. Every write endpoint requires the officer's session — `401 UNAUTHORIZED` without one, `403 FORBIDDEN` for a viewer — while reads stay public; only `/api/auth/*` and the HMAC-signed Velo webhook bypass the check. UI-only gating would be a demo; the server rule is the real boundary.
 
 The officer account is created on a fresh demo by the seed: `seed-demo.ts --officer-email=… --officer-password=…` prints `Officer login: <email> / <password>`. Without `--officer-password` it generates one and prints it once; accounts survive `reset-demo`. On an existing deployment that is already seeded, `create-officer.ts --officer-email=… [--officer-password=…]` creates or promotes the officer without reseeding or touching the chain, and prints the same `Officer login:` line.
 

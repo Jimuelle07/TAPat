@@ -6,6 +6,7 @@ import { ZodError } from 'zod';
 export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
   | 'ACCOUNT_EXISTS'
   | 'NOT_FOUND'
   | 'CARD_NOT_ENROLLED'

@@ -11,7 +11,10 @@
  * `POST`/`GET` on `http://127.0.0.1:${PORT}`. The last steps assert the totals, the chain coverage and the simulated
  * labels straight from the SQLite tables. Every step prints PASS/FAIL and the first failure exits non-zero.
  *
- * Flags: `--base-url=<origin>`, `--d3-expiry-offset=<s>`, `--pre-tranche-wait=<s>`, `--budget-timeout-s=<s>`.
+ * Flags: `--base-url=<origin>`, `--d3-expiry-offset=<s>`, `--pre-tranche-wait=<s>`, `--budget-timeout-s=<s>`,
+ * `--officer-email=<email>` (default `officer@tapat.demo`), `--officer-password=<password>`. Every write endpoint now
+ * needs the officer's session, so the seed step ensures the officer and logs in before the first POST; on a database
+ * whose officer already has a password, pass `--officer-password` (the one `seed-demo.ts` printed).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -36,6 +39,7 @@ import {
 import { loadConfig } from '../src/config';
 import { openDb, type Db } from '../src/db/index';
 import { createChainRuntime } from '../src/runtime';
+import { ensureOfficer } from '../src/services/auth';
 import { parseSeedArgs, resetDemo, seedDemo } from '../src/services/demo';
 import { createSseBus } from '../src/services/sse';
 import {
@@ -76,12 +80,21 @@ interface Api {
   get<T>(path: string): Promise<T>;
   postJson<T>(path: string, body?: unknown): Promise<T>;
   postForm<T>(path: string, form: FormData): Promise<T>;
+  /** `POST /api/auth/login`; the returned `set-cookie` rides every later request. */
+  login(email: string, password: string): Promise<void>;
 }
 
 /** A thin JSON client: a non-2xx response throws with the server's message, so the step fails with it. */
 function createApi(baseUrl: string): Api {
+  let cookie: string | undefined;
   async function request<T>(method: string, path: string, init?: { headers?: Record<string, string>; body?: RequestInit['body'] }): Promise<T> {
-    const response = await fetch(new URL(path, baseUrl), { method, ...init });
+    const response = await fetch(new URL(path, baseUrl), {
+      method,
+      ...init,
+      headers: { ...init?.headers, ...(cookie === undefined ? {} : { cookie }) },
+    });
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie !== null) cookie = setCookie.split(';')[0];
     const text = await response.text();
     if (!response.ok) throw new Error(`${method} ${path} -> ${response.status} ${text.slice(0, 400)}`);
     return (text === '' ? null : JSON.parse(text)) as T;
@@ -94,6 +107,12 @@ function createApi(baseUrl: string): Api {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       }),
     postForm: <T>(path: string, form: FormData) => request<T>('POST', path, { body: form }),
+    login: async (email, password) => {
+      await request<unknown>('POST', '/api/auth/login', {
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+    },
   };
 }
 
@@ -157,7 +176,11 @@ const sleep = (ms: number): Promise<void> =>
 
 const config = loadConfig();
 const args = parseE2eArgs(process.argv.slice(2), `http://127.0.0.1:${config.PORT}`);
-const seedArgs = parseSeedArgs([`--d3-expiry-offset=${args.d3ExpiryOffsetS}`]);
+const seedArgs = parseSeedArgs([
+  `--d3-expiry-offset=${args.d3ExpiryOffsetS}`,
+  ...(args.officerEmail === undefined ? [] : [`--officer-email=${args.officerEmail}`]),
+  ...(args.officerPassword === undefined ? [] : [`--officer-password=${args.officerPassword}`]),
+]);
 const api = createApi(args.baseUrl);
 const db = openDb(config.DATABASE_PATH);
 const { chain } = createChainRuntime(config, db, log);
@@ -221,6 +244,18 @@ const steps: E2eStep[] = [
         readFileSync(resolve(REPO_ROOT, 'fixtures/masterlist/masterlist.csv'), 'utf8'),
       );
       run.seededAt = Date.now();
+      const officer = await ensureOfficer(db, {
+        email: seedArgs.officerEmail,
+        ...(seedArgs.officerPassword === undefined ? {} : { password: seedArgs.officerPassword }),
+      });
+      const password = officer.password ?? seedArgs.officerPassword;
+      if (password === undefined) {
+        throw new Error(
+          `${officer.user.email} already has a password this run does not know; pass --officer-password=<password>`,
+        );
+      }
+      await api.login(officer.user.email, password);
+      console.log(`   logged in as ${officer.user.email}`);
       for (const card of seed.enrolled) {
         console.log(`   ${card.tag}  ${card.cardId}  …${card.uidLast4}  policy expires ${card.expiresAtS}`);
       }
