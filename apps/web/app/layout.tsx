@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { Azeret_Mono, Outfit } from "next/font/google";
 import { TabBar } from "./_components/TabBar";
+import { PhoneFrame } from "./_components/PhoneFrame";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -30,13 +31,15 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en" className={`${outfit.variable} ${azeret.variable} h-full antialiased`}>
       <body className="min-h-full">
-        {/* The design is a 390px phone screen, so wider windows get the same column, centred. */}
-        <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-surface pb-[calc(56px+env(safe-area-inset-bottom))]">
-          {children}
-          <Suspense fallback={null}>
-            <TabBar />
-          </Suspense>
-        </div>
+        <PhoneFrame>
+          {/* The design is a 390px phone screen; on desktop it renders inside the phone mockup. */}
+          <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-surface pb-[calc(56px+env(safe-area-inset-bottom))] md:min-h-full">
+            {children}
+            <Suspense fallback={null}>
+              <TabBar />
+            </Suspense>
+          </div>
+        </PhoneFrame>
       </body>
     </html>
   );

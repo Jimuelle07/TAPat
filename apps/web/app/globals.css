@@ -101,3 +101,8 @@ dialog::backdrop {
     opacity: 0.55;
   }
 }
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
