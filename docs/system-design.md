@@ -118,7 +118,7 @@ All agents run **inside the API process**. There is no queue, no worker, no cron
 | Price stream (Tranche Agent) | `PRICE_TICK_MS=700` | Emits one point of `fixtures/prices/doe-diesel-sim.json`, feeds BOCPD, broadcasts SSE `price` |
 | Freeze tick (Freeze Agent) | `FREEZE_TICK_MS=1000` | Drains the tap queue, scores each tap with MIDAS-F, evaluates freeze rules, broadcasts SSE `freeze` |
 | Budget poller | 3000 ms | `paymentIntents.retrieve` for any unpaid `velo_intents` row younger than 30 min |
-| Gas reconciler | 5000 ms, up to 120 s per tx | `gas.getStatus` for `chain_txs.status='submission_unknown'` |
+| Gas reconciler | 5000 ms, rows younger than 360 s | `chain_txs.status='submission_unknown'`: `gas.getStatus` by Velo identity when there is one, then the chain (`getTransaction` by inner hash) for every row, direct ones included |
 | Telegram poller | long poll | `getUpdates`; survives API restarts by persisting `update_id` offset |
 | SSE heartbeat | 15000 ms | Comment frame so proxies keep the stream open |
 
@@ -495,7 +495,7 @@ The docs and the judge Q&A say this plainly. Do not imply the Freeze Agent can r
 ```
 packages/agent/                    @tapat/agent — pure: no env, no SQLite, no HTTP
   src/chain/
-    noir.ts      createNoirClient(), signNoirCall(), submitDirect()
+    noir.ts      createNoirClient(), signNoirCall(), submitDirect(), getTransactionOutcome()
     gas.ts       submitSponsored(): Velo sponsor → one submit → status recovery
     keys.ts      AES-256-GCM secret storage, agent keypairs, friendbot
   src/algorithms/ names, matcher, crc, bocpd, cms, midas (planned, NM/MT/BOC/MIDAS)
@@ -511,6 +511,8 @@ The public API (`packages/agent/src/index.ts`):
 createNoirClient(cfg: { rpcUrl: string; networkPassphrase: string; contracts: { deviceRegistry: string; agentRegistry: string; paymentEscrow: string } }): NoirAgentClient
 signNoirCall(noir: NoirAgentClient, signer: Keypair, op: NoirOperation, networkPassphrase: string): Promise<string>   // signed XDR
 submitDirect(noir: NoirAgentClient, signedXdr: string, op: NoirOperation): Promise<string>                           // tx hash
+type OnChainOutcome = 'succeeded' | 'failed' | 'not_found'
+getTransactionOutcome(noir: NoirAgentClient, hash: string): Promise<OnChainOutcome>                                  // read; no signer
 submitSponsored(gas: Pick<GasApi, 'sponsor' | 'submit' | 'getStatus' | 'waitForResult'>, signedXdr: string, opts: SubmitSponsoredOptions): Promise<GasSubmitResult>   // §4.5
 class GasSponsorError extends Error { cause: unknown }             // sponsor() never succeeded; nothing was handed off
 class GasHandoffError extends Error { identity: GasExecutionIdentity; cause: unknown }   // submit attempted, status unreadable
@@ -544,6 +546,10 @@ export async function signNoirCall(
 export async function submitDirect(
   noir: NoirAgentClient, signedXdr: string, op: NoirOperation,
 ): Promise<string>;   // tx hash
+export type OnChainOutcome = 'succeeded' | 'failed' | 'not_found';
+export async function getTransactionOutcome(
+  noir: NoirAgentClient, hash: string,
+): Promise<OnChainOutcome>;   // read, no signer
 ```
 
 **Contract check.** `createNoirClient` compares the SDK's built-in `TESTNET.contracts` (`device_registry`, `agent_registry`, `payment_escrow`) and `TESTNET.networkPassphrase` against the `cfg` passed in, and throws `Error('Noir SDK <name> differs from the configured contract ID')` for a contract mismatch or `Error('Noir SDK network passphrase differs from the configured passphrase')`; otherwise it returns `new NoirAgentClient({ network: 'testnet', rpcUrl })`. `apps/server` calls it once at boot with the `NOIR_*_ID` / `STELLAR_NETWORK_PASSPHRASE` values and **refuses to start** when it throws. The handbook only counts calls to the deployed contract IDs, so a client pointing at other IDs must never start.
@@ -551,6 +557,8 @@ export async function submitDirect(
 **Signing.** `signNoirCall` = `noir.prepare(signer.publicKey(), op)` → `keypairSigner(signer.secret()).signTransaction(xdr, { networkPassphrase })` → the signed XDR string. The output is one `invokeHostFunction` op with source = signer and exactly one signature.
 
 **Errors.** Every contract rejection arrives as the SDK's `NoirContractError { contract, code, errorName, method }` — `contract` is the contract that was invoked, and `errorName` is looked up in **that** contract's error table (e.g. `AgentNotAuthorized`, `InsufficientBalance`). Its `message` is synthesized as `<contract>.<method> failed: <Name> (#<code>)`; the raw RPC diagnostic is not retained. `chain_txs.error` therefore stores that synthesized message plus the code and method. That is the whole of the error parsing; there is no local regex over diagnostic events.
+
+**Reading an outcome.** `getTransactionOutcome(noir, hash)` calls `noir.server.getTransaction(hash)` and folds the RPC status into `'succeeded'` (`SUCCESS`), `'failed'` (`FAILED`) or `'not_found'` (anything else — not indexed yet, or an unknown transaction). It is a read, so it needs no signer, and it throws whatever `getTransaction` throws so the caller can distinguish "the chain says no" from "the read failed". A fee-bump transaction is indexed under **both** its outer and its inner hash (verified live on soroban-testnet, 2026-11-06), so the locally computed inner hash is enough to confirm a sponsored hand-off that Velo has not reported yet.
 
 **The write pipeline lives in `apps/server`** (`src/services/`), because it writes `chain_txs`:
 
@@ -576,11 +584,12 @@ There is **one** pipeline function, not one per kind:
 
 ```ts
 export async function runChainTx(deps: ChainDeps, signer: Keypair, op: NoirOperation): Promise<ChainTxResult>;
-export async function reconcileOnce(deps: Pick<ChainDeps, 'db' | 'gas' | 'log' | 'now'>): Promise<number>;
-export function startReconciler(deps: Pick<ChainDeps, 'db' | 'gas' | 'log' | 'now'>, intervalMs?: number): () => void;
+export async function reconcileOnce(deps: Pick<ChainDeps, 'db' | 'noir' | 'gas' | 'log' | 'now'>): Promise<number>;
+export function startReconciler(deps: Pick<ChainDeps, 'db' | 'noir' | 'gas' | 'log' | 'now'>, intervalMs?: number): () => void;
+export function recoverInterruptedTxs(deps: Pick<ChainDeps, 'db' | 'log' | 'now'>): { failed: number; unknown: number };
 ```
 
-`ChainDeps = { db, noir, gas, config, log, gasOptions?, now? }`, with `gas: null` under `GAS_MODE=direct`; `log` is `{ warn(obj, msg), error(obj, msg) }`, which `app.log` satisfies. `runChainTx` looks `op` up in a `const` op table keyed by `NoirOperation['kind']`, so a new SDK operation is a compile error until it is mapped:
+`ChainDeps = { db, noir, gas, config, log, gasOptions?, confirm?, now? }`, with `gas: null` under `GAS_MODE=direct`; `log` is `{ warn(obj, msg), error(obj, msg) }`, which `app.log` satisfies; `confirm` overrides the chain-confirmation poll for tests. `runChainTx` looks `op` up in a `const` op table keyed by `NoirOperation['kind']`, so a new SDK operation is a compile error until it is mapped:
 
 | `op.kind` | `kind` | contract config | `method` |
 |---|---|---|---|
@@ -595,29 +604,38 @@ export function startReconciler(deps: Pick<ChainDeps, 'db' | 'gas' | 'log' | 'no
 
 `defundEscrow` has no row: `runChainTx` throws `Error('defundEscrow is not used by TAPat')` before any insert.
 
-`runChainTx` returns `ChainTxResult` for every persisted outcome, including `submission_unknown`, and throws only for programmer faults and for a `prepare()` rejection:
+`runChainTx` returns `ChainTxResult` for every outcome it can classify, including `submission_unknown`. It throws only for a `prepare()` rejection (after marking the row `failed`), a programmer fault, or a persistence fault:
 
 * `NoirContractError` from `prepare()` (inside `signNoirCall`): no transaction was submitted; the row is `failed` with `error_code='CONTRACT_<errorName>'` and the error is rethrown.
 * Any other `prepare()` throw, or a throw from the post-sign `TransactionBuilder.fromXDR(signedXdr, …).hash()`: row `failed`, `error_code='PREPARE_FAILED'`, rethrown — nothing was handed off.
 * A `sponsor()` failure (`GasSponsorError`) is not a throw out of the pipeline: it is persisted as `failed` (or retried on the direct path) per step 4.
 * A `GasHandoffError` is persisted as `submission_unknown` per step 4, never rethrown.
-* Any other throw out of `submitSponsored`: a programmer fault — row `failed`, `error_code='INTERNAL'`, rethrown.
-* A persistence throw on the success path is not classified: `mapGasResult(result)` is written **outside** that try/catch, so a SQLite fault propagates and leaves the row as last persisted instead of relabelling a chain success as `failed`/`INTERNAL`.
+* Any other throw out of `submitSponsored`: a programmer fault — row `failed`, `error_code='INTERNAL'`, rethrown. This catch only wraps the sponsor/hand-off call, so it cannot fire after a confirmed send.
+* A persistence fault after a confirmed send — e.g. the direct success write, or the sponsored `mapGasResult(result)` write, both outside the classification try/catch — propagates with the effect already applied and the row left `pending`; nothing is relabelled `failed`. **Callers must treat any throw other than a `prepare()` rejection (`NoirContractError` / `PREPARE_FAILED`) as non-retryable.** Boot recovery turns such a `pending` row into `HANDOFF_INTERRUPTED` (§4.8).
+* If the final read still sees `pending`, that is a programmer fault and `runChainTx` throws rather than return an unsettled result.
 
 Steps:
 
 1. `id = randomUUID()`; insert `chain_txs` (`kind`, `contract_id`, `method`, `source_public`, `status='pending'`, `gas_mode` per `GAS_MODE`, `created_at`, `updated_at`).
 2. `const signedXdr = await signNoirCall(noir, signer, op, config.STELLAR_NETWORK_PASSPHRASE)` — the SDK simulates, attaches the footprint and sets the resource fee; the acting account signs. On throw the two rules above decide the row, then the error is rethrown.
 3. `const innerHash = TransactionBuilder.fromXDR(signedXdr, networkPassphrase).hash().toString('hex')` — written to the row before any hand-off; it is the hash the Gas Station reports as `transactionHash`. A throw here is a `PREPARE_FAILED` row, rethrown.
-4. `GAS_MODE='direct'` (or `gas === null`) → step 5. Otherwise `submitSponsored(gas, signedXdr, { idempotencyKey: id, ...gasOptions, onRetry, onUncertainHandoff })` from `@tapat/agent`, with both callbacks logging through `log.warn`:
+4. `GAS_MODE='direct'` (or `gas === null`) → step 5. Otherwise `submitSponsored(gas, signedXdr, { idempotencyKey: id, ...gasOptions, onReserved, onRetry, onUncertainHandoff })` from `@tapat/agent`:
+   * `onReserved(identity)` persists `velo_request_id` and `inner_hash` while the row is still `pending`, before `submit` — so a crash after the hand-off is reconciled by identity, never resubmitted. `onRetry` and `onUncertainHandoff` log through `log.warn`.
    * returns a result → step 6.
    * `GasSponsorError` — `sponsor()` never succeeded, nothing was handed off. A `VeloValidationError` cause is logged with `log.error` first. `GAS_FALLBACK_DIRECT=true` → `log.warn` and step 5 with the **same** `signedXdr`; otherwise row `failed`, `gas_mode='velo'`, `error_code` = `GAS_UNAVAILABLE` for a `VeloProviderError` cause or a non-`VeloError` cause, `VELO_AUTH` for `VeloAuthError`, else the cause's class name (e.g. `VeloValidationError`, `VeloRateLimitError`), with the cause message as `error`.
-   * `GasHandoffError` — `submit()` was attempted and the status could not be read back: row `submission_unknown`, `velo_request_id = identity.requestId`, `inner_hash = identity.transactionHash`, `error_code='GAS_HANDOFF_UNKNOWN'`. **Never** falls back, never resubmits; the reconciler owns it.
-5. Direct path: `await submitDirect(noir, signedXdr, op)` → row `succeeded`, `gas_mode='direct'`, `inner_hash=<hash>`, `outer_hash=null`. A throw is classified by the SDK's message (§4.5 "Direct path"): `CONTRACT_<errorName>` for `NoirContractError`, `DIRECT_FAILED` when the network definitively refused, and `DIRECT_UNKNOWN` (status `submission_unknown`, keeping `innerHash`) for anything unconfirmed or transport-level.
-6. `mapGasResult(result)`: `succeeded` → row `succeeded` with `inner_hash`, `outer_hash` (nullable) and `velo_request_id`; `failed` → `failed`, `error_code='GAS_FAILED'`; `cancelled` → `failed`, `error_code='GAS_CANCELLED'` (both carry `Gas Station status <status> (request <requestId>)` as `error`); `claimed` / `submitted` / `submission_unknown` → `submission_unknown` with `velo_request_id`. The reconciler reuses the same function.
-7. Every write sets `updated_at = now()`; the returned `ChainTxResult` is built from the final row. Emitting the SSE `chain_tx` event is the SSE task's job — it is not part of this pipeline.
+   * `GasHandoffError` — `submit()` was attempted and the status could not be read back: row `submission_unknown`, `velo_request_id = identity.requestId`, `inner_hash = identity.transactionHash`, `error_code='GAS_HANDOFF_UNKNOWN'`. **Never** falls back, never resubmits; step 7 and the reconciler own it.
+5. Direct path: `{ status: 'pending', gas_mode: 'direct' }` is persisted (keeping `innerHash`) **before** `await submitDirect(noir, signedXdr, op)`, so a crash from that point on is recognisable at boot as a hand-off (§4.8). A throw is classified first, by the SDK's message (§4.5 "Direct path"): `DIRECT_FAILED` when the network definitively refused, and `DIRECT_UNKNOWN` (status `submission_unknown`, keeping `innerHash`) for anything unconfirmed or transport-level. Only after that classification does success persist the row: `succeeded`, `gas_mode='direct'`, `inner_hash=<hash>`, `outer_hash=null`.
+6. `mapGasResult(result)`: `succeeded` → row `succeeded` with `inner_hash`, `outer_hash` (nullable) and `velo_request_id`; `failed` → `submission_unknown`, `error_code='GAS_FAILED'`; `cancelled` → `submission_unknown`, `error_code='GAS_CANCELLED'` (both carry `Gas Station status <status> (request <requestId>)` as `error`, a hint only); `claimed` / `submitted` / `submission_unknown` → `submission_unknown` with `velo_request_id`. The reconciler does not reuse it: it applies its own Velo-then-chain rule (§4.5).
+   * A Velo `failed`/`cancelled` is **not** accepted as proof the network did not apply the transaction: the Gas Station stopping proves nothing, `prepare()` gives the transaction 300 s of validity, and `failed` is the callers' retry signal (AGENTS.md money §4). The row therefore stays `submission_unknown`, keeping the Velo identity, the hashes and the `GAS_FAILED`/`GAS_CANCELLED` code as the hint; step 7's chain read is the first decision and the reconciler is the second. A `not_found` or failed read writes nothing, so the hint remains and the row freezes `submission_unknown` after the window.
+7. **Chain confirmation.** A sponsored row still `submission_unknown` after step 6 — a non-terminal Velo status, or the `GAS_FAILED`/`GAS_CANCELLED` hint — is confirmed on chain: `getTransactionOutcome(noir, inner_hash)` every 2 s for up to 30 s (`ChainDeps.confirm` overrides this in tests), because Velo's status lags the chain by minutes. `succeeded` → row `succeeded` (`error_code`/`error` cleared, Velo ids and hashes kept); `failed` → row `failed`, `error_code='CHAIN_FAILED'`; still `not_found` when the window ends, or a read error, → the row stays `submission_unknown` (with its hint) for the reconciler. These writes are guarded (`WHERE id = ? AND status = 'submission_unknown'`), and the in-memory row is updated only when the write landed, so a row another writer settled mid-poll keeps that writer's verdict and is returned as such. A direct row is not confirmed here: `DIRECT_UNKNOWN` already waited out the SDK's own confirmation window, so step 5 hands it to the reconciler unchanged.
+8. Every write sets `updated_at = now()`; the returned `ChainTxResult` is built from the final row. Emitting the SSE `chain_tx` event is the SSE task's job — it is not part of this pipeline.
 
-**Boot wiring.** `main()` in `apps/server/src/server.ts` calls `createNoirClient` with the three `NOIR_*_ID`s and `STELLAR_NETWORK_PASSPHRASE` before `listen()`, so a mismatch throws into the existing `main().catch` and the process exits 1 with nothing listening. It builds `new Velo({ apiKey: VELO_GAS_API_KEY, baseUrl: VELO_GAS_BASE_URL, environment: 'testnet', timeoutMs: 30_000 }).gas` only when `GAS_MODE=velo` (else `gas = null`), assembles `ChainDeps` with `log: app.log`, and starts `startReconciler(chain)` when `gas` is non-null; the `onClose` hook stops the reconciler before `db.close()`.
+**Boot wiring.** `main()` in `apps/server/src/server.ts` calls `createNoirClient` with the three `NOIR_*_ID`s and `STELLAR_NETWORK_PASSPHRASE` before `listen()`, so a mismatch throws into the existing `main().catch` and the process exits 1 with nothing listening. It builds `new Velo({ apiKey: VELO_GAS_API_KEY, baseUrl: VELO_GAS_BASE_URL, environment: 'testnet', timeoutMs: 30_000 }).gas` only when `GAS_MODE=velo` (else `gas = null`), assembles `ChainDeps` with `log: app.log`, and then, before `listen()`:
+
+* `recoverInterruptedTxs(chain)` repairs rows a previous process left `pending` — no `runChainTx` is in flight at boot, so every one of them is a process that died mid-write (§4.8).
+* `startReconciler(chain)` runs unconditionally, not only in `velo` mode: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
+
+The `onClose` hook stops the reconciler before `db.close()`. `buildServer()` is unchanged, so the HTTP tests do not need a chain.
 
 `NoirAgentClient.execute()` is not used: it signs and submits itself, and every write must go through `submitSponsored`/`submitDirect` so Velo sponsors it.
 
@@ -694,6 +712,7 @@ export interface SubmitSponsoredOptions {
   wait?: { timeoutMs?: number; maxAttempts?: number };   // default 90_000 / 20
   onRetry?: (attempt: number, error: unknown) => void;
   onUncertainHandoff?: (error: unknown) => void;
+  onReserved?: (identity: GasExecutionIdentity) => void;  // after sponsor, before submit; a throw propagates and submit is not called
 }
 
 export async function submitSponsored(
@@ -703,30 +722,26 @@ export async function submitSponsored(
 ): Promise<GasSubmitResult>;
 ```
 
-`GasSubmitResult` is the type exported by `@carts1024/velo-sdk`; the package returns it **as-is**, may return a non-terminal one, and never throws for a non-success status — the caller decides. `apps/server` maps it onto its own row result:
-
-```ts
-export type GasOutcome =
-  | { status: 'succeeded'; gasMode: 'velo'; outerHash: string | null }
-  | { status: 'failed';    gasMode: 'velo' | 'direct'; errorCode: string; error: string }
-  | { status: 'submission_unknown'; gasMode: 'velo'; veloRequestId: string };
-```
+`GasSubmitResult` is the type exported by `@carts1024/velo-sdk`; the package returns it **as-is**, may return a non-terminal one, and never throws for a non-success status — the caller decides. `apps/server` maps it onto the `chain_txs` row and returns §4.2's `ChainTxResult`, whose `gasMode` is `'velo' | 'direct'` — a `submission_unknown` row can come from either path, and a direct one carries `innerHash` but no `veloRequestId`.
 
 `submitSponsored` steps:
 
 1. `const sponsored = await gas.sponsor(signedXdr, { idempotencyKey: opts.idempotencyKey })` → `{ requestId, transactionHash }`. A `VeloProviderError` is retried with the **same XDR and the same key**, up to `sponsorAttempts` attempts in total (default 4) with `retryDelayMs` between them (default 10 s, linear); `onRetry(attempt, error)` fires on each retry. **Every** sponsor failure — a non-provider error on the first attempt, or a provider error after the last one — is thrown as `GasSponsorError`, with the SDK error reachable through `.cause`: `sponsor()` never succeeded, so nothing was handed off and the same XDR may still go direct.
-2. **Exactly one** `gas.submit({ requestId, transactionHash, transactionXdr: signedXdr })`. **Any** failure of that call — thrown, or a lost response — means `getStatus(identity)`; never a second `submit`. `onUncertainHandoff(error)` fires.
-3. If the status is `claimed` / `submitted` / `submission_unknown`, call `waitForResult(identity, opts.wait)` (default 90 s / 20 attempts). Should `getStatus` or `waitForResult` themselves throw, the package throws `GasHandoffError(identity, cause)`: `submit` was attempted, Velo may already have the transaction, and the status is unreadable.
-4. Return the final `GasSubmitResult`, which may still be non-terminal.
+2. `onReserved({ requestId, transactionHash })` is called immediately, **before** the hand-off, so the caller can persist the identity first. It is deliberately outside the post-reservation try block: a throw from it propagates unchanged and `submit` is never called.
+3. **Exactly one** `gas.submit({ requestId, transactionHash, transactionXdr: signedXdr })`. **Any** failure of that call — thrown, or a lost response — means `getStatus(identity)`; never a second `submit`. `onUncertainHandoff(error)` fires.
+4. If the status is `claimed` / `submitted` / `submission_unknown`, call `waitForResult(identity, opts.wait)` (default 90 s / 20 attempts). Should `getStatus` or `waitForResult` themselves throw, the package throws `GasHandoffError(identity, cause)`: `submit` was attempted, Velo may already have the transaction, and the status is unreadable.
+5. Return the final `GasSubmitResult`, which may still be non-terminal.
 
 From there the XDR is out of our hands; `apps/server` maps what comes back:
 
-| Velo status | `GasOutcome` / `chain_txs` |
+| Velo status | `chain_txs` row |
 |---|---|
 | `succeeded` | `succeeded` — store `outerHash` (`outerTransactionHash`, **nullable**) and the inner hash (`transactionHash`) |
-| `failed` | `failed`, `errorCode = 'GAS_FAILED'` |
-| `cancelled` | `failed`, `errorCode = 'GAS_CANCELLED'` |
-| `claimed`, `submitted`, `submission_unknown` | `submission_unknown`, `veloRequestId = requestId`; the reconciler owns it |
+| `failed` | `submission_unknown`, `error_code = 'GAS_FAILED'` as a hint — the row keeps its Velo identity and both hashes; §4.2 step 7's chain read decides: `succeeded` on chain makes the row `succeeded` (code and error cleared), `failed` on chain makes it `CHAIN_FAILED`, and a `not_found` or failed read writes nothing, so the hint stays for the reconciler |
+| `cancelled` | `submission_unknown`, `error_code = 'GAS_CANCELLED'`, same hint and same chain decision as `failed` |
+| `claimed`, `submitted`, `submission_unknown` | `submission_unknown`, `velo_request_id = requestId`; then confirmed on chain by inner hash (§4.2 step 7), else the reconciler owns it |
+
+`apps/server` passes its own `wait` (`{ timeoutMs: 10_000, maxAttempts: 5 }`) instead of the package default, because Velo's status lags the chain by minutes: observed on testnet, a transaction was successful on chain within seconds while Velo reported `submitted` for over 90 s and `succeeded` minutes later. Waiting on Velo is therefore only the first look; the chain check right after it is the confirmation.
 
 `GAS_MODE=direct` always takes the direct path.
 
@@ -744,25 +759,27 @@ Any other throw out of `submitSponsored` is a programmer fault (`apps/server` re
 
 Whenever the direct path is used, set `chain_txs.gas_mode='direct'` so the dashboard and CSV show that the demo borrowed the fallback.
 
-Direct path: `submitDirect(noir, signedXdr, op)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. A throw is classified by the message `@noirx402/agent-sdk@0.3.0` produces, because only two of them mean the network definitely did not apply the transaction:
+Direct path: `submitDirect(noir, signedXdr, op)` sends the same signed XDR straight to `STELLAR_RPC_URL` and returns the hash; on success record it as `inner_hash` with `gas_mode='direct'` and `outer_hash=null`. That success write happens **after** the error classification below, so a persistence fault can never relabel a confirmed send. A throw is classified by the message `@noirx402/agent-sdk@0.3.0` produces, because only two of them mean the network definitely did not apply the transaction:
 
-* `NoirContractError` → `failed`, `error_code='CONTRACT_<errorName>'`.
 * `<label> rejected by the network: <name>` (send returned `ERROR`) or `<label> failed on-chain (<hash>)` (the transaction landed and failed) → `failed`, `error_code='DIRECT_FAILED'`.
-* Anything else — `<label> not confirmed after 60s (<hash>)`, a transport error from send/get, or an unknown throw — → `submission_unknown`, `error_code='DIRECT_UNKNOWN'`, keeping the locally computed `inner_hash`. Such a row has no `velo_request_id`, so the reconciler skips it: it freezes as `submission_unknown` and is never resubmitted.
+* Anything else — `<label> not confirmed after 60s (<hash>)`, a transport error from send/get, or an unknown throw — → `submission_unknown`, `error_code='DIRECT_UNKNOWN'`, keeping the locally computed `inner_hash`. The row has no `velo_request_id`, but the reconciler still confirms it on chain: `DIRECT_UNKNOWN` rows are looked up by inner hash like any other `submission_unknown` row, and only freeze if the chain never indexes them inside the window.
 
-Reconciler (`reconcileOnce`, in `apps/server`, every 5 s):
+There is no `NoirContractError` branch on submit: the pinned SDK's `submit` throws only plain `Error`s — contract rejections come out of `prepare()` (§4.2 step 2).
 
-* Select `chain_txs` where `status='submission_unknown'`, `velo_request_id IS NOT NULL`, `inner_hash IS NOT NULL` and `updated_at > now - 120000`.
-* `velo.gas.getStatus({ requestId: velo_request_id, transactionHash: inner_hash })` → map with the table above → update the row (with `updated_at`) and count it. The `UPDATE` is guarded by `AND status = 'submission_unknown'` and counts only when one row changed, so a row another writer settled in the meantime is left alone.
-* A non-terminal status writes **nothing** (so the row's 2-minute window expires and it freezes as `submission_unknown`); a thrown `getStatus` is logged with `log.warn` and the next row is processed.
-* After 2 minutes with no terminal status, leave it `submission_unknown` and let the demo continue; the runbook's fallback covers it.
+Reconciler (`reconcileOnce`, in `apps/server`, started at boot in both gas modes and ticking every 5 s):
+
+* Select `chain_txs` where `status='submission_unknown'`, `inner_hash IS NOT NULL` and `updated_at > now - 360000`. `velo_request_id` may be `NULL`, so direct-path rows are included. If `runChainTx` has not settled it, a row must still be inside that window: the SDK sets 300 s of transaction validity at `prepare()`, and 60 s on top covers the ledger closing and RPC indexing it.
+* Per row, Velo first **when the row has a Velo identity** (`velo_request_id` non-null) and a client is configured: `velo.gas.getStatus({ requestId, transactionHash: inner_hash })` → map with the table above. `succeeded` settles the row and counts it. `failed`/`cancelled` are not accepted on their own: one `getTransactionOutcome(noir, inner_hash)` read decides (logged with `log.warn` if it throws), so `succeeded` on chain settles the row `succeeded`, `failed` on chain settles it `CHAIN_FAILED`, and `not_found` or a failed read writes **nothing** — the row keeps its `updated_at`, its `submission_unknown` status and its `GAS_FAILED`/`GAS_CANCELLED` hint, and freezes once it leaves the window. Exactly one read, and no second chain read in the same tick.
+* Otherwise — no Velo identity, a non-terminal status, or a thrown `getStatus` (logged with `log.warn`) — ask the chain: `getTransactionOutcome(noir, inner_hash)`. `succeeded` → row `succeeded`; `failed` → row `failed`, `error_code='CHAIN_FAILED'`; `not_found` writes **nothing**, so the row keeps its `updated_at` and is re-read on the next tick (or freezes once it falls out of the window).
+* Every settling `UPDATE` is guarded by `AND status = 'submission_unknown'` and counts only when one row changed, so a row another writer settled in the meantime is left alone.
+* After 360 s with no terminal answer, leave it `submission_unknown` and let the demo continue; the runbook's fallback covers it.
 * **Never** call `sponsor()` or `velo.gas.submit()` again for the same row. `submission_unknown` means the transaction may already be on the ledger; resubmitting is how you double-spend.
 
 Envelope rule the Gas Station enforces, and which our builder must therefore satisfy: exactly **one** `invokeHostFunction` operation on a contract, the transaction source is a G-account, and there is exactly **one** signature, from that source. That is why `prepare()` is always called with the signer as source and why every wrapper signs with a single keypair.
 
 ### 4.6 `noir.ts`
 
-Every wrapper takes an explicit acting account; none reads env, and each is a thin call over `signNoirCall` → `submitSponsored`/`submitDirect` in `apps/server` (the package itself exposes only §4.1's four functions). One row per SDK `NoirOperation` kind, then the reads.
+Every wrapper takes an explicit acting account; none reads env, and each is a thin call over `signNoirCall` → `submitSponsored`/`submitDirect` in `apps/server` (the package itself only builds, signs and reads — §4.1's public API). One row per SDK `NoirOperation` kind, then the reads.
 
 | Wrapper | SDK operation | Contract | Acting account (signer) | `chain_txs.kind` |
 |---|---|---|---|---|
@@ -823,13 +840,25 @@ export async function fundWithFriendbot(publicKey: string, opts?: { attempts?: n
 ### 4.8 `chain_txs` lifecycle
 
 ```
-pending -> succeeded
-pending -> failed              (simulation rejection, gas failure, direct-path failure)
-pending -> submission_unknown  (a failed Velo hand-off, or a non-terminal getStatus)
-pending -> submission_unknown  (direct path unconfirmed; frozen, never retried)
-submission_unknown -> succeeded | failed   (reconciler, within 2 min)
-submission_unknown -> submission_unknown   (after 2 min, frozen for the demo, surfaced in the UI)
+pending -> succeeded                       (sponsored success, or direct success after its classification)
+pending -> failed                          (prepare/simulation rejection; sponsor failure before the hand-off with no fallback; direct-path proven refusal)
+pending -> submission_unknown              (a hand-off whose status could not be read, or a Velo failed/cancelled/non-terminal status)
+pending -> failed | submission_unknown     (boot: a row a previous process left pending — see below)
+submission_unknown -> succeeded | failed   (chain confirmation in runChainTx, then the reconciler: Velo status, else the chain by inner hash, within 6 min)
+submission_unknown -> submission_unknown   (after 6 min, frozen for the demo, surfaced in the UI)
 ```
+
+A Velo `failed`/`cancelled` is never a `pending -> failed` transition: the Gas Station stopping does not prove the network did not apply the transaction, `prepare()` gives it 300 s of validity, and `failed` is the callers' retry signal, so the row persists `submission_unknown` with `error_code='GAS_FAILED'`/`'GAS_CANCELLED'` as a hint and only a chain verdict can make it `failed` (`CHAIN_FAILED`). The only writers of `failed` after a hand-off are therefore a chain `FAILED` read (`CHAIN_FAILED`) and the direct path's proven refusals (`DIRECT_FAILED`).
+
+`recoverInterruptedTxs` runs once at API boot, before the listener: no `runChainTx` is in flight yet, so every `pending` row belongs to a process that died mid-write. Two persisted markers make the split unambiguous: the inner hash is written before any hand-off, and `gas_mode='direct'` is written before the direct send (the sponsored path writes `velo_request_id` before `submit`). `sponsor()` itself never submits, so a `velo` row with no reservation cannot have been handed off:
+
+| Row at boot | Transition | `error_code` | `error` |
+|---|---|---|---|
+| `pending`, `inner_hash IS NULL` | → `failed` | `PREPARE_INTERRUPTED` | `Process exited before the transaction was handed off` |
+| `pending`, `gas_mode='velo'`, `velo_request_id IS NULL` | → `failed` | `PREPARE_INTERRUPTED` | `Process exited before the transaction was handed off` |
+| every other `pending` row (a `direct` row with an inner hash, or a `velo` row with a reservation) | → `submission_unknown` | `HANDOFF_INTERRUPTED` | `Process exited during the hand-off; the transaction may be on chain` |
+
+A `PREPARE_INTERRUPTED` row never left the process, so the service that owns it may retry; a `HANDOFF_INTERRUPTED` row may be on the ledger, so it is handed to the reconciler and never resubmitted. The reconciler's 360 s window still applies: a row older than that freezes rather than being re-read.
 
 `status='succeeded'` is the only status the dashboard counts. `submission_unknown` rows are shown as "unknown — reconciling" and never retried by hand.
 
