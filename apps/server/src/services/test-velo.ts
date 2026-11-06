@@ -1,5 +1,5 @@
 // Test-only Velo fakes (no network): a client whose checkout and payment-intent calls are spies, plus a signer that
-// produces the exact `x-velo-signature` format the SDK verifies (`t=<unix>,v1=hex(HMAC-SHA256(secret, "<t>.<body>"))`).
+// produces the exact `x-velo-signature` format Velo sends (`t=<unix>,v1=hex(HMAC-SHA256(secret, "<t>.<body>"))`).
 import { createHmac } from 'node:crypto';
 import { vi, type Mock } from 'vitest';
 import type { Velo } from '@tapat/agent';
@@ -41,13 +41,16 @@ export function fakeVelo(): FakeVelo {
   return { velo, create, retrieve };
 }
 
-/** The `x-velo-signature` header for `body`; `t` defaults to now (the SDK rejects a stamp more than 300 s off). */
+/** The `x-velo-signature` header for `body`; `t` defaults to now (the verifier rejects a stamp more than 300 s off). */
 export function signBody(body: string, secret: string = WEBHOOK_SECRET, t: number = Math.floor(Date.now() / 1000)): string {
   const mac = createHmac('sha256', secret).update(`${t}.${body}`).digest('hex');
   return `t=${t},v1=${mac}`;
 }
 
-/** A schema-valid `payment.*` webhook body for one intent. */
+/**
+ * A `payment.*` webhook body for one intent, shaped like a real delivery captured from Velo on 2026-11-06. Note
+ * `project.registryProjectId` is a number on the wire: SDK 1.0.0's verifier wants a string and refused every delivery.
+ */
 export function paymentEventBody(type: 'payment.succeeded' | 'payment.failed' | 'payment.created', intentId = INTENT_ID): string {
   const stamp = new Date().toISOString();
   return JSON.stringify({
@@ -56,7 +59,8 @@ export function paymentEventBody(type: 'payment.succeeded' | 'payment.failed' | 
     type,
     test: false,
     sentAt: stamp,
-    project: { id: 'proj_1', registryProjectId: 'reg_1', name: 'TAPat', slug: 'tapat' },
+    correlationId: 'corr_1',
+    project: { id: 'proj_1', registryProjectId: 34, name: 'TAPat', slug: 'tapat' },
     paymentIntent: {
       id: intentId,
       amount: '1000.00',
