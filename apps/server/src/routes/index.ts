@@ -5,16 +5,19 @@ import type { Config } from '../config';
 import type { Db } from '../db/index';
 import type { BudgetDeps } from '../services/budget';
 import type { ChainDeps } from '../services/chain';
+import { createDashboardService, loadMidasThreshold } from '../services/dashboard';
 import type { FreezeService } from '../services/freeze';
 import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
 import type { TrancheService } from '../services/tranche';
 import { registerAgentRoutes } from './agents';
 import { registerBudgetRoutes } from './budget';
+import { registerDashboardRoutes } from './dashboard';
 import { registerEnrollRoutes } from './enroll';
 import { registerHealthRoutes } from './health';
 import { registerProgramRoutes } from './program';
 import { registerSettlementRoutes } from './settlement';
+import { registerStationRoutes } from './stations';
 import { registerStreamRoutes } from './stream';
 import { registerTapRoutes } from './taps';
 import { registerTrancheRoutes } from './tranche';
@@ -38,14 +41,33 @@ export interface RouteDeps {
   tranche: TrancheService;
   /** The Freeze Agent: `POST /api/agents/freeze/burst`, unfreeze, and the tap hand-off; `main()` starts it. */
   freeze: FreezeService;
+  /** `MIDAS` task writes `apps/server/config/midas.json`; absent, the documented threshold is used. */
+  midasThreshold?: number;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
 }
 
 export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
+  // One instance per API process: the dashboard's 5 s escrow cache is shared by `cards[]` and the total.
+  const dashboard = createDashboardService({
+    db: deps.db,
+    noir: deps.chain.noir,
+    config: deps.config,
+    midasThreshold: deps.midasThreshold ?? loadMidasThreshold(),
+  });
+
   registerHealthRoutes(app, { probes: deps.probes, gasMode: deps.config.GAS_MODE });
-  registerProgramRoutes(app, { db: deps.db, phpPerXlm: deps.config.PHP_PER_XLM });
+  registerProgramRoutes(app, {
+    db: deps.db,
+    phpPerXlm: deps.config.PHP_PER_XLM,
+    chain: deps.chain,
+    bus: deps.bus,
+    programWallet: deps.programWallet,
+    config: deps.config,
+  });
   registerStreamRoutes(app, { bus: deps.bus });
+  registerStationRoutes(app, { db: deps.db });
+  registerDashboardRoutes(app, { dashboard });
   registerEnrollRoutes(app, {
     db: deps.db,
     chain: deps.chain,

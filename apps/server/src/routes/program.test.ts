@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { Keypair } from '@stellar/stellar-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import type { Db } from '../db/index';
 import { openDb } from '../db/index';
 import { createProgram } from '../services/program';
+import { createSseBus } from '../services/sse';
+import { XLM_SAC_ID, fakeNoir, makeChainDeps } from '../services/test-fakes';
 import { registerProgramRoutes } from './program';
 import { buildServer } from '../server';
 
@@ -20,7 +23,14 @@ afterEach(async () => {
 async function programServer(): Promise<FastifyInstance> {
   db = openDb(':memory:');
   const server = await buildServer();
-  registerProgramRoutes(server, { db, phpPerXlm: 10 });
+  registerProgramRoutes(server, {
+    db,
+    phpPerXlm: 10,
+    chain: makeChainDeps(db, fakeNoir().noir),
+    bus: createSseBus(),
+    programWallet: Keypair.random(),
+    config: { XLM_SAC_ID },
+  });
   return server;
 }
 
@@ -174,5 +184,52 @@ describe('POST /api/program', () => {
     const body = z.object({ program: z.object({ status: z.string() }).passthrough() }).parse(response.json());
     expect(body.program.status).toBe('draft');
     expect('salt' in body.program).toBe(false);
+  });
+});
+
+const EndBody = z.object({
+  program: z.object({ id: z.string(), status: z.string() }),
+  cards: z.array(
+    z.object({
+      cardId: z.string(),
+      beneficiaryId: z.string(),
+      returnedStroops: z.string(),
+      revokeTxId: z.string().nullable(),
+      sweepTxId: z.string().nullable(),
+      status: z.string(),
+      reason: z.string().nullable(),
+    }),
+  ),
+  totalReturnedStroops: z.string(),
+});
+
+describe('POST /api/program/end', () => {
+  it('ends an active program and answers 409 INVALID_STATE on the second call', async () => {
+    app = await programServer();
+    insertProgram(db as Db);
+
+    const first = await app.inject({ method: 'POST', url: '/api/program/end' });
+    expect(first.statusCode).toBe(200);
+    expect(EndBody.parse(first.json())).toMatchObject({
+      program: { id: 'prog-1', status: 'ended' },
+      cards: [],
+      totalReturnedStroops: '0',
+    });
+
+    const second = await app.inject({ method: 'POST', url: '/api/program/end' });
+    expect(second.statusCode).toBe(409);
+    expect(ErrorBody.parse(second.json()).error.code).toBe('INVALID_STATE');
+  });
+
+  it('answers 404 NOT_FOUND without a program and 409 INVALID_STATE for a draft', async () => {
+    app = await programServer();
+    const missing = await app.inject({ method: 'POST', url: '/api/program/end' });
+    expect(missing.statusCode).toBe(404);
+    expect(ErrorBody.parse(missing.json()).error.code).toBe('NOT_FOUND');
+
+    await app.inject({ method: 'POST', url: '/api/program', payload: {} });
+    const draft = await app.inject({ method: 'POST', url: '/api/program/end' });
+    expect(draft.statusCode).toBe(409);
+    expect(ErrorBody.parse(draft.json()).error.code).toBe('INVALID_STATE');
   });
 });
