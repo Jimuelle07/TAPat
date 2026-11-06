@@ -342,10 +342,10 @@ if ! out=$(aws ec2 authorize-security-group-ingress --region "$R" --group-id "$A
     --protocol tcp --port 22 --cidr "$MY_IP/32" 2>&1); then
   [[ "$out" == *InvalidPermission.Duplicate* ]] || { warn "$out"; exit 1; }
 fi
-# Revoke every other IPv4 rule starting at port 22, read from AWS (the git-ignored state file is not
-# authoritative). The wizard only ever adds IPv4 tcp/22 rules; hand-added IPv6 or wider ranges are not touched.
+# Revoke every other IPv4 tcp/22-22 rule, read from AWS (the git-ignored state file is not authoritative).
+# The wizard only ever adds IPv4 tcp/22 rules; hand-added IPv6, UDP or port-range rules are not touched.
 OTHER_CIDRS=$(awsq ec2 describe-security-groups --region "$R" --group-ids "$AWS_SG_ID" \
-  --query 'SecurityGroups[0].IpPermissions[?FromPort==`22`].IpRanges[].CidrIp')
+  --query 'SecurityGroups[0].IpPermissions[?IpProtocol==`tcp` && FromPort==`22` && ToPort==`22`].IpRanges[].CidrIp')
 ssh_only=1
 for cidr in $OTHER_CIDRS; do
   [[ "$cidr" == "$MY_IP/32" || "$cidr" == None ]] && continue
@@ -358,7 +358,7 @@ for cidr in $OTHER_CIDRS; do
   fi
 done
 if (( ssh_only )); then
-  say "SSH (tcp/22, IPv4) is open to $MY_IP/32 only. Funnel is outbound, so no other port is needed (deployment.md §3)."
+  say "The wizard's SSH rule allows $MY_IP/32 only (tcp/22, IPv4). Funnel is outbound, so no other port is needed (deployment.md §3)."
 fi
 note "Rules added by hand outside this wizard (IPv6, port ranges) are left alone: check the group in the EC2 console."
 note "New laptop IP (venue Wi-Fi)? Re-run the wizard; this stage swaps it in."
