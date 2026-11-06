@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11",
+    "@fastify/multipart": "^10.1.8",
     "@stellar/stellar-sdk": "^16.4.1",
     "@tapat/agent": "workspace:*",
     "@tapat/shared": "workspace:*",

@@ -12,4 +12,4 @@ export type { BocpdConfig, BocpdPoint } from './algorithms/bocpd';
 export { Velo, VeloAuthError, VeloError, VeloProviderError, VeloValidationError } from '@carts1024/velo-sdk';
 export type { GasApi, GasExecutionIdentity, GasSubmitResult } from '@carts1024/velo-sdk';
 export { NoirContractError } from '@noirx402/agent-sdk';
-export type { NoirAgentClient, NoirOperation } from '@noirx402/agent-sdk';
+export type { NoirAgentClient, NoirOperation, PaymentCheck, PaymentRefusal } from '@noirx402/agent-sdk';
