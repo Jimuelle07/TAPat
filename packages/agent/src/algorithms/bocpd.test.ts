@@ -32,6 +32,32 @@ describe('bocpd on the DOE diesel fixture', () => {
     for (const p of prices) det.push(p);
     expect(det.points).toEqual(points);
   });
+
+  it('fires at the original index when only a trailing slice is passed', () => {
+    const sliced = bocpdRun(prices).slice(30);
+    expect(sliced).toEqual(points.slice(30));
+    const r = trancheShouldFire(sliced, 65);
+    expect(r.fire).toBe(true);
+    expect(r.at).toBe(33);
+    expect(trancheShouldFire(sliced, 65)).toEqual(trancheShouldFire(points, 65));
+  });
+});
+
+describe('bocpd on a series that starts high', () => {
+  it('does not fire while the whole series is still one segment', () => {
+    const points = bocpdRun(Array(20).fill(71));
+    for (let n = 1; n <= points.length; n++) {
+      expect(trancheShouldFire(points.slice(0, n), 65).fire).toBe(false);
+    }
+  });
+
+  it('is held back by the run-length < index guard, not the other clauses', () => {
+    const p = bocpdRun(Array(20).fill(71))[5];
+    expect(p.cpRecent).toBeGreaterThanOrEqual(0.9);
+    expect(p.mapRunLength).toBeGreaterThanOrEqual(3);
+    expect(p.segmentMean).toBeGreaterThanOrEqual(65);
+    expect(p.mapRunLength).toBeGreaterThanOrEqual(p.index);
+  });
 });
 
 describe('bocpd on a constant series', () => {

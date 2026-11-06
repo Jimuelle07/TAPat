@@ -147,9 +147,8 @@ export function trancheShouldFire(
   points: BocpdPoint[],
   thresholdPhp: number,
 ): { fire: boolean; at: number | null; reason: string } {
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    if (p.cpRecent >= 0.9 && p.mapRunLength >= 3 && p.mapRunLength < i && p.segmentMean >= thresholdPhp) {
+  for (const p of points) {
+    if (p.cpRecent >= 0.9 && p.mapRunLength >= 3 && p.mapRunLength < p.index && p.segmentMean >= thresholdPhp) {
       return {
         fire: true,
         at: p.index,
