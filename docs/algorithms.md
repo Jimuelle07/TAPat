@@ -450,6 +450,7 @@ export class Bocpd {
   constructor(config?: Partial<BocpdConfig>, warmupValues?: number[]);
   push(price: number): BocpdPoint;
   readonly points: BocpdPoint[];
+  readonly sigma2: number;
 }
 
 export function bocpdRun(prices: number[], config?: Partial<BocpdConfig>): BocpdPoint[];
@@ -458,6 +459,8 @@ export function trancheShouldFire(
   thresholdPhp: number,
 ): { fire: boolean; at: number | null; reason: string };
 ```
+
+The constructor's `warmupValues` (only the first `warmup` of them are used) establish the frozen constants for the instance: `mu0 = mean(warmupValues)` and `sigma2` = their sample variance (`n - 1` denominator) floored at `sigmaSquareFloor`. With 1 or 2 values the variance is not estimated, so `sigma2` is the floor; with no values `mu0` is left unset until the first `push` adopts that price as `mu0`, while `sigma2` remains the floor. `sigma2` is public and read-only: it is the known variance used by every predictive likelihood and posterior update, and it never changes after construction.
 
 The Tranche Agent uses `push` once per `PRICE_TICK_MS` so it can broadcast each point; `bocpdRun` is the same recursion over an array, used by tests and the fixture generator's checks.
 
@@ -513,8 +516,8 @@ var  = [var0]
      prec      = 1 / var[r] + 1 / sigma2
      newVar[r+1] = 1 / prec
      newMu[r+1]  = newVar[r+1] * ( mu[r] / var[r] + x_t / sigma2 )
-   newMu[0]  = mu0            // the changepoint hypothesis starts from the prior
-   newVar[0] = var0
+   newVar[0] = 1 / (1 / var0 + 1 / sigma2)                  // r = 0: x_t opens the new segment,
+   newMu[0]  = newVar[0] * ( mu0 / var0 + x_t / sigma2 )    // so the prior absorbs x_t
    ```
 
 6. **Truncate** at `R = 200`: drop every index `> R`, then renormalize `P` (`L = logSumExp(newLogP); newLogP[k] -= L`).
@@ -534,13 +537,13 @@ var  = [var0]
 ```ts
 fire  = cpRecent >= 0.9
      && mapRunLength >= 3
-     && mapRunLength < (pointsObserved - 1)
+     && mapRunLength < point.index
      && segmentMean >= thresholdPhp
 ```
 
 `thresholdPhp` is `program.price_threshold_php` (default `65.00`).
 
-The clause `mapRunLength >= 3` forces the average over at least 4 points: a single outlier can never push `segmentMean` over the threshold. The clause `mapRunLength < t - 1` requires the changepoint to be strictly in the past, not "the series just started". Combined, the earliest possible fire is the 5th point of a new segment.
+The clause `mapRunLength >= 3` forces the average over at least 4 points: a single outlier can never push `segmentMean` over the threshold. The clause `mapRunLength < point.index` requires the changepoint to be strictly in the past, not "the series just started": `point.index` is the point's original 0-based index in the price series (`pointsObserved - 1` for that point), so the rule gives the same answer whether the caller passes the full history or a trailing slice. Combined, the earliest possible fire is the 4th point of a new segment (on the fixture: the step starts at index 30, the fire lands at index 33).
 
 The agent fires at most once per program (`program.tranche_fired`); `trancheShouldFire` returns the first index that satisfies the rule and is pure — the caller owns the "once" policy.
 
