@@ -11,9 +11,11 @@ import { openDb } from './db/index';
 import { errorHandler } from './errors';
 import { registerRoutes } from './routes/index';
 import { createChainRuntime } from './runtime';
+import { startBudgetPoller, type BudgetDeps } from './services/budget';
 import { recoverInterruptedTxs, startReconciler } from './services/chain';
 import { createHealthProbes } from './services/health';
 import { createSseBus } from './services/sse';
+import { createTrancheService } from './services/tranche';
 
 const STREAM_PATH = '/api/stream';
 
@@ -50,19 +52,35 @@ async function main(): Promise<void> {
   const app = await buildServer({ logger: true });
   // Refuses to boot on any deployment the Noir SDK does not know (SDD §4.2); the listener has not started yet.
   const { chain } = createChainRuntime(config, db, app.log);
-  // The general Velo client (payment intents now, checkout in C5); the default baseUrl is the testnet one.
+  // The general Velo client: payment intents, the budget checkout and the health probe; the default baseUrl is the testnet one.
   const velo = new Velo({ apiKey: config.VELO_API_KEY, environment: 'testnet', timeoutMs: 30_000 });
   // In-process SSE fan-out: services publish after writing their row, `GET /api/stream` subscribes.
   const bus = createSseBus();
   // The device owner: every card's `register`/`register_agent` is signed by it (SDD §2.4).
   const programWallet = Keypair.fromSecret(config.PROGRAM_WALLET_SECRET);
-  registerRoutes(app, { db, config, probes: createHealthProbes({ config, velo }), bus, chain, programWallet });
+  const budget: BudgetDeps = { db, velo, bus, config, log: app.log };
+  // The price ticker starts on `POST /api/agents/tranche/start`; `stop()` cancels it on close.
+  const tranche = createTrancheService({ db, chain, bus, programWallet, config });
+  registerRoutes(app, {
+    db,
+    config,
+    probes: createHealthProbes({ config, velo }),
+    bus,
+    chain,
+    programWallet,
+    budget,
+    tranche,
+  });
   // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
   recoverInterruptedTxs(chain);
   // Always: a direct row is confirmed by the chain too, so the reconciler does not need a Velo client.
   const stopReconciler = startReconciler(chain);
+  // The webhook is the fast path; this poller credits a payment whose webhook never arrived (SDD §6.9).
+  const stopBudgetPoller = startBudgetPoller(budget);
   app.addHook('onClose', async () => {
     stopReconciler();
+    stopBudgetPoller();
+    tranche.stop();
     db.close();
   });
   await app.listen({ port: config.PORT, host: '127.0.0.1' });

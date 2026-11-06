@@ -3,14 +3,19 @@ import type { FastifyInstance } from 'fastify';
 import type { Keypair } from '@stellar/stellar-sdk';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
+import type { BudgetDeps } from '../services/budget';
 import type { ChainDeps } from '../services/chain';
 import type { HealthProbes } from '../services/health';
 import type { SseBus } from '../services/sse';
+import type { TrancheService } from '../services/tranche';
+import { registerBudgetRoutes } from './budget';
 import { registerEnrollRoutes } from './enroll';
 import { registerHealthRoutes } from './health';
 import { registerProgramRoutes } from './program';
 import { registerStreamRoutes } from './stream';
 import { registerTapRoutes } from './taps';
+import { registerTrancheRoutes } from './tranche';
+import { registerWebhookRoutes } from './webhooks';
 
 export interface RouteDeps {
   db: Db;
@@ -23,6 +28,10 @@ export interface RouteDeps {
   chain: ChainDeps;
   /** The device owner that signs `register`/`register_agent` and owns every card on chain. */
   programWallet: Keypair;
+  /** Velo checkout + webhook + poller dependencies (the same object `main()` hands to the poller). */
+  budget: BudgetDeps;
+  /** The Tranche Agent; `main()` stops it on close. */
+  tranche: TrancheService;
   /** Tests point this at a temp dir holding the precomputed photo records. */
   fixturesDir?: string;
 }
@@ -45,4 +54,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     bus: deps.bus,
     config: deps.config,
   });
+  registerBudgetRoutes(app, deps.budget);
+  registerWebhookRoutes(app, deps.budget);
+  registerTrancheRoutes(app, { tranche: deps.tranche });
 }
