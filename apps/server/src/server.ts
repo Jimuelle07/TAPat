@@ -14,6 +14,8 @@ import { createChainRuntime } from './runtime';
 import { startBudgetPoller, type BudgetDeps } from './services/budget';
 import { recoverInterruptedTxs, startReconciler } from './services/chain';
 import { createHealthProbes } from './services/health';
+import { loadCalibration } from './services/intake';
+import { getCurrentProgram, PROGRAM_DEFAULTS } from './services/program';
 import { createSseBus } from './services/sse';
 import { createTrancheService } from './services/tranche';
 
@@ -25,7 +27,7 @@ export async function buildServer(options: FastifyServerOptions = {}): Promise<F
 
   // Only the laptop's manual SSE fallback (/?sse=direct) calls the API cross-origin.
   await app.register(cors, { origin: 'http://localhost:3000', methods: ['GET'] });
-  // `POST /api/enroll` is the only multipart endpoint.
+  // Two multipart endpoints: `POST /api/enroll` (photo) and `POST /api/intake/upload` (masterlist).
   await app.register(multipart);
 
   // Every /api/* response is no-store, except the SSE stream, which keeps no-cache (never no-store).
@@ -61,6 +63,12 @@ async function main(): Promise<void> {
   const budget: BudgetDeps = { db, velo, bus, config, log: app.log };
   // The price ticker starts on `POST /api/agents/tranche/start`; `stop()` cancels it on close.
   const tranche = createTrancheService({ db, chain, bus, programWallet, config });
+  // The CRC thresholds are computed once, from the committed calibration set and this program's α/β (api-and-data §5.2 #7).
+  const program = getCurrentProgram(db);
+  const calibration = loadCalibration({
+    alpha: program?.alpha ?? PROGRAM_DEFAULTS.alpha,
+    beta: program?.beta ?? PROGRAM_DEFAULTS.beta,
+  });
   registerRoutes(app, {
     db,
     config,
@@ -70,6 +78,7 @@ async function main(): Promise<void> {
     programWallet,
     budget,
     tranche,
+    calibration,
   });
   // No runChainTx is in flight yet, so every `pending` row is a process that died mid-write (SDD §4.5).
   recoverInterruptedTxs(chain);
