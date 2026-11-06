@@ -94,7 +94,7 @@ Do the steps in order. Open each page in its own tab.
 | 5 | `/station/B` → **Simulate tap** → D2, `480`, twice | Both **Paid**. A Simulate tap is still a real on-chain payment; only the card read is simulated. |
 | 6 | `/demo` → **Run burst** | The edge chart on `/demo` shows the MIDAS-F score crossing the threshold line. The station strip shows Station B **frozen**. If you get "Tap D2 at Station B first", row 5 didn't go through: check it shows **Paid**. |
 | 7 | `/demo` → **Run settlement** | The settlement panel on `/demo` reads "A — claimed ₱350 · tx…" and "B — HELD ₱960 · station frozen" |
-| 8 | `/intake` → upload `fixtures/masterlist/masterlist.csv` (or `scanned-list.png`) | Summary: 12 total, 4 approved, 4 enrolled (D1, D2, D3, D5 from the seed), 2 rejected (1 ghost, 1 underage), 2 uncertain. λ_lo / λ_hi and α / β are shown, and the uncertain rows have Telegram links. |
+| 8 | `/intake` → upload `fixtures/masterlist/masterlist.csv` (or `scanned-list.png`) | Summary: 12 total, 6 approved, 4 enrolled (D1, D2, D3, D5 from the seed), 2 rejected (1 ghost, 1 underage), 0 uncertain — the committed calibration fixture clamps λ_lo == λ_hi, so the uncertain band is empty. λ_lo / λ_hi and α / β are shown, and the ghost row's one-tap appeal requests evidence with a Telegram deep link. |
 | 9 | `/demo` → **End program** | Sweep txs for D1, D2, D5; D3 swept with ₱0 and no tx |
 
 Click any tx hash: it should open on Stellar Expert (testnet).
@@ -117,7 +117,7 @@ To run again, start over from step 5.
 
 ## 8. *(Optional)* Telegram
 
-On `/intake`, open an uncertain driver's Telegram link on your phone and press **Start**. Then click **Request evidence** for that row.
+On `/intake`, press **Request evidence** (the one-tap appeal) on the rejected ghost row, open the returned `deepLink` on your phone and press **Start**.
 
 ✅ The bot sends the Tagalog OR/CR request. After you link D1 the same way (before step 6), tap receipts arrive in under 10 s.
 

@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "pnpm -r --parallel --filter server --filter web dev",
+    "demo:e2e": "pnpm --filter server tsx scripts/demo-e2e.ts",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
