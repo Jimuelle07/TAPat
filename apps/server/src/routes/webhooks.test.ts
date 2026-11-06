@@ -121,19 +121,49 @@ describe('POST /api/webhooks/velo', () => {
     expect(verified()).toBe('0');
   });
 
-  it('refuses a missing signature header and a stale timestamp', async () => {
+  it('refuses a missing signature header and a stamp more than 300 s in the past or future', async () => {
     const body = paymentEventBody('payment.succeeded');
     const missing = await post(body, { 'x-velo-delivery': 'dlv_1' });
     expect(missing.statusCode).toBe(400);
     expect(missing.json().error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
 
-    const stale = await post(body, {
-      'x-velo-delivery': 'dlv_2',
-      'x-velo-signature': signBody(body, WEBHOOK_SECRET, Math.floor(Date.now() / 1000) - 3600),
-    });
-    expect(stale.statusCode).toBe(400);
-    expect(stale.json().error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
+    const now = Math.floor(Date.now() / 1000);
+    for (const [delivery, t] of [['dlv_2', now - 3600], ['dlv_3', now + 3600]] as const) {
+      const response = await post(body, { 'x-velo-delivery': delivery, 'x-velo-signature': signBody(body, WEBHOOK_SECRET, t) });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
+    }
     expect(deliveries()).toBe(0);
+  });
+
+  it('refuses a signature header with a second v1 or a non-hex v1', async () => {
+    const body = paymentEventBody('payment.succeeded');
+    const valid = signBody(body);
+    for (const signature of [`${valid},v1=${'0'.repeat(64)}`, valid.replace(/v1=[0-9a-f]{4}/, 'v1=ZZZZ')]) {
+      const response = await post(body, { 'x-velo-delivery': 'dlv_1', 'x-velo-signature': signature });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
+    }
+    expect(deliveries()).toBe(0);
+  });
+
+  it('refuses a correctly signed payment event that does not name its intent, and stores nothing', async () => {
+    const body = JSON.stringify({ version: '1', id: 'evt_x', type: 'payment.succeeded', paymentIntent: { amount: '1000.00' } });
+    const response = await post(body, { 'x-velo-delivery': 'dlv_1', 'x-velo-signature': signBody(body) });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('WEBHOOK_SIGNATURE_INVALID');
+    expect(deliveries()).toBe(0);
+    expect(fake.retrieve).not.toHaveBeenCalled();
+  });
+
+  it('stores a correctly signed non-payment event whose other fields it does not read', async () => {
+    const body = JSON.stringify({ version: '1', id: 'evt_c', type: 'contract.event', project: { registryProjectId: 34 }, ledger: 'n/a' });
+    const response = await post(body, { 'x-velo-delivery': 'dlv_1', 'x-velo-signature': signBody(body) });
+
+    expect(response.statusCode).toBe(200);
+    expect(db.prepare('SELECT type FROM webhook_deliveries').get<{ type: string }>()?.type).toBe('contract.event');
+    expect(verified()).toBe('0');
   });
 
   it('answers 400 VALIDATION_ERROR when x-velo-delivery is missing', async () => {

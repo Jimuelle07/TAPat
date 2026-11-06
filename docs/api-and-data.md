@@ -1147,7 +1147,7 @@ Fastify **encapsulated plugin** registered at prefix `/api/webhooks/velo`. It re
 Handling order (this order is required — the HMAC covers the raw bytes):
 
 1. `x-velo-delivery` header missing → `400 VALIDATION_ERROR`.
-2. `Velo.webhooks.verify({ payload: rawBody, signature: req.headers['x-velo-signature'], secret: VELO_WEBHOOK_SECRET })` → failure = `400 WEBHOOK_SIGNATURE_INVALID`, nothing stored (a bad signature is a bad request, the answer Velo's own SDK examples give).
+2. Verify in `apps/server/src/velo/webhook.ts`: `x-velo-signature` must be exactly one numeric `t` and one 64-hex `v1` (header ≤ 512 chars), `|now − t| ≤ 300 s`, and `v1` must equal `HMAC-SHA256(VELO_WEBHOOK_SECRET, "<t>." + rawBody)` (constant-time compare). The body must then parse as JSON with string `id` and `type` (`version` absent or `"1"`), and a `payment.*` event must carry `paymentIntent.id` as a string. No other field is checked. Any failure = `400 WEBHOOK_SIGNATURE_INVALID`, nothing stored (a bad signature is a bad request, the answer Velo's own SDK examples give). Not `Velo.webhooks.verify`: SDK 1.0.0 also requires `project.registryProjectId` to be a string, while Velo sends a number, so it refused every real delivery (captured 2026-11-06).
 3. `INSERT OR IGNORE INTO webhook_deliveries` on `delivery_id`. If the insert was ignored (duplicate delivery) → `200 {"received":true}` immediately.
 4. Store `payload_json`; `type` = payload `type`.
 5. Dispatch:
@@ -1267,7 +1267,7 @@ XLM_SAC_ID=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 | `velo.gas.sponsor(signedXdr, { idempotencyKey, correlationId })` | `packages/agent/src/chain/gas.ts`, `GAS_MODE=velo` | keys are `chain_txs.id` so a retry of the same row can never double-sponsor; returns `{ requestId, transactionHash }`; retried **only** on `VeloProviderError`, with the same XDR and the same key |
 | `velo.gas.submit({ requestId, transactionHash, transactionXdr })` | `packages/agent/src/chain/gas.ts` | called exactly once per sponsored XDR; a throw means the hand-off is uncertain, not failed — recover with `getStatus`, never by submitting again |
 | `velo.gas.getStatus(identity)` | reconciliation of `submission_unknown` | polled every 5 s, only for rows younger than 6 min; a Velo `succeeded` settles the row; `failed`/`cancelled` are only a hint and get one chain read by `inner_hash` (no verdict writes nothing); a non-terminal status or a read error falls through to the chain; after the window the row stays `submission_unknown` for the logs |
-| `Velo.webhooks.verify({ payload, signature, secret })` | webhook plugin | needs the raw body |
+| (not used) `Velo.webhooks.verify` | — | SDK 1.0.0's event schema rejects Velo's numeric `project.registryProjectId`; the webhook plugin verifies the HMAC itself (§5.5) |
 
 Rules that the code must respect: the SDK is ESM-only server-side (`@carts1024/velo-sdk@1.0.0`, pinned exactly — it is the current `latest`, so the handbook's "use the latest" is satisfied without `@alpha`); envelope = one `invokeHostFunction` op, G-account source, exactly one signature from that source; `allowedContractIds` must list the 3 Noir contracts; `GAS_FALLBACK_DIRECT=true` switches to the direct path only when `sponsor()` failed (nothing was handed off), never after `submit()`; never resubmit after a lost hand-off.
 

@@ -23,7 +23,7 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: BudgetDeps): v
         }
         const rawBody = request.body;
         const signature = request.headers['x-velo-signature'];
-        const event = await verifyVeloWebhook({
+        const event = verifyVeloWebhook({
           rawBody,
           signature: typeof signature === 'string' ? signature : undefined,
           secret: deps.config.VELO_WEBHOOK_SECRET,
