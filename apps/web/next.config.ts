@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // `/` is the landing page. Velo's checkout still returns to /?budget=… (apps/server/src/velo/checkout.ts) and
+  // the local SSE fallback is /?sse=direct, so both land on the dashboard. Next keeps the query string.
+  async redirects() {
+    return ["budget", "sse"].map((key) => ({
+      source: "/",
+      has: [{ type: "query" as const, key }],
+      destination: "/dashboard",
+      permanent: false,
+    }));
+  },
   // The browser only ever calls /api/*; Next forwards it to the API (local dev; Caddy routes it in prod).
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiUrl.origin}/api/:path*` }];

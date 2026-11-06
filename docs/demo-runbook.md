@@ -31,14 +31,14 @@ Last updated: 2026-11-07
 | **T-40** | Log in with the basic-auth card on the phone and the laptop, then re-open the phone tabs over the **Funnel URL** (Web NFC needs HTTPS and a user gesture): `/station/A`, `/enroll`. Laptop on `/` and `/demo`. | Each tab loads after one auth prompt; `/station/A` offers a "Enable NFC" button. With no program yet, every page shows "No active program — run `seed-demo.ts`". |
 | **T-30** | On the VM: `ssh <ssh-user>@<ip>` (`<ssh-user>` is `ubuntu` on Oracle Cloud, your Google-account user on GCP — [deployment.md §6.2](deployment.md)), then `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/reset-demo.ts` and `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/seed-demo.ts --officer-email=<email> [--officer-password=<password>]` ([deployment.md §7](deployment.md)). `--officer-email` defaults to `officer@tapat.demo`; without `--officer-password` the seed generates one. On an already-seeded deployment (the seed refuses while a program exists) run `sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/create-officer.ts --officer-email=<email> [--officer-password=<password>]` instead — it creates or promotes the officer without touching the program or the chain — and copy its printed login into the submission form. | Program `active`; D1, D2, D3, D5 enrolled; card count 4; D3 policy expires 600 s after seed time. `/` shows four cards and the **Fund budget** button (badge `none`). The seed prints `Officer login: <email> / <password>` (or `Officer login: <email> (password unchanged)` on a re-run): copy it into the submission form. `reset-demo` first, every time. |
 | **T-20** | On `/` click **Fund budget**. Freighter (Budget Office) pays the Velo checkout for ₱10,000 (1,000 XLM). | Badge goes to "Waiting for Velo…" then **Velo verified ✓** within 3 s of payment (webhook, else poller). `budget.verifiedStroops` = 10000000000 (1,000 XLM), `remainingStroops` = 10000000000. |
-| **T-10** | Laptop on `/` (dashboard). Phone on `/station/A`. Second phone tab on `/enroll`. Phone on `/demo` when the beat starts. Silence notifications. | Tabs pre-warmed, no spinner. |
+| **T-10** | Laptop on `/dashboard`. Phone on `/station/A`. Second phone tab on `/enroll`. Phone on `/demo` when the beat starts. Silence notifications. | Tabs pre-warmed, no spinner. |
 | **T-0** | Start talking. | — |
 
 If you are re-running after a failed attempt: on the VM (as at T-30) `reset-demo.ts`, `seed-demo.ts`, then the budget checkout again (a new `budget:${programId}:${seq}` idempotency key is generated per attempt). Accounts survive `reset-demo`: pass the same `--officer-email` / `--officer-password` to keep the login, or omit `--officer-password` to keep the existing password.
 
 ## 3. The 3-minute script
 
-UI routes: `/` dashboard, `/intake`, `/enroll`, `/station/[id]`, `/demo`. Total 185 s (3:05); hard ceiling 3:30.
+UI routes: `/` landing page, `/dashboard`, `/intake`, `/enroll`, `/station/[id]`, `/demo`. Total 185 s (3:05); hard ceiling 3:30.
 
 **First step (~10 s): log in as the officer.** On the laptop and on the phone, press **Log in** in the top-right and use the officer account from the submission form (each browser keeps its own session). Every state-changing button is locked with "Officer login required" until an officer session is active; the session lasts 12 h.
 
@@ -72,8 +72,8 @@ D3's rejected ₱200, the ₱800 `OVER_CAP` tap, and the 30 simulated burst edge
 
 | Screen | Control | Endpoint |
 |---|---|---|
-| `/` | Fund budget (badge state `none`) / Open checkout (`waiting`) | `POST /api/program/budget-checkout` (state from `GET /api/dashboard.budget`) |
-| `/` | (auto) totals, cards, budget badge | `GET /api/dashboard` |
+| `/dashboard` | Fund budget (badge state `none`) / Open checkout (`waiting`) | `POST /api/program/budget-checkout` (state from `GET /api/dashboard.budget`) |
+| `/dashboard` | (auto) totals, cards, budget badge | `GET /api/dashboard` |
 | `/` | (auto) live updates | `GET /api/stream` (SSE) |
 | `/` | Export COA CSV | `GET /api/export/coa.csv` |
 | `/intake` | Upload list | `POST /api/intake/upload` |
@@ -99,12 +99,12 @@ D3's rejected ₱200, the ₱800 `OVER_CAP` tap, and the 30 simulated burst edge
 |---|---|---|
 | NFC | No `reading` event, or the card is not read twice. | The **Simulate tap** picker under **Read card** expands on the failed read; pick the driver by initial + `uidLast4` (`Juan D. …9C7E`). Say "same code path, the tap is simulated". |
 | Gas Station | 5xx from Velo Gas, or `chain_txs.gas_mode` stuck. | On the VM: `ssh <ssh-user>@<ip>`, `sudo -H -u tapat nano /opt/tapat/apps/server/.env` to set `GAS_MODE=direct`, then `sudo systemctl restart tapat-api` (~10 s), keep going. Velo still verifies the budget and delivers the webhooks. Never resubmit a `submission_unknown` tx. |
-| Webhook | Budget badge stays on "Waiting for Velo…". | Say nothing; the 3 s poller credits within 3 s. If it does not, re-open `/` to force a `GET /api/dashboard`. |
+| Webhook | Budget badge stays on "Waiting for Velo…". | Say nothing; the 3 s poller credits within 3 s. If it does not, re-open `/dashboard` to force a `GET /api/dashboard`. |
 | Budget checkout | Freighter rejects, or `/?budget=cancel` toast appears. | Badge returns to **Fund budget**; press it again (a new `budget:${programId}:${seq}` key). There is no surviving budget to fall back on — `reset-demo.ts` deletes every row, including `velo_intents` — so retry once with Freighter unlocked; if Velo is still failing, skip beat 2 and narrate the tranche from the backup video. |
 | No program | Every page shows "No active program — run `seed-demo.ts`". | `seed-demo.ts` (T-30), then the budget checkout. Never present on this state. |
 | Testnet / RPC down | `GET /api/health` shows `rpc:"down"`, taps fail with 502. | Play the backup video and narrate over it. Do not fight it on stage. |
 | Telegram | Receipt does not arrive. | Show the activity feed row on `/activity`: `TAP_REASON_LABELS` label + tx link. It is written regardless. |
-| SSE | Dashboard stops updating. | Reload `/` on the Funnel URL first. `/?sse=direct` is **local only**: it points the dashboard at `http://localhost:4000/api/stream`, which does not exist on the deployed origin. If Funnel SSE is genuinely broken, use the hosting rows below. |
+| SSE | Dashboard stops updating. | Reload `/dashboard` on the Funnel URL first. `/?sse=direct` is **local only**: it points the dashboard at `http://localhost:4000/api/stream`, which does not exist on the deployed origin. If Funnel SSE is genuinely broken, use the hosting rows below. |
 | Funnel down | Nothing loads at `https://tapat.<tailnet>.ts.net`; `ssh` still works. | [deployment.md §10](deployment.md) step 2: SSH port-forward `-L 3000:127.0.0.1:3000 -L 4000:127.0.0.1:4000`, open `http://localhost:3000` on the laptop (there `/?sse=direct` does work); the phone uses **Simulate tap** on the laptop. |
 | VM down | Neither the Funnel URL nor `ssh` answers. | [deployment.md §10](deployment.md) step 3: host on Jim's laptop with the prod `.env` from the USB, then `tailscale funnel 3000`. ~10 min, and the demo state starts fresh. |
 | Tailscale down entirely | No Funnel and no SSH forward. | [deployment.md §10](deployment.md) step 4: laptop + `cloudflared tunnel --url http://localhost:3000` for the **phone pages only** (`/station/*`, `/enroll`). Keep `/` and `/demo` on `http://localhost:3000` — a quick tunnel carries no SSE. |
