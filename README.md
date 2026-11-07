@@ -67,7 +67,7 @@ A tap is a contract simulation, not a checkout: the station page posts the norma
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/architecture.jpg" alt="How TAPat is wired" width="100%">
+  <img src="docs/assets/tapat-architecture.png" alt="How TAPat is wired" width="100%">
 </p>
 
 - `apps/web` is presentation only and talks to `/api/*` (the Next.js rewrite locally, Caddy in prod). It holds no secret.
