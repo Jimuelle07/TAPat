@@ -12,11 +12,6 @@ describe('deviceTarget', () => {
     expect(deviceTarget('/desktop/intake/beneficiaries/b1', false)).toBe('/intake/beneficiaries/b1');
   });
 
-  it('leaves the landing page alone on every screen', () => {
-    expect(deviceTarget('/', true)).toBeNull();
-    expect(deviceTarget('/', false)).toBeNull();
-  });
-
   it('leaves a path already in the right app alone, so the two never loop', () => {
     expect(deviceTarget('/desktop', true)).toBeNull();
     expect(deviceTarget('/desktop/cards', true)).toBeNull();

@@ -1,28 +1,36 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Rings } from "./(app)/_components/ui";
-import { Phone, PinnedPhone, type Step } from "./_landing/Phone";
-import { EnrollScreen, FrozenScreen, HomeScreen, IntakeScreen, RefusedScreen, ReturnedScreen, TrancheScreen } from "./_landing/screens";
+import type { CSSProperties, ReactNode } from "react";
+import { Icon, type IconName } from "./(app)/_components/Icon";
+import { BandMotion } from "./_landing/Motion";
+import { InlinePhone, PinnedPhone } from "./_landing/Phone";
+import type { SceneId } from "./_landing/screens";
 
 export const metadata: Metadata = {
   title: "TAPat: fuel aid that can say no",
-  description:
-    "An AI agent releases, caps, and returns fuel aid for tricycle drivers, inside limits the LGU signs and Noir enforces on Stellar. Hackathon prototype on Testnet.",
+  description: "An AI agent funds, caps, and returns fuel aid for tricycle drivers, with the limits enforced on-chain.",
 };
 
 const PAGE_WIDTH = "mx-auto w-full max-w-[1440px] px-[clamp(20px,5vw,72px)]";
 
-function Cta({ href, look, compact = false, children }: { href: string; look: "accent" | "primary" | "outline"; compact?: boolean; children: ReactNode }) {
+const SPRING = "transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]";
+
+/** A pill with its arrow in a nested circle, which leans out on hover. */
+function Cta({ href, look, children }: { href: string; look: "accent" | "primary" | "outline"; children: ReactNode }) {
   const style = {
-    accent: "border-text bg-accent text-text shadow-button hover:bg-accent-tint",
-    primary: "border-primary bg-primary text-surface shadow-button hover:bg-pressed",
-    outline: "border-current hover:bg-surface hover:text-text",
+    accent: { pill: "bg-accent text-text shadow-[0_12px_32px_rgb(27_46_40/0.22)] hover:bg-accent-tint", icon: "bg-text/10" },
+    primary: { pill: "bg-primary text-surface hover:bg-pressed", icon: "bg-surface/15" },
+    outline: { pill: "ring-1 ring-current/35 hover:bg-current/10", icon: "bg-current/10" },
   }[look];
   return (
-    <Link href={href} className={`inline-flex items-center justify-center rounded-md border-[1.5px] text-label transition-colors ${compact ? "min-h-11 px-4" : "min-h-[54px] px-6"} ${style}`}>
+    <Link href={href} className={`group inline-flex min-h-12 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-5 text-label active:scale-[0.98] ${SPRING} ${style.pill}`}>
       {children}
+      <span aria-hidden="true" className={`flex size-9 items-center justify-center rounded-full group-hover:translate-x-0.5 group-hover:-translate-y-px group-hover:scale-105 ${SPRING} ${style.icon}`}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4.5 11.5l7-7M5.5 4.5h6v6" />
+        </svg>
+      </span>
     </Link>
   );
 }
@@ -30,7 +38,7 @@ function Cta({ href, look, compact = false, children }: { href: string; look: "a
 function Actions() {
   return (
     <div className="flex flex-wrap gap-3">
-      <Cta href="/dashboard" look="accent">
+      <Cta href="/login" look="accent">
         Open the app
       </Cta>
       <Cta href="/demo" look="outline">
@@ -40,45 +48,35 @@ function Actions() {
   );
 }
 
-/** The limits and contract calls behind a step, on the same ruled lines as the app's receipts. */
-function Rules({ rows }: { rows: Array<[string, string]> }) {
+/** Double-bezel card: a thin tray around a raised plate, with concentric corners. */
+function Plate({ tray, plate, children }: { tray: string; plate: string; children: ReactNode }) {
   return (
-    <dl className="max-w-md font-mono text-[14px] leading-[1.4] tabular-nums">
-      {rows.map(([key, value]) => (
-        <div key={key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t-[1.5px] border-current py-2.5">
-          <dt className="shrink-0">{key}</dt>
-          <dd className="ml-auto text-right">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className={`h-full rounded-[2rem] p-1.5 ring-1 ${tray}`}>
+      <div className={`h-full rounded-[calc(2rem-0.375rem)] shadow-[inset_0_1px_1px_rgb(255_255_255/0.14)] ${plate}`}>{children}</div>
+    </div>
   );
 }
 
-/** A band is the kit's stat card at page scale: a ground, its large arc, and rings in the corner. */
+/** Each colour keeps its kit meaning. `motif` colours the band's corner art. */
 const BANDS = {
-  forest: { ground: "bg-primary-deep text-surface", arc: "bg-primary", rings: "text-pressed" },
-  green: { ground: "bg-primary text-surface", arc: "bg-primary-deep", rings: "text-pressed" },
-  cream: { ground: "bg-surface text-text", arc: "bg-sunken", rings: "text-ring-surface" },
-  mint: { ground: "bg-mint text-text", arc: "bg-surface", rings: "text-raised" },
-  declined: { ground: "bg-declined-tint text-text", arc: "bg-declined", rings: "text-declined" },
-  frozen: { ground: "bg-frozen text-text", arc: "bg-surface", rings: "text-raised" },
-  mustard: { ground: "bg-accent text-text", arc: "bg-accent-tint", rings: "text-ring-accent" },
+  forest: { ground: "bg-primary-deep text-surface", motif: "text-pressed" },
+  green: { ground: "bg-primary text-surface", motif: "text-pressed" },
+  cream: { ground: "bg-surface text-text", motif: "text-ring-surface" },
+  mint: { ground: "bg-mint text-text", motif: "text-raised" },
+  declined: { ground: "bg-declined-tint text-text", motif: "text-declined" },
+  frozen: { ground: "bg-frozen text-text", motif: "text-raised" },
+  mustard: { ground: "bg-accent text-text", motif: "text-ring-accent" },
 };
 
-function Band({ id, band, label, screen, children }: { id: string; band: keyof typeof BANDS; label: string; screen: ReactNode; children: ReactNode }) {
+function Band({ id, band, label, sheet = true, children }: { id: SceneId; band: keyof typeof BANDS; label: string; sheet?: boolean; children: ReactNode }) {
   const tone = BANDS[band];
   return (
-    <section id={id} className={`relative scroll-mt-16 overflow-clip border-t-[1.5px] border-text ${tone.ground}`}>
-      <span aria-hidden="true" className={`band-arc ${tone.arc}`} />
-      <Rings size={240} step={30} count={8} className={`${tone.rings} origin-top-right max-lg:scale-50`} />
-      <div className={`${PAGE_WIDTH} relative flex flex-col gap-12 py-16 lg:min-h-[calc(100dvh-4rem)] lg:justify-center lg:py-20`}>
-        <div className="flex max-w-xl flex-col gap-5 lg:w-[46%]">{children}</div>
-        <div className="flex justify-center pb-3 lg:hidden">
-          <Phone label={label}>
-            <div className="phone-layer" data-on="true">
-              {screen}
-            </div>
-          </Phone>
+    <section id={id} className={`relative overflow-clip ${sheet ? "landing-sheet" : ""} ${tone.ground}`}>
+      <BandMotion art={id} motif={tone.motif} />
+      <div className={`${PAGE_WIDTH} relative flex flex-col gap-14 pt-28 pb-32 lg:min-h-dvh lg:justify-center`}>
+        <div className="flex max-w-xl flex-col gap-6 lg:w-[46%]">{children}</div>
+        <div className="phone-inline flex justify-center pb-3 lg:hidden">
+          <InlinePhone scene={id} label={label} />
         </div>
       </div>
     </section>
@@ -88,256 +86,220 @@ function Band({ id, band, label, screen, children }: { id: string; band: keyof t
 const HERO = {
   id: "top",
   band: "forest",
-  label: "The TAPat dashboard: PHP 4,500 funded, PHP 350 spent, PHP 960 held, and the budget verified by Velo.",
-  screen: <HomeScreen />,
-} satisfies Step & { band: keyof typeof BANDS };
+  label: "The TAPat dashboard: PHP 4,500 funded and balanced, split into PHP 350 spent, PHP 960 held and PHP 3,190 in escrow, with one station frozen.",
+} satisfies { id: SceneId; band: keyof typeof BANDS; label: string };
 
 const STEPS = [
   {
     id: "list",
     band: "cream",
     label: "Intake results: 12 masterlist rows checked, 2 rejected including a ghost with a duplicate plate.",
-    screen: <IntakeScreen />,
     title: "A clean list goes in.",
-    body: "An LGU officer uploads the masterlist they already have. Matching and conformal risk control remove the ghosts, and only the genuinely uncertain drivers get one Telegram message asking for evidence.",
-    rules: [
-      ["Max wrongful denial", "α 0.05"],
-      ["Max ghost admission", "β 0.02"],
-      ["OCR in this demo", "precomputed"],
+    body: "Ghost and duplicate drivers come off the masterlist. Only the uncertain ones get one Telegram message asking for evidence.",
+    facts: [
+      ["5%", "max wrongful denials"],
+      ["2%", "max ghost admissions"],
     ],
   },
   {
     id: "enroll",
     band: "mint",
-    label: "Enrollment finished for Ana V.: card active, PHP 500 per-tap cap, device and policy registered on-chain.",
-    screen: <EnrollScreen />,
-    title: "A driver is enrolled in a minute.",
-    body: "A TODA officer verifies the driver and taps an NFC card. The card's spending policy goes on-chain, and the driver walks away with a card. No app, no data plan.",
-    rules: [
-      ["Per-tap cap", "PHP 500.00"],
-      ["Policy expires", "Nov 30, 2026"],
-      ["Registered in", "agent_registry"],
+    label: "Enrolling Ana V.: the card is read, then its device and policy are registered on-chain.",
+    title: "Enrolled in a minute.",
+    body: "A TODA officer taps one NFC card and its spending policy goes on-chain. The driver needs no app and no data plan.",
+    facts: [
+      ["1 card", "is all a driver carries"],
+      ["Telegram", "delivers the receipts"],
     ],
   },
   {
     id: "fund",
     band: "green",
-    label: "The Tranche Agent: diesel holds above the PHP 65 threshold, so it funds PHP 1,500 per card. The price series is simulated.",
-    screen: <TrancheScreen />,
+    label: "The Tranche Agent: a simulated diesel price holds above PHP 65, so it releases PHP 1,500 per card.",
     title: "Fund, when the shift is real.",
-    body: "The Tranche Agent watches the DOE diesel price. A one-day spike is not a shift. It releases a tranche per card only when a change is sustained, above the threshold, and inside a budget Velo has verified.",
-    rules: [
-      ["Threshold", "PHP 65.00 per litre"],
-      ["Tranche per card", "PHP 1,500.00"],
-      ["Call", "payment_escrow.fund_escrow()"],
+    body: "The agent releases aid only when the diesel price stays above the threshold, inside a budget Velo has verified. A one-day spike releases nothing.",
+    facts: [
+      ["PHP 65", "per litre threshold"],
+      ["PHP 1,500", "per card"],
     ],
   },
   {
     id: "refuse",
     band: "declined",
     label: "A declined tap: PHP 800 is over the PHP 500 cap, rejected by the Noir contract, no transaction submitted.",
-    screen: <RefusedScreen />,
     title: "Refuse, before money moves.",
-    body: "Every tap is simulated against the card's own policy first. Over the cap, expired, or not permitted, and the contract says no. A refused tap writes nothing to the chain.",
-    rules: [
-      ["Per-tap cap", "PHP 500.00"],
-      ["Decided by", "payment_escrow.authorize()"],
-      ["Tx on refusal", "None submitted"],
+    body: "Over the cap or past its expiry, a tap gets a no from the contract. A refused tap writes nothing to the chain.",
+    facts: [
+      ["PHP 500", "per-tap cap"],
+      ["0 tx", "on a refusal"],
     ],
   },
   {
     id: "freeze",
     band: "frozen",
-    label: "The Freeze Agent has frozen Rotonda Fuels after a MIDAS score of 2.31 crossed the 1.78 line, holding PHP 960.",
-    screen: <FrozenScreen />,
+    label: "The Freeze Agent freezes Rotonda Fuels after a simulated MIDAS score of 2.31 crosses the 1.78 line.",
     title: "Freeze the station, not the program.",
-    body: "The Freeze Agent scores card-to-station taps as they arrive. When a pattern looks wrong, that one station stops: new taps are refused and its settlement is held. Every other station keeps pumping.",
-    rules: [
-      ["Scoring", "MIDAS-F"],
-      ["Settlement", "claim() skipped"],
-      ["Burst in this demo", "simulated"],
+    body: "When a tap pattern looks wrong, only that station stops. New taps are refused and its settlement is held until the LGU unfreezes it.",
+    facts: [
+      ["MIDAS-F", "scores every tap"],
+      ["1 station", "paused, the rest keep pumping"],
     ],
   },
   {
     id: "return",
     band: "mustard",
-    label: "The program has ended: PHP 3,190 returned to the LGU wallet, with a transaction for each swept card.",
-    screen: <ReturnedScreen />,
+    label: "The program ends: PHP 3,190 returns to the LGU wallet, with a transaction for each swept card.",
     title: "Return what's left, the same day.",
-    body: "At program end every card is revoked and its unspent escrow goes back to the LGU wallet. One CSV gives the COA a tx hash behind every number.",
-    rules: [
-      ["Revoke", "agent_registry.revoke_agent()"],
-      ["Sweep", "payment_escrow.sweep_on_revoke()"],
-      ["Audit", "COA CSV export"],
+    body: "When the program ends, every card is revoked and its unspent aid goes back to the LGU wallet.",
+    facts: [
+      ["Same day", "not a year later at audit"],
+      ["1 CSV", "with a tx hash for the COA"],
     ],
   },
-] satisfies Array<Step & { band: keyof typeof BANDS; title: string; body: string; rules: Array<[string, string]> }>;
+] satisfies Array<{ id: SceneId; band: keyof typeof BANDS; label: string; title: string; body: string; facts: Array<[string, string]> }>;
 
 const STAKES = [
-  {
-    figure: "2.7B",
-    peso: true,
-    what: "nearly lost to duplicate and ghost beneficiaries.",
-    source: "DSWD, via Daily Tribune",
-    answer: "Ghosts are matched out before anyone is enrolled.",
-  },
-  {
-    figure: "709.88M",
-    peso: true,
-    what: "in DOTr subsidies unpaid or expired, with leftovers returned to the treasury after two years.",
-    source: "COA, via Astig.ph and NET25",
-    answer: "Unspent escrow comes back the same day.",
-  },
-  {
-    figure: "723,000",
-    peso: false,
-    what: "tricycle drivers slated for PHP 5,000 each. Payouts stayed in person to stop ghosts, and drivers fainted in heat-exposed queues.",
-    source: "PNA; DSWD",
-    answer: "One minute to enroll, then a tap at the pump.",
-  },
+  { figure: "2.7B", peso: true, what: "nearly lost to ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
+  { figure: "709.88M", peso: true, what: "in subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns the same day." },
+  { figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
 ];
 
-const ENFORCEMENT = [
-  ["Fund", "Tranche Agent", "payment_escrow.fund_escrow(), per card, signed by the Program Wallet"],
-  ["Refuse", "Card agent", "agent_registry policy, enforced inside payment_escrow.authorize()"],
-  ["Freeze", "Freeze Agent", "The API refuses new taps before signing and skips payment_escrow.claim() for that station"],
-  ["Return", "Sweep runner", "agent_registry.revoke_agent(), then payment_escrow.sweep_on_revoke()"],
+const ENFORCEMENT: Array<[string, string, IconName]> = [
+  ["Fund", "payment_escrow.fund_escrow()", "wallet"],
+  ["Refuse", "payment_escrow.authorize()", "close"],
+  ["Freeze", "API skips payment_escrow.claim()", "pause"],
+  ["Return", "payment_escrow.sweep_on_revoke()", "refresh"],
 ];
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-50 border-b-[1.5px] border-text bg-surface text-text">
-      <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-4`}>
-        <Link href="/" aria-label="TAPat" className="block h-14 w-28 shrink-0 overflow-hidden">
-          {/* The icon file is square with wide margins; this slot shows its middle band, as in the app's top bar. */}
-          <Image src="/tapat-app-icon-1024.png" alt="" width={112} height={112} className="-mt-7 max-w-none mix-blend-darken" priority />
-        </Link>
-        <nav aria-label="Page" className="ml-auto hidden items-center gap-8 text-label md:flex">
-          <a href="#list" className="underline-offset-4 hover:underline">
-            How it works
-          </a>
-          <a href="#stakes" className="underline-offset-4 hover:underline">
-            Why it matters
-          </a>
-          <a href="#enforcement" className="underline-offset-4 hover:underline">
-            What enforces it
-          </a>
-        </nav>
-        <Cta href="/dashboard" look="primary" compact>
-          Open the app
-        </Cta>
-      </div>
-    </header>
-  );
-}
 
 export default function Landing() {
   return (
     <div className="landing">
-      <Header />
+      <header className="fixed top-4 left-1/2 z-50 flex w-max -translate-x-1/2 items-center gap-6 rounded-full bg-surface p-1.5 pl-3 text-text shadow-[0_16px_48px_rgb(27_46_40/0.18)] ring-1 ring-text/10">
+        <Link href="/" aria-label="TAPat" className="block h-11 w-[88px] shrink-0 overflow-hidden">
+          {/* The icon file is square with wide margins; this slot shows its middle band, as in the app's top bar. */}
+          <Image src="/tapat-app-icon-1024.png" alt="" width={88} height={88} className="-mt-[22px] max-w-none mix-blend-darken" priority />
+        </Link>
+        <Cta href="/login" look="primary">
+          Open the app
+        </Cta>
+      </header>
       <main>
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-            <div className={`${PAGE_WIDTH} sticky top-16 flex h-[calc(100dvh-4rem)] items-center justify-end lg:pr-[clamp(0px,7vw,120px)]`}>
-              <PinnedPhone steps={[HERO, ...STEPS].map(({ id, label, screen }) => ({ id, label, screen }))} />
+        <div className="landing-walk relative">
+          <Band {...HERO} sheet={false}>
+            <div className="landing-hero flex flex-col gap-6">
+              <h1 className="text-[clamp(56px,7.4vw,112px)] leading-[0.98] font-semibold tracking-[-0.04em] text-balance" style={{ "--i": 1 } as CSSProperties}>
+                Fuel aid that can say no.
+              </h1>
+              <p className="landing-lead" style={{ "--i": 2 } as CSSProperties}>
+                An AI agent funds, caps, and returns fuel aid for tricycle drivers. The limits are enforced on-chain.
+              </p>
+              <div style={{ "--i": 3 } as CSSProperties}>
+                <Actions />
+              </div>
+              <p className="text-small" style={{ "--i": 4 } as CSSProperties}>
+                Log in or create an officer account to try it.
+              </p>
             </div>
-          </div>
-
-          <Band {...HERO}>
-            <h1 className="text-[clamp(52px,7vw,96px)] leading-[1.02] font-semibold tracking-[-0.03em] text-balance">Fuel aid that can say no.</h1>
-            <p className="landing-lead">
-              An AI agent releases, caps, and returns fuel aid for tricycle drivers, inside limits the LGU signs and Noir enforces on Stellar.
-            </p>
-            <Actions />
-            <p className="text-small">Hackathon prototype on Stellar Testnet.</p>
           </Band>
 
           {STEPS.map((step) => (
-            <Band key={step.id} id={step.id} band={step.band} label={step.label} screen={step.screen}>
-              <h2 className="landing-h2">{step.title}</h2>
-              <p className="landing-lead">{step.body}</p>
-              <Rules rows={step.rules} />
+            <Band key={step.id} id={step.id} band={step.band} label={step.label}>
+              <h2 className="landing-h2 landing-reveal" style={{ "--i": 1 } as CSSProperties}>
+                {step.title}
+              </h2>
+              <p className="landing-lead landing-reveal" style={{ "--i": 2 } as CSSProperties}>
+                {step.body}
+              </p>
+              <dl className="landing-reveal grid grid-cols-2 gap-3" style={{ "--i": 3 } as CSSProperties}>
+                {step.facts.map(([value, label]) => (
+                  <Plate key={value} tray="bg-current/10 ring-current/15" plate="bg-raised text-text">
+                    <div className="flex h-full flex-col-reverse justify-end gap-1.5 px-5 py-4">
+                      <dt className="text-small">{label}</dt>
+                      <dd className="text-[clamp(22px,2.2vw,30px)] leading-none font-semibold tracking-[-0.02em]">{value}</dd>
+                    </div>
+                  </Plate>
+                ))}
+              </dl>
             </Band>
           ))}
+
+          {/* After the bands in the DOM so the hero heading comes first; absolute placement is unaffected. */}
+          <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
+            <div className={`${PAGE_WIDTH} phone-stage sticky top-0 flex h-dvh items-center justify-end lg:pr-[clamp(0px,7vw,120px)]`}>
+              <PinnedPhone steps={[HERO, ...STEPS].map(({ id, label }) => ({ id, label }))} />
+            </div>
+          </div>
         </div>
 
-        <section id="stakes" className="relative scroll-mt-16 overflow-clip border-t-[1.5px] border-text bg-text py-20 text-surface lg:py-28">
-          <span aria-hidden="true" className="band-arc bg-pressed" />
-          <Rings size={240} step={30} count={8} className="origin-top-right text-primary max-lg:scale-50" />
-          <div className={`${PAGE_WIDTH} relative`}>
-            <h2 className="landing-h2 max-w-3xl">Safe and slow, or fast and leaky. Both cost real money.</h2>
-            <ul className="mt-12 lg:mt-16">
-              {STAKES.map((row) => (
-                <li key={row.figure} className="grid gap-4 border-t-[1.5px] border-current py-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,3fr)] lg:gap-10">
-                  <p className="text-[clamp(48px,6.4vw,92px)] leading-none font-semibold tracking-[-0.03em] whitespace-nowrap">
-                    {row.peso ? <span className="mr-2 font-mono text-[0.3em] font-medium tracking-normal">PHP</span> : null}
-                    {row.figure}
-                  </p>
-                  <p className="text-[17px] leading-normal">
-                    {row.what} <span className="block pt-2 text-small text-mint">{row.source}, as cited in our PRD.</span>
-                  </p>
-                  <p className="text-[17px] leading-normal font-medium text-accent">{row.answer}</p>
+        <section className="landing-sheet relative z-30 bg-text text-surface">
+          <div className={`${PAGE_WIDTH} flex flex-col gap-14 py-32 lg:py-40`}>
+            <h2 className="landing-h2 landing-reveal max-w-3xl">Safe and slow, or fast and leaky.</h2>
+            <ul className="grid gap-4 lg:grid-cols-12">
+              {STAKES.map((row, index) => (
+                <li key={row.figure} className={`landing-reveal ${index === 0 ? "lg:col-span-7 lg:row-span-2" : "lg:col-span-5"}`} style={{ "--i": index } as CSSProperties}>
+                  <Plate tray="bg-surface/5 ring-surface/10" plate="bg-pressed/45">
+                    <div className="flex h-full flex-col justify-between gap-10 p-7 lg:p-9">
+                      <p className={`leading-none font-semibold tracking-[-0.04em] ${index === 0 ? "text-[clamp(64px,9vw,136px)]" : "text-[clamp(44px,4.6vw,68px)]"}`}>
+                        {row.peso ? <span className="mr-2 font-mono text-[0.3em] font-medium tracking-normal">PHP</span> : null}
+                        {row.figure}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[17px] leading-normal">
+                          {row.what} <span className="text-small whitespace-nowrap text-mint">({row.source})</span>
+                        </p>
+                        <p className="text-[17px] leading-normal font-medium text-accent">{row.answer}</p>
+                      </div>
+                    </div>
+                  </Plate>
                 </li>
               ))}
             </ul>
           </div>
         </section>
 
-        <section id="enforcement" className="scroll-mt-16 border-t-[1.5px] border-text bg-sunken py-20 text-text lg:py-28">
-          <div className={PAGE_WIDTH}>
-            <div className="mx-auto max-w-5xl">
-              <div className="border-[1.5px] border-b-0 border-text bg-raised p-[clamp(20px,4vw,56px)]">
-                <h2 className="landing-h2 max-w-3xl">The agent decides. The contract has the last word.</h2>
-                <div className="mt-10">
-                  <div className="hidden grid-cols-[1fr_1.2fr_3fr] gap-6 pb-3 text-caption md:grid" aria-hidden="true">
-                    <span>Decision</span>
-                    <span>Made by</span>
-                    <span>Enforced by</span>
-                  </div>
-                  <ul>
-                    {ENFORCEMENT.map(([decision, agent, call]) => (
-                      <li key={decision} className="grid gap-1 border-t-[1.5px] border-dashed border-text py-4 md:grid-cols-[1fr_1.2fr_3fr] md:gap-6">
-                        <span className="text-h2">{decision}</span>
-                        <span className="text-label md:pt-1.5">{agent}</span>
-                        <span className="font-mono text-mono [overflow-wrap:anywhere] md:pt-1.5">{call}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <p className="landing-lead mt-8 max-w-[62ch] border-t-[1.5px] border-dashed border-text pt-8">
-                  Before any tranche is funded, the LGU Budget Office pays one Velo checkout and a signed webhook credits the budget exactly once. Velo also sponsors the fee
-                  on every Noir call. Per-tap enforcement is Noir&apos;s alone.
-                </p>
-              </div>
-              <svg aria-hidden="true" viewBox="0 0 100 7" preserveAspectRatio="none" className="block h-[10px] w-full overflow-visible">
-                <polyline
-                  points={Array.from({ length: 81 }, (_, i) => `${i * 1.25},${i % 2 === 0 ? 0 : 7}`).join(" ")}
-                  className="fill-raised stroke-text"
-                  strokeWidth="1.5"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-            </div>
+        <section className="landing-sheet relative z-30 bg-sunken text-text">
+          <div className={`${PAGE_WIDTH} flex flex-col gap-14 py-32 lg:py-40`}>
+            <h2 className="landing-h2 landing-reveal max-w-4xl">The agent decides. The contract has the last word.</h2>
+            <ul className="grid gap-4 md:grid-cols-12">
+              {ENFORCEMENT.map(([decision, call, icon], index) => (
+                <li key={decision} className={`landing-reveal ${index === 0 || index === 3 ? "md:col-span-5" : "md:col-span-7"}`} style={{ "--i": index % 2 } as CSSProperties}>
+                  <Plate tray="bg-text/5 ring-text/10" plate="bg-raised">
+                    <div className="flex h-full flex-col gap-10 p-7">
+                      <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-full bg-mint text-primary">
+                        <Icon name={icon} />
+                      </span>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-h2">{decision}</h3>
+                        <p className="font-mono text-mono [overflow-wrap:anywhere] text-muted">{call}</p>
+                      </div>
+                    </div>
+                  </Plate>
+                </li>
+              ))}
+            </ul>
+            <p className="landing-reveal text-small">Velo verifies the budget and sponsors the fees. Per-tap limits are Noir&apos;s.</p>
           </div>
         </section>
 
-        <section className="relative overflow-clip border-t-[1.5px] border-text bg-primary-deep py-20 text-surface lg:py-28">
-          <span aria-hidden="true" className="band-arc bg-primary" />
-          <Rings size={240} step={30} count={8} className="origin-top-right text-pressed max-lg:scale-50" />
-          <div className={`${PAGE_WIDTH} relative flex flex-col gap-8`}>
-            <h2 className="landing-h2 max-w-4xl">Every peso has somewhere it has to be.</h2>
-            <p className="font-mono text-[clamp(18px,2.1vw,30px)] leading-[1.35] font-medium text-balance">Funded = spent + held + pending + escrow + returned</p>
-            <p className="landing-lead max-w-[56ch]">The dashboard keeps this line in view and flags a mismatch. Open it, or run the agents through the whole loop yourself.</p>
-            <Actions />
+        <section className="landing-sheet relative z-30 overflow-clip bg-primary-deep text-surface">
+          <BandMotion art="close" motif="text-pressed" />
+          <div className={`${PAGE_WIDTH} relative flex flex-col gap-8 py-32 lg:py-40`}>
+            <h2 className="landing-h2 landing-reveal max-w-4xl">Every peso has somewhere it has to be.</h2>
+            <p className="landing-reveal font-mono text-[clamp(18px,2.1vw,30px)] leading-[1.35] font-medium text-balance" style={{ "--i": 1 } as CSSProperties}>
+              Funded = spent + held + pending + escrow + returned
+            </p>
+            <p className="landing-lead landing-reveal max-w-[52ch]" style={{ "--i": 2 } as CSSProperties}>
+              Run the whole loop yourself on a laptop or a phone. No NFC card needed: Simulate card stands in for the tap.
+            </p>
+            <div className="landing-reveal" style={{ "--i": 3 } as CSSProperties}>
+              <Actions />
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t-[1.5px] border-text bg-raised py-8 text-text">
-        <p className={`${PAGE_WIDTH} text-caption`}>
-          TAPat, built for the Velo x Noir Agentic Payment Hackathon. A prototype on Stellar Testnet at a demo rate of PHP 10 per XLM. Phone screens show sample data from the
-          app&apos;s design file; price and burst data are simulated.
-        </p>
+      <footer className="relative z-30 bg-text py-8 text-surface">
+        <p className={`${PAGE_WIDTH} text-caption`}>Prototype on Stellar Testnet at a demo rate. Limits shown are the demo program&apos;s. Phone screens use sample data; price and burst data are simulated.</p>
       </footer>
     </div>
   );

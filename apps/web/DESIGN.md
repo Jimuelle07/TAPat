@@ -293,7 +293,7 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 - **Ink** (#1b2e28): All body text, all default rules and borders, and the stakes band ground.
 - **Muted Green-Grey** (#5c6b65): Inactive tab icons and labels, and input placeholders. Never body copy.
 - **Cream** (#fbf5e3): The app screen, the sheet, the landing header, a landing band ground, and text on dark grounds.
-- **Raised Paper** (#fdfaf0): Cards, list cards, receipts, secondary buttons, tab bar, and the landing footer.
+- **Raised Paper** (#fdfaf0): Cards, list cards, receipts, secondary buttons and the tab bar.
 - **Sunken Cream** (#f2e8cc): The page behind the app, disabled buttons, skeletons, the arc in cream cards and bands, and the enforcement section ground.
 - **Ring Cream** (#e3d6b2): Corner rings on cream grounds only.
 
@@ -318,7 +318,7 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 - **H2** (500, 22px, 1.35): App screen titles and section titles, and the decision names in the enforcement table.
 - **Small** (400, 15px, 1.45): App body copy.
 - **Label** (500, 15px, 1.3): Buttons, list titles, navigation links.
-- **Caption** (500, 13px, 1.4): Chips, list metadata, tab labels, field labels, the landing footer.
+- **Caption** (500, 13px, 1.4): Chips, list metadata, tab labels and field labels.
 - **Card Value** (500, 28px, 1.2) and **Card Value Small** (500, 24px, 1.2): Stat card values, in Outfit.
 - **Amount Large, Medium, Small** (500, 40px, 36px and 16px, in Azeret Mono): The station entry amount, the fuel credit balance, and receipt and field amounts.
 - **Mono** (400, 13px, 1.4): Ledger rows in the app. **Landing Rule** (400, 14px, 1.4, tabular) is the same line at page scale.
@@ -399,7 +399,7 @@ The system's core artefact. Square Raised Paper with a 1.5px Ink border, the cro
 A stat card at page scale: a full-bleed ground, the band arc, a 240px ring set and a 1.5px Ink top rule. Beside the headline, ledger rows in Landing Rule type on current-colour rules state the limit or contract call behind the claim.
 
 ### Device Mockup
-The app's real components at 390px, scaled and inert under `public/phone-frame.png`, described by an accessible label and always carrying a "Sample data" chip below the frame. A new screen fades in with a 14px rise over 200 to 320ms on a `cubic-bezier(0.16, 1, 0.3, 1)` curve. The outgoing screen holds until the new one lands, so two screens never read as one. Motion stops under `prefers-reduced-motion`.
+Remotion scenes (`app/_landing/screens.tsx`) at 390px, scaled and inert under `public/phone-frame.png`, built from the app's real components with frame-driven motion only, described by an accessible label. The phone has real depth: stacked body layers for its thickness, a detached floating shadow and a band of light that travels across the glass as it turns. The pinned phone plays the scene of the band at mid-viewport; under reduced motion each scene shows its finished frame. Each band also has its own abstract art in its kit colours (`app/_landing/art.tsx`): a tap ripple, a masterlist sieve, a fan of cards, a price step, a no-entry sign, ice facets, a sun of rays and a ring of coins, played by Remotion (`app/_landing/Motion.tsx`). Art grows in when its band arrives and keeps a slow idle motion while on screen; phone scenes loop with a hold on the finished screen. Off-screen players pause. On a device with a mouse the pinned phone swings to face the cursor on a spring with a slight overshoot, at most 22 degrees so its screen stays readable. On touch screens the phone moves with the scroll instead, nearly square-on when a band fills the screen and facing north, east, south and west in turn between bands (CSS scroll timelines, in both directions). On desktop each band's art is centred exactly behind the pinned phone; bands stack as rounded sheets, and landing cards, pills and the floating nav follow a double-bezel, nested-arrow language with no realistic imagery.
 
 ### Asset Sources
 `public/phone-frame.png` and `public/tapat-app-icon-1024.png` are pre-existing project assets that pre-date the landing page, supplied by the team. The icon is the TAPat brand logo; the frame was added in commit 813b290. They were deliberately not re-stamped with embedded provenance, because both are shared with the app.
@@ -411,7 +411,7 @@ The app's real components at 390px, scaled and inert under `public/phone-frame.p
 - **Do** draw rules at 1.5px, in Ink on paper and the current text colour on dark grounds.
 - **Do** spell amounts with the "PHP" label wherever they are set in Azeret Mono.
 - **Do** write status out in a chip or sentence alongside any status colour.
-- **Do** build mockups from the app's real components and label them "Sample data".
+- **Do** build mockups from the app's real components and say on the page that they use sample data.
 - **Do** place the logo on Cream or Raised Paper, cropped to the icon's middle band as the top bar does, since it blends with `mix-blend-mode: darken`.
 - **Do** gate motion behind `prefers-reduced-motion: no-preference`, and keep a band legible when the scroll-driven arc swell is unsupported.
 

@@ -1085,7 +1085,7 @@ No request. Response 200: `Dashboard`. Snapshot after the demo's close (post-swe
 
 `budget.state` drives the badge on `/dashboard`: `none` → **Fund budget** button; `waiting` (a budget `velo_intents` row exists but is not `paid`) → "Waiting for Velo…" + **Open checkout** link to `checkoutUrl`; `verified` → "Velo verified ✓ ₱{verified}" + remaining. `Fund budget` navigates the same tab to `checkoutUrl`; `/?budget=success` → toast "Payment sent — waiting for Velo verification" + refetch; `/?budget=cancel` → toast "Checkout cancelled".
 
-`cards` is the source for the **card list on `/`** and for the **Simulate tap** picker on `/station/[id]`; both show `displayName` + `uidLast4` + `deviceHashPrefix` only. The picker offers **only cards with `status='active'`** (a `swept`/`revoked`/`failed` card can no longer `authorize`), and among those a card with `expired: true` stays selectable with an `expired` tag — D3 must remain tappable so the demo can show `EXPIRED` from the chain.
+`cards` is the source for the **card list on `/dashboard`** and for the **Simulate tap** picker on `/station/[id]`; both show `displayName` + `uidLast4` + `deviceHashPrefix` only. The picker offers **only cards with `status='active'`** (a `swept`/`revoked`/`failed` card can no longer `authorize`), and among those a card with `expired: true` stays selectable with an `expired` tag — D3 must remain tappable so the demo can show `EXPIRED` from the chain.
 
 Page placement of this response (see also §5.6 and [SDD §8](system-design.md)):
 

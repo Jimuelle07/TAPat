@@ -39,7 +39,7 @@ Three money decisions made by software, each inside limits the LGU signs and enf
 - Program defaults: ₱500 per-tap cap, ₱1,500 tranche per card, ₱10,000 budget deposit, ₱65.00/L price threshold, demo rate ₱10 per XLM.
 - Noir is called only through `@noirx402/agent-sdk`. Velo verifies the budget checkout and sponsors every Noir call; Velo does not verify per-tap payments, and no surface may claim it does.
 - Card identity is privacy-scoped: show `displayName` ("Juan D.") and `…` plus the last 4 of a UID, never a full name or full hash.
-- Basic auth covers the whole deployed site (Caddy; optionally `middleware.ts`), so a public page behind the Funnel URL still asks for the password. Changing that needs Jim.
+- The landing page at `/` is public. The app behind it requires a login, and the API enforces an officer session on every write; anyone can create an officer account. Phones use the mobile app and laptops the desktop app at `/desktop`.
 
 ## Brand Commitments
 

@@ -23,4 +23,3 @@ FORM: Pinned-phone walk, position 6 of my ordered list, seed key 56159a38. Signa
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
-Unresolved: the deployed Funnel URL asks for basic auth on every page; only Jim can change that.
