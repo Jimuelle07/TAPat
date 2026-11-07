@@ -22,9 +22,10 @@ export function ReelPlayer({ id, onReady }: { id: SpecimenId; onReady?: () => vo
   // Parts of an artifact outside the drawing (the list's tally) animate from this frame number in CSS.
   useEffect(() => {
     const current = player.current;
-    const art = box.current?.closest<HTMLElement>(".step-art");
-    if (!current || !art) return;
-    const onFrame = ({ detail }: { detail: { frame: number } }) => art.style.setProperty("--reel-frame", String(detail.frame));
+    // Set on the tally itself: on the artifact it would restyle everything inside it, on every frame of all six cards.
+    const tally = box.current?.closest(".step-art")?.querySelector<HTMLElement>(".step-ledger-tally");
+    if (!current || !tally) return;
+    const onFrame = ({ detail }: { detail: { frame: number } }) => tally.style.setProperty("--reel-frame", String(detail.frame));
     current.addEventListener("frameupdate", onFrame);
     return () => current.removeEventListener("frameupdate", onFrame);
   }, [seen, player]);

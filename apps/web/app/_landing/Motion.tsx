@@ -72,7 +72,7 @@ function CornerPlayer({ art, box }: { art: ArtId; box: RefObject<Element | null>
   );
 }
 
-/** A band's art: the main piece on the right, its motif in the top corner, and a quieter echo bottom left on desktop. */
+/** A band's art: the main piece, placed by the band's own CSS, and its motif in the top corner. */
 export function BandMotion({ art, motif }: { art: ArtId; motif: string }) {
   const box = useRef<HTMLSpanElement>(null);
   const { player, seen } = usePlayOnScreen(box, ART_SETTLED);
@@ -95,9 +95,6 @@ export function BandMotion({ art, motif }: { art: ArtId; motif: string }) {
         ) : null}
       </span>
       <span aria-hidden="true" className={`absolute top-0 right-0 size-30 lg:size-60 ${motif}`}>
-        <CornerPlayer art={art} box={box} />
-      </span>
-      <span aria-hidden="true" className={`absolute bottom-0 left-0 hidden size-60 rotate-180 opacity-50 lg:block ${motif}`}>
         <CornerPlayer art={art} box={box} />
       </span>
     </>

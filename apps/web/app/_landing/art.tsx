@@ -230,7 +230,7 @@ function Coins() {
         {Array.from({ length: 12 }, (_, i) => {
           const a = (i * 2 * Math.PI) / 12;
           return (
-            <circle key={i} cx={500 + 285 * Math.cos(a)} cy={500 + 285 * Math.sin(a)} r={160 * grow(i * 2)} className="fill-primary stroke-pressed" strokeWidth="8" />
+            <circle key={i} cx={500 + 285 * Math.cos(a)} cy={500 + 285 * Math.sin(a)} r={160 * grow(i * 2)} className="close-coin" strokeWidth="8" />
           );
         })}
       </g>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
@@ -14,9 +15,10 @@ import { TapDemo, type TapChoice } from "./_landing/TapDemo";
 import { Cta, HeroArt, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
 import "./_landing/depth.css";
 
-// Landing only, so the app does not load them. The peso sign lives in latin-ext.
-const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin", "latin-ext"], axes: ["opsz"] });
-const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], style: "italic", axes: ["SOFT", "WONK", "opsz"] });
+// Landing only, so the app does not load them. The two local files are cut down to what the page uses: see _landing/fonts/README.md.
+const bricolage = localFont({ src: "./_landing/fonts/bricolage-700.woff2", variable: "--font-bricolage", weight: "700", display: "swap" });
+const fraunces = localFont({ src: "./_landing/fonts/fraunces-italic-500.woff2", variable: "--font-fraunces", weight: "500", style: "italic", display: "swap" });
+// The peso sign lives in latin-ext.
 const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {
@@ -177,10 +179,10 @@ function Logo({ priority = false }: { priority?: boolean }) {
   );
 }
 
-function Actions() {
+function Actions({ main = "accent" }: { main?: "accent" | "primary" }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:w-full sm:[&>a]:w-auto">
-      <Cta href="/login" look="accent">
+      <Cta href="/login" look={main}>
         Open the app
       </Cta>
       <Cta href="/demo" look="outline">
@@ -222,16 +224,16 @@ export default function Landing() {
       <header className="landing-header sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
         <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-6`}>
           <Link href="/" prefetch={false} aria-label="TAPat" className="block">
-            <Logo />
+            <Logo priority />
           </Link>
           <nav aria-label="Sections" className="hidden items-center gap-6 md:flex">
-            <a href="#loop" className="text-label underline-offset-4 hover:underline">
+            <a href="#loop" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
               How it works
             </a>
-            <a href="#stakes" className="text-label underline-offset-4 hover:underline">
+            <a href="#stakes" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
               Why
             </a>
-            <a href="#contract" className="text-label underline-offset-4 hover:underline">
+            <a href="#contract" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
               Contract
             </a>
           </nav>
@@ -295,84 +297,89 @@ export default function Landing() {
 
         <StepRail steps={RAIL} />
         <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken max-lg:pb-24">
-          <div className={`${PAGE_WIDTH} py-20 lg:py-28`}>
-            <div className="landing-reveal flex max-w-3xl flex-col gap-5">
-              <h2 className="landing-h2">Six steps. One receipt.</h2>
-              <p className="landing-lead">Follow one sample program from the masterlist to the money coming back. The receipt on the right has to balance.</p>
-            </div>
+          <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
+            <svg viewBox="0 0 240 240" className="block h-full w-full">
+              {Array.from({ length: 8 }, (_, i) => (
+                <circle key={i} cx="240" cy="0" r={30 * (i + 1)} fill="none" strokeWidth="1.5" className="stroke-ring-surface" />
+              ))}
+            </svg>
+          </span>
+          <div className="loop-intro landing-reveal relative flex flex-col gap-5">
+            <h2 className="landing-h2">Six steps. One receipt.</h2>
+            <p className="landing-lead">Follow one sample program from the masterlist to the money coming back. The receipt on the right has to balance.</p>
+          </div>
 
-            <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:items-start">
-              <LoopSteps steps={STEPS} />
+          <LoopSteps steps={STEPS} />
 
-              <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24 lg:col-span-5">
-                <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
-                <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
-                  <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
-                    <Logo />
-                    <div className="flex flex-col gap-1 min-[480px]:items-end min-[480px]:text-right">
-                      <p className="flex items-center gap-2">
-                        RECEIPT
-                        <Stamp tone="outline">SAMPLE DATA</Stamp>
-                      </p>
-                      <p>TODA Fuel Aid — San Roque</p>
-                    </div>
+          <div className="loop-receipt">
+            <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24">
+              <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
+              <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
+                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
+                  <Logo />
+                  <div className="flex flex-col gap-1 min-[480px]:items-end min-[480px]:text-right">
+                    <p className="flex items-center gap-2">
+                      RECEIPT
+                      <Stamp tone="outline">SAMPLE DATA</Stamp>
+                    </p>
+                    <p>TODA Fuel Aid — San Roque</p>
                   </div>
-                  <hr className="border-t-[1.5px] border-dashed border-text" />
-                  <ol className="flex flex-col">
-                    {RECEIPT_LINES.map((line) => (
-                      <li key={`${line.code}-${line.what}`} className="receipt-slot">
-                        <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
-                          <Nums>{`waiting for step 0${line.step}…`}</Nums>
+                </div>
+                <hr className="border-t-[1.5px] border-dashed border-text" />
+                <ol className="flex flex-col">
+                  {RECEIPT_LINES.map((line) => (
+                    <li key={`${line.code}-${line.what}`} className="receipt-slot">
+                      <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
+                        <Nums>{`waiting for step 0${line.step}…`}</Nums>
+                      </span>
+                      <div
+                        data-step={line.step}
+                        data-tone={line.stamp?.[0] ?? "mint"}
+                        className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
+                      >
+                        <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">
+                          <Nums>{line.code}</Nums>
                         </span>
-                        <div
-                          data-step={line.step}
-                          data-tone={line.stamp?.[0] ?? "mint"}
-                          className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
-                        >
-                          <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">
-                            <Nums>{line.code}</Nums>
+                        <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">
+                          <Nums>{line.what}</Nums>
+                        </span>
+                        <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">
+                          <Nums>{line.amount}</Nums>
+                        </span>
+                        {line.stamp === undefined ? null : (
+                          <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
+                            <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
                           </span>
-                          <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">
-                            <Nums>{line.what}</Nums>
-                          </span>
-                          <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">
-                            <Nums>{line.amount}</Nums>
-                          </span>
-                          {line.stamp === undefined ? null : (
-                            <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
-                              <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
-                            </span>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                  <hr className="border-t-[1.5px] border-dashed border-text" />
-                  <div className="relative">
-                    <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
-                      <Nums>waiting for step 06…</Nums>
-                    </div>
-                    <div className="receipt-total flex flex-col">
-                      <dl className="flex flex-col">
-                        {TOTALS.map(([label, pesos]) => (
-                          <div key={label} className="flex justify-between py-0.5">
-                            <dt>{label}</dt>
-                            <dd className="tabular-nums">
-                              <Nums>{money(pesos)}</Nums>
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                      <div className="mt-2 flex items-center justify-between gap-4">
-                        <span>Funded = spent + held + pending + escrow + returned</span>
-                        <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
+                        )}
                       </div>
+                    </li>
+                  ))}
+                </ol>
+                <hr className="border-t-[1.5px] border-dashed border-text" />
+                <div className="relative">
+                  <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
+                    <Nums>waiting for step 06…</Nums>
+                  </div>
+                  <div className="receipt-total flex flex-col">
+                    <dl className="flex flex-col">
+                      {TOTALS.map(([label, pesos]) => (
+                        <div key={label} className="flex justify-between py-0.5">
+                          <dt>{label}</dt>
+                          <dd className="tabular-nums">
+                            <Nums>{money(pesos)}</Nums>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="mt-2 flex items-center justify-between gap-4">
+                      <span>Funded = spent + held + pending + escrow + returned</span>
+                      <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
                     </div>
                   </div>
                 </div>
-                <TearEdge />
-              </aside>
-            </div>
+              </div>
+              <TearEdge />
+            </aside>
           </div>
         </section>
 
@@ -380,8 +387,9 @@ export default function Landing() {
 
         <ContractSection rows={ENFORCEMENT} />
 
-        <section className="close-band relative overflow-clip bg-primary-deep text-surface">
-          <LazyBandMotion art="close" motif="text-pressed" />
+        <section className="close-band relative overflow-clip border-t-[1.5px] border-text bg-accent text-text">
+          <span aria-hidden="true" className="close-arc" />
+          <LazyBandMotion art="close" motif="text-ring-accent" />
           <div className={`${PAGE_WIDTH} relative flex flex-col gap-8 py-24 lg:py-32`}>
             <h2 className="landing-h2 landing-reveal max-w-4xl">Every peso has somewhere it has to be.</h2>
             <p className="landing-reveal flex flex-wrap items-center gap-2 font-mono text-[clamp(16px,1.8vw,24px)]">
@@ -402,7 +410,7 @@ export default function Landing() {
               Run the whole loop yourself on a laptop or a phone. No NFC card needed: Simulate card stands in for the tap.
             </p>
             <div className="landing-reveal">
-              <Actions />
+              <Actions main="primary" />
             </div>
           </div>
         </section>

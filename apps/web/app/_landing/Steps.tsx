@@ -116,22 +116,20 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
 
 export function LoopSteps({ steps }: { steps: LoopStep[] }) {
   return (
-    <ol className="loop-steps lg:col-span-7">
+    <ol className="loop-steps">
       {steps.map((step, i) => (
-        <li
-          key={step.id}
-          id={step.id}
-          className={`loop-step step step-${step.id} ${i % 2 ? "step-flip" : ""} flex flex-col justify-center gap-7 py-14 lg:min-h-[85vh]`}
-        >
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="step-no">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <Stamp tone={step.chip[0]}>{step.chip[1]}</Stamp>
-          </div>
-          <div className="step-text landing-reveal flex flex-col gap-5">
-            <h3 className="landing-step">{step.title}</h3>
-            <p className="landing-lead max-w-[52ch]">{step.body}</p>
+        <li key={step.id} id={step.id} className={`loop-step step step-${step.id} ${i % 2 ? "step-flip" : ""} flex flex-col gap-7 py-14`}>
+          <div className="flex flex-col gap-7">
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="step-no">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <Stamp tone={step.chip[0]}>{step.chip[1]}</Stamp>
+            </div>
+            <div className="step-text landing-reveal flex flex-col gap-5">
+              <h3 className="landing-step">{step.title}</h3>
+              <p className="landing-lead max-w-[52ch]">{step.body}</p>
+            </div>
           </div>
           <div className="step-visual landing-reveal">
             <Artifact step={step} />

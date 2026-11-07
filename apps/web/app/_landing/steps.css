@@ -35,19 +35,69 @@
 .step-art {
   position: relative;
 }
+
+/* The section's layout: ruled steps that run edge to edge, and the receipt in a column laid over their right side.
+   The percentages resolve against the section's width, so the content still lines up with the 1440px page on wide screens. */
+.loop {
+  --loop-edge: max(0px, (100% - 1440px) / 2);
+  --loop-gutter: calc(var(--loop-edge) + clamp(20px, 5vw, 72px));
+  --loop-col: calc(min(100%, 1440px) * 0.38);
+  --loop-clear: calc(var(--loop-edge) + var(--loop-col) + 40px);
+}
+.loop-intro {
+  padding: 5rem var(--loop-gutter) 3.5rem;
+}
+.loop-step {
+  padding-inline: var(--loop-gutter);
+  border-top: 1.5px solid var(--color-text);
+}
+.loop-receipt {
+  padding: 3.5rem var(--loop-gutter) 1rem;
+  border-top: 1.5px solid var(--color-text);
+}
 @media (min-width: 1024px) {
-  .step-flip .step-visual {
-    order: -1;
-    margin-left: auto;
+  .loop-intro,
+  .loop-step {
+    padding-right: var(--loop-clear);
   }
-  /* The number box stays first; the object comes next, then the words. */
-  .step-flip > :first-child {
-    order: -2;
+  .loop-intro {
+    padding-top: 6rem;
+  }
+  .loop-receipt {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    right: var(--loop-edge);
+    width: var(--loop-col);
+    padding: 6rem clamp(20px, 2.6vw, 36px) 1rem;
+    border-top: 0;
+  }
+  /* Room under step 06, so the receipt stays pinned while that step's lines and the totals print. */
+  .loop-steps {
+    padding-bottom: 10rem;
   }
 }
-@media (max-width: 1023.98px) {
-  .step-flip > :first-child {
-    order: 0;
+/* Words beside the card once the column is wide enough for both; even steps put the card first. */
+@media (min-width: 1280px) {
+  .loop-step {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+    gap: 2rem;
+    align-items: center;
+  }
+  .step-flip {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 5fr);
+  }
+  .step-flip .step-visual {
+    order: -1;
+  }
+  .loop-step .landing-step {
+    font-size: clamp(26px, 2.3vw, 33px);
+    line-height: 1.08;
+  }
+  .loop-step .landing-lead {
+    font-size: 17px;
   }
 }
 
@@ -311,9 +361,6 @@
 /* The rubber stamp's start keyframe swings past the column; clip (not hidden) so it can't widen the page. */
 .loop-step {
   overflow-x: clip;
-  /* Clip 8px outside the column so the tilted number box's outline isn't cut; the content box stays put. */
-  margin-inline: -8px;
-  padding-inline: 8px;
 }
 .step-rubber {
   display: block;

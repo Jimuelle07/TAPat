@@ -138,7 +138,6 @@ html:has(.landing) {
   font-family: var(--font-fraunces), Georgia, serif;
   font-style: italic;
   font-weight: 500;
-  font-variation-settings: "SOFT" 100, "WONK" 1;
 }
 
 .landing-h2 {
@@ -329,9 +328,9 @@ html:has(.landing) {
 
 /* The finished state: every term lit. Under motion the equation lights up in turn as it scrolls in. */
 .eq-term {
-  background-color: var(--color-mint);
+  background-color: var(--color-raised);
   color: var(--color-text);
-  border-color: var(--color-mint);
+  border-color: var(--color-text);
 }
 
 /* The hero art sits behind the terminal column, clear of the headline. */
@@ -343,11 +342,36 @@ html:has(.landing) {
   }
 }
 
-/* The closing band's art sits low and right, clear of the headline, equation, lead and buttons. */
+/* The closing band is Mustard: Pale Mustard arc on the right, coins in the band's shade low on the left. */
+.close-band ::selection {
+  background: var(--color-surface);
+}
+.close-arc {
+  --arc: clamp(320px, 69vw, 1000px);
+  position: absolute;
+  top: 56%;
+  right: 0;
+  width: var(--arc);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-accent-tint);
+  translate: 50% -50%;
+}
+.close-coin {
+  fill: color-mix(in srgb, var(--color-ring-accent) 35%, var(--color-accent));
+  stroke: var(--color-ring-accent);
+}
+/* This band ends the page, so the default reveal range would leave the buttons part-faded over the coins at the last scroll position. */
+.close-band .landing-reveal {
+  animation-range: entry 0% entry 100%;
+}
+
+/* The closing band's art sits low and left, in the corner behind the buttons. */
 @media (min-width: 1024px) {
   .close-band .band-arc {
     --art: min(70vmin, 40vw, 640px);
-    right: calc(var(--art) * -0.45);
+    right: auto;
+    left: calc(var(--art) * -0.45);
     top: auto;
     bottom: calc(var(--art) * -0.5);
     width: var(--art);
@@ -355,23 +379,20 @@ html:has(.landing) {
   }
 }
 
-/* Below lg the close art would sit behind the copy: push it down and right, and soften it. Base .band-arc rules are untouched. */
+/* Below lg the close art would sit behind the copy: push it down and left, and soften it. Base .band-arc rules are untouched. */
 @media (max-width: 1023.98px) {
   .close-band .band-arc {
-    right: -30vw;
+    right: auto;
+    left: -30vw;
     bottom: -34vw;
     width: min(96vw, 560px);
     opacity: 0.35;
   }
 }
 
-/* The hero's tap art: rings breathe out of phase, as the Remotion piece did. Static under reduced motion. */
-.hero-tap-disc,
-.hero-tap-ring {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-@media (prefers-reduced-motion: no-preference) {
+/* The hero's tap art: rings breathe out of phase, as the Remotion piece did. Desktop only, where the terminal doesn't hide them;
+   static on phones and under reduced motion. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
   .hero-tap-disc {
     animation: hero-tap-breathe 6s ease-in-out infinite;
   }
@@ -537,7 +558,7 @@ html:has(.landing) {
   from { clip-path: inset(0 100% 0 0); }
 }
 @keyframes term-lit {
-  from { background-color: transparent; color: var(--color-surface); border-color: color-mix(in oklab, var(--color-surface) 60%, transparent); box-shadow: none; }
+  from { background-color: transparent; border-color: color-mix(in oklab, var(--color-text) 60%, transparent); box-shadow: none; }
 }
 @keyframes eq-stamp {
   from { opacity: 0; scale: 0.6; }
@@ -1188,7 +1209,7 @@ html:has(.landing) {
   .tapscene[data-phase="idle"] .tapscene-card { animation: tapscene-bob 3.2s ease-in-out infinite; }
   .tapscene[data-phase="reading"] .tapscene-card { animation: tapscene-glide 800ms var(--ease-spring-soft, ease-out) both; }
   .tapscene[data-phase="reading"] .tapscene-arc { animation: tapscene-arc 1.3s ease-out 700ms infinite both; }
-  .tapscene .tapscene-dot { animation: tapscene-dot 1s ease-in-out infinite; }
+  .tapscene[data-phase="reading"] .tapscene-dot { animation: tapscene-dot 1s ease-in-out infinite; }
   .tapscene[data-phase="done"] .tapscene-card { animation: tapscene-settle 520ms ease-out both; }
   .tapscene[data-phase="done"] .tapscene-halo { animation: tapscene-halo 900ms ease-out both; }
   .tapscene[data-phase="done"] .tapscene-glyph-done,

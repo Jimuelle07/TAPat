@@ -273,12 +273,12 @@ Depth is mostly line, not shadow. Colour names a state before it decorates: a te
 A warm cream and forest palette with three state fields (terracotta, ice blue, mustard) and a single near-black green ink.
 
 ### Primary
-- **Forest** (#29664e): The dark field. Forest stat cards, the fuel credit card, and the first and closing landing bands.
+- **Forest** (#29664e): The dark field. Forest stat cards, the fuel credit card, and the first landing band.
 - **Field Green** (#2e6f55): Filled buttons, selected filter chips, the active tab disc, chart price line, focus ring, and the arc on Forest. Also a landing band ground, with Forest as its arc.
 - **Pressed Green** (#1f5540): Hover and active state of filled buttons, the rings on green grounds, and the arc on Ink.
 
 ### Secondary
-- **Mustard** (#f7b93e): Return at page scale, the accent CTA on dark grounds, the "Velo verified" chip, the chart threshold line, and landing text selection.
+- **Mustard** (#f7b93e): Return at page scale, the closing landing band, the accent CTA on dark grounds, the "Velo verified" chip, the chart threshold line, and landing text selection.
 - **Pale Mustard** (#fbd88f): Hover on the accent CTA, and the arc on a Mustard band.
 - **Ring Mustard** (#c98f1e): Corner rings on a Mustard band only.
 
@@ -381,7 +381,7 @@ Tactile and plain: a solid block with a clear press state.
 - **Secondary:** Raised Paper with a 1.5px Ink border, going to Mint on hover.
 - **Tertiary:** Field Green label with no fill, going to Mint on hover.
 - **Disabled:** Sunken Cream with Ink label. A loading button adds a spinning refresh icon.
-- **Landing CTA:** Auto width with 24px padding and a 1.5px border. Mustard with an Ink border on dark grounds; outlined in the current colour for the second action, filling Cream on hover. The header uses a 44px compact Field Green version.
+- **Landing CTA:** Auto width with 24px padding and a 1.5px border. Mustard with an Ink border on dark grounds; outlined in the current colour for the second action, filling Cream on hover. The header uses a 44px compact Field Green version, and the Mustard closing band uses a full-size Field Green one.
 
 ### Chips
 - **Style:** 8px corners, 1.5px Ink border, caption type, 4px by 8px padding. Always a written status, never colour alone.
@@ -408,6 +408,12 @@ Tactile and plain: a solid block with a clear press state.
 
 ### Receipt
 The system's core artefact. Square Raised Paper with a 1.5px Ink border, the cropped logo, a written status chip with its amount, ruled ledger rows, dashed separators and the Tear Edge. A declined receipt shows the reason and no balance.
+
+### Loop Section
+One Sunken Cream ground with no vertical divider. 1.5px Ink rules separate the intro and the six steps and run edge to edge, passing behind the receipt, which is pinned in a 38% column on the right from `lg`. From 1280px each step sets its words beside its card, and even steps put the card first. The receipt prints each step's lines as that step scrolls in.
+
+### Closing Band
+Mustard ground and Ink text, with a Pale Mustard arc off the right edge and Ring Mustard corner rings. The rotating coins sit low on the left, in a 35% Ring Mustard shade of the ground with Ring Mustard outlines. The equation terms are Raised Paper with Ink borders.
 
 ### Band
 A stat card at page scale: a full-bleed ground, the band arc, a 240px ring set and a 1.5px Ink top rule. Beside the headline, ledger rows in Landing Rule type on current-colour rules state the limit or contract call behind the claim.

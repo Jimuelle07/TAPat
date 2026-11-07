@@ -67,12 +67,15 @@ export function HeroArt() {
         <circle cx="520" cy="-420" r="620" fillOpacity="0.26" className="fill-pressed" />
       </svg>
       <span aria-hidden="true" className="band-arc">
-        <svg viewBox="0 0 1000 1000" className="absolute inset-0 h-full w-full">
-          <circle cx="500" cy="500" r="230" className="hero-tap-disc fill-primary" />
-          {[300, 370, 440].map((r, i) => (
-            <circle key={r} cx="500" cy="500" r={r} fill="none" strokeWidth={30 - i * 8} className="hero-tap-ring stroke-primary" style={{ "--i": i } as CSSProperties} />
-          ))}
+        {/* One <svg> per ring: the browser can animate a whole <svg> off the main thread, but not a shape inside one. */}
+        <svg viewBox="0 0 1000 1000" className="hero-tap-disc absolute inset-0 h-full w-full">
+          <circle cx="500" cy="500" r="230" className="fill-primary" />
         </svg>
+        {[300, 370, 440].map((r, i) => (
+          <svg key={r} viewBox="0 0 1000 1000" className="hero-tap-ring absolute inset-0 h-full w-full" style={{ "--i": i } as CSSProperties}>
+            <circle cx="500" cy="500" r={r} fill="none" strokeWidth={30 - i * 8} className="stroke-primary" />
+          </svg>
+        ))}
       </span>
       <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
         <svg viewBox="0 0 240 240" className="block h-full w-full">
