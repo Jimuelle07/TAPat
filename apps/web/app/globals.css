@@ -121,7 +121,7 @@ html:has(.landing) {
    stack can't supply one (next/font's generated fallback claims the glyph first), so the sign gets its own span. */
 .landing {
   --font-mono: var(--font-plex), ui-monospace, monospace;
-  --font-num: var(--font-azeret), ui-monospace, monospace;
+  --font-num: var(--font-plex), ui-monospace, monospace;
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 }
 .num {

@@ -66,6 +66,8 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   const [touched, setTouched] = useState(false);
   const [phase, setPhase] = useState<TapPhase>("idle");
   const timer = useRef<number | undefined>(undefined);
+  // Pending autoplay-cycle timer; a user tap clears it so the loop stops for good.
+  const loop = useRef<number | undefined>(undefined);
   // Bumped inside `run` (a callback), so every tap re-keys the animated parts and replays their motion.
   const [shot, setShot] = useState(0);
 
@@ -85,8 +87,20 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   useEffect(() => {
     const choice = choices.find((c) => c.id === autoplay);
     if (choice === undefined) return;
-    timer.current = window.setTimeout(() => run(choice, reducedNow()), reducedNow() ? 0 : AUTOPLAY_MS);
-    return () => window.clearTimeout(timer.current);
+    if (reducedNow()) {
+      timer.current = window.setTimeout(() => run(choice, true), 0);
+      return () => window.clearTimeout(timer.current);
+    }
+    // One pending timer at a time: each cycle runs the tap, then schedules only the next cycle after the verdict has shown.
+    const cycle = () => {
+      run(choice, false);
+      loop.current = window.setTimeout(cycle, READ_MS + AUTOPLAY_MS);
+    };
+    loop.current = window.setTimeout(cycle, AUTOPLAY_MS);
+    return () => {
+      window.clearTimeout(loop.current);
+      window.clearTimeout(timer.current);
+    };
   }, [autoplay, choices, run]);
 
   const verdict = active === null || phase === "reading" ? "pending" : active.verdict;
@@ -121,6 +135,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
             aria-pressed={active?.id === c.id}
             onClick={() => {
               setTouched(true);
+              window.clearTimeout(loop.current);
               run(c, reducedNow());
             }}
             className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-1.5 text-label whitespace-nowrap text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface max-[479px]:text-[13px] max-[439px]:last:col-span-2 min-[480px]:px-2"

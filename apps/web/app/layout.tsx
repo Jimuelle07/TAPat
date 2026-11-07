@@ -13,6 +13,7 @@ const azeret = Azeret_Mono({
   variable: "--font-azeret",
   subsets: ["latin"],
   weight: ["400", "500"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
