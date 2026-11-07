@@ -5,6 +5,6 @@ export const DESKTOP_MEDIA = '(min-width: 1024px)';
 export function deviceTarget(path: string, isDesktop: boolean): string | null {
   const inDesktop = path === '/desktop' || path.startsWith('/desktop/');
   if (isDesktop === inDesktop) return null;
-  if (isDesktop) return path === '/' ? '/desktop' : `/desktop${path}`;
-  return path === '/desktop' ? '/' : path.slice('/desktop'.length);
+  if (isDesktop) return path === '/dashboard' ? '/desktop' : `/desktop${path}`;
+  return path === '/desktop' ? '/dashboard' : path.slice('/desktop'.length);
 }

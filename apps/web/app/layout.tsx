@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 import { Azeret_Mono, Outfit } from "next/font/google";
-import { DeviceRedirect } from "./DeviceRedirect";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -29,12 +27,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" className={`${outfit.variable} ${azeret.variable} h-full antialiased`}>
-      <body className="min-h-full">
-        <Suspense fallback={null}>
-          <DeviceRedirect />
-        </Suspense>
-        {children}
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

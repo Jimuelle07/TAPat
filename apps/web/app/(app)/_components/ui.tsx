@@ -212,7 +212,7 @@ export function ListCard({ heading, rows }: { heading?: string; rows: ListRow[] 
 
 // ---- Stat cards ------------------------------------------------------------------------------------------------
 
-function Rings({ size, step, count, className }: { size: number; step: number; count: number; className: string }) {
+export function Rings({ size, step, count, className }: { size: number; step: number; count: number; className: string }) {
   return (
     <svg aria-hidden="true" width={size} height={size} className={`absolute top-0 right-0 ${className}`} viewBox={`0 0 ${size} ${size}`}>
       {Array.from({ length: count }, (_, i) => (
@@ -428,12 +428,12 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
 
 // ---- Screen frame ----------------------------------------------------------------------------------------------
 
-/** Root screens show the logo; detail screens show a back target and a title. */
-export function TopBar({ title, back, chip, tone }: { title?: string; back?: string; chip?: string; tone?: ChipTone }) {
+/** Root screens show the logo; detail screens show a back target and a title. `account={false}` is for the landing page mockups, which have no session. */
+export function TopBar({ title, back, chip, tone, account = true }: { title?: string; back?: string; chip?: string; tone?: ChipTone; account?: boolean }) {
   return (
     <header className="drop-in flex h-14 items-center justify-between gap-1 pr-5 pl-1 pt-[env(safe-area-inset-top)]" data-root={back === undefined}>
       {back === undefined ? (
-        <Link href="/" aria-label="TAPat home" className="fade-in ml-4 block h-11 w-[88px] overflow-hidden">
+        <Link href="/dashboard" aria-label="TAPat home" className="fade-in ml-4 block h-11 w-[88px] overflow-hidden">
           {/* The icon file is square with wide margins; the top bar slot shows its middle band. */}
           <Image src="/tapat-app-icon-1024.png" alt="" width={88} height={88} className="-mt-[22px] max-w-none mix-blend-darken" priority />
         </Link>
@@ -446,7 +446,7 @@ export function TopBar({ title, back, chip, tone }: { title?: string; back?: str
         </>
       )}
       {chip !== undefined ? <Chip tone={tone}>{chip}</Chip> : null}
-      <AccountControl />
+      {account ? <AccountControl /> : null}
     </header>
   );
 }

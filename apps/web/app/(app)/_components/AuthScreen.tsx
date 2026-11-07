@@ -83,7 +83,7 @@ function LoggedIn() {
       <Notice tone="info" title="You are logged in">
         {`${user.displayName} · ${user.email} · ${user.role}`}
       </Notice>
-      <LinkButton href="/">Go to the dashboard</LinkButton>
+      <LinkButton href="/dashboard">Go to the dashboard</LinkButton>
       <Button look="secondary" onClick={() => void logout()}>
         Log out
       </Button>

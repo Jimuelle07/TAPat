@@ -30,7 +30,7 @@ Consequences the product must answer:
 
 | User | Role in TAPat | Surface |
 |---|---|---|
-| LGU program officer | Creates the program, uploads the masterlist, reviews uncertain records, freezes/unfreezes stations, ends the program | Web dashboard `/` |
+| LGU program officer | Creates the program, uploads the masterlist, reviews uncertain records, freezes/unfreezes stations, ends the program | Web dashboard `/dashboard` |
 | TODA enrollment officer | Verifies a driver's identity, taps their card, confirms the plate/TODA photo | Phone `/enroll` |
 | Station attendant | Enters the peso amount, has the driver tap the card | Phone `/station/[id]` |
 | Driver | Taps the card to pay for fuel, receives a receipt in Telegram | NFC card/sticker + Telegram bot |

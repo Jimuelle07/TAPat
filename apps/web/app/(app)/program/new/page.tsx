@@ -55,7 +55,7 @@ export default function CreateProgram() {
         alpha: Number(form.alpha),
         beta: Number(form.beta),
       });
-      router.push("/");
+      router.push("/dashboard");
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === "INVALID_STATE") setExists(true);
       else setError(errorMessage(cause));
@@ -66,7 +66,7 @@ export default function CreateProgram() {
   if (!isOfficer) {
     return (
       <>
-        <TopBar title="Create program" back="/" />
+        <TopBar title="Create program" back="/dashboard" />
         <Body>{loading ? null : <OfficerNotice />}</Body>
       </>
     );
@@ -75,7 +75,7 @@ export default function CreateProgram() {
   const known = ["name", "perTapCapPhp", "tranchePhp", "expiresAt", "priceThresholdPhp", "alpha", "beta"];
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-1 flex-col">
-      <TopBar title="Create program" back="/" />
+      <TopBar title="Create program" back="/dashboard" />
       <Body>
         {exists ? <Notice tone="error" title="A program already exists">Only one program runs at a time. End it before creating another.</Notice> : null}
         {error !== null && !known.includes(fieldOf(error) ?? "") ? (

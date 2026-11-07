@@ -6,12 +6,12 @@ import { useSearchParams } from "next/navigation";
 import type { Dashboard, Station, Tap } from "@tapat/shared";
 import { dateTime, php } from "@/lib/format";
 import { useDashboard } from "@/lib/use-dashboard";
-import { Body, EmptyState, ErrorBlock, NoProgram, Skeleton, Toast, TopBar } from "./_components/ui";
-import { Icon } from "./_components/Icon";
-import { CountUp } from "./_components/motion";
-import { OfficerOnly } from "./_components/Auth";
-import { BudgetSheet } from "./BudgetSheet";
-import { ExportSheet } from "./ExportSheet";
+import { Body, EmptyState, ErrorBlock, NoProgram, Skeleton, Toast, TopBar } from "../_components/ui";
+import { Icon } from "../_components/Icon";
+import { CountUp } from "../_components/motion";
+import { OfficerOnly } from "../_components/Auth";
+import { BudgetSheet } from "../BudgetSheet";
+import { ExportSheet } from "../ExportSheet";
 
 const STATUS: Record<Dashboard["program"]["status"], string> = {
   draft: "Draft",

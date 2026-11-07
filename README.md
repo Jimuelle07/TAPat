@@ -188,7 +188,7 @@ Docs:
 
 Open the demo URL — the submission form has it.
 
-Opening the site asks for a login. Press **Create an account** to make an **officer** (or use the seeded officer account below). An officer can run every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program.
+Opening the site shows the landing page, and **Open the app** asks for a login. Press **Create an account** to make an **officer** (or use the seeded officer account below). An officer can run every action: masterlist upload, evidence requests, enrollment, station taps, the agents, settlement, and end program.
 
 Honesty note: this is enforced by the API, not just the UI. Every write endpoint requires an officer session — `401 UNAUTHORIZED` without one — while most reads stay public; only `/api/auth/*` and the HMAC-signed Velo webhook bypass the check. The login redirect is a UI convenience; the server rule is the real boundary.
 

@@ -1,0 +1,529 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T20:31:01Z",
+  "title": "Design System: TAPat",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Field Green",
+        "canonical": "#2e6f55",
+        "tonalRamp": [
+          "#000f08",
+          "#012d1e",
+          "#024f37",
+          "#2e6f55",
+          "#519276",
+          "#74b598",
+          "#98dabc",
+          "#c2ffe2"
+        ]
+      },
+      "primary-deep": {
+        "role": "primary",
+        "displayName": "Forest",
+        "canonical": "#29664e",
+        "tonalRamp": [
+          "#000f08",
+          "#012d1e",
+          "#0b4e38",
+          "#326f56",
+          "#559177",
+          "#77b499",
+          "#9bd9bd",
+          "#c1ffe2"
+        ]
+      },
+      "pressed": {
+        "role": "primary",
+        "displayName": "Pressed Green",
+        "canonical": "#1f5540",
+        "tonalRamp": [
+          "#000f08",
+          "#012d1e",
+          "#164d39",
+          "#396d57",
+          "#5a8f78",
+          "#7db39a",
+          "#a0d8be",
+          "#c5fee3"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Mustard",
+        "canonical": "#f7b93e",
+        "tonalRamp": [
+          "#120900",
+          "#322201",
+          "#573d02",
+          "#7f5a03",
+          "#a97902",
+          "#d49913",
+          "#fbbd43",
+          "#ffeccd"
+        ]
+      },
+      "accent-tint": {
+        "role": "secondary",
+        "displayName": "Pale Mustard",
+        "canonical": "#fbd88f",
+        "tonalRamp": [
+          "#110a00",
+          "#312200",
+          "#543e04",
+          "#7b5c05",
+          "#9e7d34",
+          "#c2a058",
+          "#e7c47c",
+          "#ffedc7"
+        ]
+      },
+      "ring-accent": {
+        "role": "secondary",
+        "displayName": "Ring Mustard",
+        "canonical": "#c98f1e",
+        "tonalRamp": [
+          "#120900",
+          "#332100",
+          "#593c01",
+          "#805907",
+          "#ab770b",
+          "#d3992d",
+          "#fabd58",
+          "#ffeccf"
+        ]
+      },
+      "declined": {
+        "role": "tertiary",
+        "displayName": "Terracotta",
+        "canonical": "#c8552f",
+        "tonalRamp": [
+          "#1b0300",
+          "#451101",
+          "#752201",
+          "#a63607",
+          "#cd5a34",
+          "#f57e58",
+          "#ffb59d",
+          "#ffe9e3"
+        ]
+      },
+      "declined-tint": {
+        "role": "tertiary",
+        "displayName": "Terracotta Tint",
+        "canonical": "#f6dfd3",
+        "tonalRamp": [
+          "#150702",
+          "#312118",
+          "#503d34",
+          "#705d52",
+          "#927d73",
+          "#b6a095",
+          "#dac4b8",
+          "#ffeadf"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Alarm Red",
+        "canonical": "#c0392b",
+        "tonalRamp": [
+          "#1e0000",
+          "#4d0100",
+          "#7f0803",
+          "#ae261a",
+          "#d64e3e",
+          "#fd7663",
+          "#feb4a7",
+          "#ffe9e5"
+        ]
+      },
+      "frozen": {
+        "role": "tertiary",
+        "displayName": "Ice Blue",
+        "canonical": "#bfe6f7",
+        "tonalRamp": [
+          "#000d14",
+          "#042936",
+          "#244755",
+          "#446776",
+          "#648998",
+          "#86acbc",
+          "#aad0e1",
+          "#d9f3ff"
+        ]
+      },
+      "mint": {
+        "role": "tertiary",
+        "displayName": "Mint",
+        "canonical": "#d8e7df",
+        "tonalRamp": [
+          "#040e09",
+          "#1d2822",
+          "#39453f",
+          "#58655e",
+          "#78867f",
+          "#9ba9a1",
+          "#bfcdc5",
+          "#e4f3eb"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1b2e28",
+        "tonalRamp": [
+          "#010f0a",
+          "#172924",
+          "#334740",
+          "#52675f",
+          "#728880",
+          "#95aba3",
+          "#b8cfc7",
+          "#ddf5ec"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Green-Grey",
+        "canonical": "#5c6b65",
+        "tonalRamp": [
+          "#030e0a",
+          "#1b2823",
+          "#384640",
+          "#56655f",
+          "#778680",
+          "#99a9a3",
+          "#bdcec7",
+          "#e2f3ec"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Cream",
+        "canonical": "#fbf5e3",
+        "tonalRamp": [
+          "#0f0b02",
+          "#292517",
+          "#474233",
+          "#666152",
+          "#888272",
+          "#aaa594",
+          "#cfc9b8",
+          "#f4eedc"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised Paper",
+        "canonical": "#fdfaf0",
+        "tonalRamp": [
+          "#0d0b05",
+          "#27251e",
+          "#44423a",
+          "#646159",
+          "#858279",
+          "#a8a59c",
+          "#ccc9bf",
+          "#f1eee5"
+        ]
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Sunken Cream",
+        "canonical": "#f2e8cc",
+        "tonalRamp": [
+          "#100a00",
+          "#2c240d",
+          "#4a412a",
+          "#696148",
+          "#8b8268",
+          "#aea58a",
+          "#d2c9ad",
+          "#f8eed2"
+        ]
+      },
+      "ring-surface": {
+        "role": "neutral",
+        "displayName": "Ring Cream",
+        "canonical": "#e3d6b2",
+        "tonalRamp": [
+          "#100a00",
+          "#2e2403",
+          "#4c4121",
+          "#6c6040",
+          "#8e8260",
+          "#b1a482",
+          "#d5c8a5",
+          "#fbeec9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "landing-display": {
+        "displayName": "Landing Display",
+        "purpose": "The landing page's one headline."
+      },
+      "landing-figure": {
+        "displayName": "Landing Figure",
+        "purpose": "Cited figures on the stakes band."
+      },
+      "landing-h2": {
+        "displayName": "Landing H2",
+        "purpose": "Band and section headlines."
+      },
+      "landing-lead": {
+        "displayName": "Landing Lead",
+        "purpose": "Band body copy."
+      },
+      "h2": {
+        "displayName": "H2",
+        "purpose": "App screen and section titles; decision names in the enforcement table."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "App body copy."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, list titles, navigation links."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Chips, list metadata, tab labels, field labels, footer."
+      },
+      "card-value": {
+        "displayName": "Card Value",
+        "purpose": "Full-width stat card value."
+      },
+      "card-value-sm": {
+        "displayName": "Card Value Small",
+        "purpose": "Half-width stat card value."
+      },
+      "amount-lg": {
+        "displayName": "Amount Large",
+        "purpose": "The station entry amount."
+      },
+      "amount-md": {
+        "displayName": "Amount Medium",
+        "purpose": "The fuel credit balance."
+      },
+      "amount-sm": {
+        "displayName": "Amount Small",
+        "purpose": "Receipt and field amounts."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Ledger rows in the app."
+      },
+      "landing-rule": {
+        "displayName": "Landing Rule",
+        "purpose": "Ledger rows at page scale."
+      }
+    },
+    "shadows": [
+      {
+        "name": "button",
+        "value": "0 2px 4px rgb(27 46 40 / 0.3)",
+        "purpose": "Filled buttons, the accent CTA, and the active tab disc."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -4px 24px rgb(27 46 40 / 0.18)",
+        "purpose": "The bottom sheet, over a rgb(27 46 40 / 0.45) backdrop."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-screen",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "A phone screen arriving: 200ms opacity and 320ms for a 14px rise; the outgoing screen holds 320ms."
+      },
+      {
+        "name": "arc-swell",
+        "value": "scale 0.72 to 1, linear, view() timeline, entry 0% to cover 45%",
+        "purpose": "Band arcs growing with scroll, where scroll timelines are supported."
+      },
+      {
+        "name": "spin",
+        "value": "rotate 360deg, 1s linear infinite",
+        "purpose": "Loading icon inside a button."
+      },
+      {
+        "name": "pulse",
+        "value": "opacity to 0.55, 1.6s ease-in-out infinite",
+        "purpose": "Skeleton blocks."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone-narrow",
+        "value": "max-width: 359px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "lg-h760",
+        "value": "1024px and min-height 760px"
+      },
+      {
+        "name": "lg-h860",
+        "value": "1024px and min-height 860px"
+      },
+      {
+        "name": "lg-h980",
+        "value": "1024px and min-height 980px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on an app screen.",
+      "html": "<button class=\"ds-btn-primary\">Fund tranche</button>",
+      "css": ".ds-btn-primary{font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;padding:0 16px;border-radius:var(--radius-md);font-size:15px;line-height:1.3;font-weight:500;cursor:pointer;transition:background-color .15s,color .15s;background:var(--color-primary);color:var(--color-surface);border:0;box-shadow:var(--shadow-button);}.ds-btn-primary:hover,.ds-btn-primary:active{background:var(--color-pressed);}.ds-btn-primary:focus-visible{outline:2.5px solid var(--color-primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action on paper, ruled in ink.",
+      "html": "<button class=\"ds-btn-secondary\">Clear</button>",
+      "css": ".ds-btn-secondary{font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;padding:0 16px;border-radius:var(--radius-md);font-size:15px;line-height:1.3;font-weight:500;cursor:pointer;transition:background-color .15s,color .15s;background:var(--color-raised);color:var(--color-text);border:1.5px solid var(--color-text);}.ds-btn-secondary:hover,.ds-btn-secondary:active{background:var(--color-mint);}.ds-btn-secondary:focus-visible{outline:2.5px solid var(--color-primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Accent CTA",
+      "kind": "button",
+      "refersTo": "cta-accent",
+      "description": "The landing page's main action on dark grounds.",
+      "html": "<a class=\"ds-cta-accent\" href=\"#\">Open the app</a>",
+      "css": ".ds-cta-accent{font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;padding:0 16px;border-radius:var(--radius-md);font-size:15px;line-height:1.3;font-weight:500;cursor:pointer;transition:background-color .15s,color .15s;display:inline-flex;width:auto;padding:0 24px;text-decoration:none;background:var(--color-accent);color:var(--color-text);border:1.5px solid var(--color-text);box-shadow:var(--shadow-button);}.ds-cta-accent:hover{background:var(--color-accent-tint);}.ds-cta-accent:focus-visible{outline:2.5px solid var(--color-primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Outline CTA",
+      "kind": "button",
+      "refersTo": "cta-accent",
+      "description": "The landing page's second action, outlined in the current text colour on a band.",
+      "html": "<div class=\"ds-outline-ground\"><a class=\"ds-cta-outline\" href=\"#\">Run the agent demo</a></div>",
+      "css": ".ds-outline-ground{background:var(--color-primary-deep);color:var(--color-surface);padding:24px;}.ds-cta-outline{font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;padding:0 16px;border-radius:var(--radius-md);font-size:15px;line-height:1.3;font-weight:500;cursor:pointer;transition:background-color .15s,color .15s;display:inline-flex;width:auto;padding:0 24px;text-decoration:none;color:inherit;border:1.5px solid currentColor;}.ds-cta-outline:hover{background:var(--color-surface);color:var(--color-text);}.ds-cta-outline:focus-visible{outline:2.5px solid var(--color-surface);outline-offset:2px;}"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "chip-outline",
+      "description": "Written status; colour never stands alone.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\">Sample data</span><span class=\"ds-chip ds-chip-mint\">Active</span><span class=\"ds-chip ds-chip-accent\">Velo verified</span><span class=\"ds-chip ds-chip-danger\">DECLINED</span><span class=\"ds-chip ds-chip-frozen\">Frozen</span><span class=\"ds-chip ds-chip-ink\">MISMATCH</span></div>",
+      "css": ".ds-chips{display:flex;flex-wrap:wrap;gap:8px;}.ds-chip{font-family:var(--font-sans);display:inline-flex;align-items:center;padding:4px 8px;border:1.5px solid var(--color-text);border-radius:var(--radius-sm);font-size:13px;line-height:1.4;font-weight:500;background:var(--color-raised);color:var(--color-text);}.ds-chip-mint{background:var(--color-mint);}.ds-chip-accent{background:var(--color-accent);}.ds-chip-danger{background:var(--color-danger);border-color:var(--color-danger);color:var(--color-surface);}.ds-chip-frozen{background:var(--color-frozen);}.ds-chip-ink{background:var(--color-text);color:var(--color-surface);}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Bordered label around a caption and an Azeret Mono value.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Amount</span><input class=\"ds-field-input\" value=\"PHP 350.00\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:4px;padding:12px 16px;background:var(--color-raised);color:var(--color-text);border:1.5px solid var(--color-text);border-radius:var(--radius-md);}.ds-field:focus-within{border:2.5px solid var(--color-primary);}.ds-field-label{font-family:var(--font-sans);font-size:13px;line-height:1.4;font-weight:500;}.ds-field-input{font-family:var(--font-mono);width:100%;background:transparent;border:0;outline:0;color:inherit;font-size:16px;line-height:1.3;font-weight:500;}"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "Main app navigation; the active tab rises over a Field Green disc.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Main\"><a class=\"ds-tab ds-tab-on\" href=\"#\" aria-current=\"page\"><span class=\"ds-tab-disc\"><svg aria-hidden=\"true\" width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11l8-7 8 7v9h-5v-6H9v6H4v-9z\"/></svg></span>Home</a><a class=\"ds-tab\" href=\"#\"><svg aria-hidden=\"true\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/></svg>Masterlist</a></nav>",
+      "css": ".ds-tabs{display:flex;height:56px;background:var(--color-raised);border-top:1.5px solid var(--color-text);}.ds-tab{font-family:var(--font-sans);position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:6px;font-size:13px;line-height:1.4;font-weight:500;color:var(--color-muted);text-decoration:none;}.ds-tab-on{font-weight:600;color:var(--color-primary);}.ds-tab-disc{position:absolute;top:-10px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--color-primary);color:var(--color-surface);box-shadow:var(--shadow-button);}.ds-tab:focus-visible{outline:2.5px solid var(--color-primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card-forest",
+      "description": "Kit card: value over caption, with the large arc and corner rings.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-arc\"></span><svg aria-hidden=\"true\" class=\"ds-rings\" width=\"82\" height=\"82\" viewBox=\"0 0 82 82\"><circle cx=\"82\" cy=\"0\" r=\"82\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"71\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"60\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"49\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"38\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"27\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"82\" cy=\"0\" r=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg><span class=\"ds-stat-value\">PHP 4,500</span><span class=\"ds-stat-label\">Funded</span></div>",
+      "css": ".ds-stat{font-family:var(--font-sans);position:relative;display:flex;flex-direction:column;justify-content:center;gap:4px;height:112px;padding:0 24px;overflow:hidden;border:1.5px solid var(--color-text);border-radius:var(--radius-md);background:var(--color-primary-deep);color:var(--color-surface);}.ds-stat-arc{position:absolute;top:2px;right:-148px;width:296px;height:296px;border-radius:50%;background:var(--color-primary);}.ds-rings{position:absolute;top:0;right:0;color:var(--color-pressed);}.ds-stat-value{position:relative;font-size:28px;line-height:1.2;font-weight:500;}.ds-stat-label{position:relative;font-size:15px;line-height:1.45;}"
+    },
+    {
+      "name": "Receipt",
+      "kind": "custom",
+      "refersTo": "receipt",
+      "description": "Square ruled paper with a written status, ledger rows and the tear edge.",
+      "html": "<div class=\"ds-receipt\"><div class=\"ds-receipt-paper\"><div class=\"ds-receipt-head\"><span class=\"ds-receipt-status\">DECLINED</span><span class=\"ds-receipt-amount\">PHP 800.00</span></div><dl class=\"ds-receipt-rows\"><div><dt>Reason</dt><dd>over the PHP 500.00 per-tap cap</dd></div><div><dt>Tx</dt><dd>None submitted</dd></div></dl></div><svg aria-hidden=\"true\" class=\"ds-receipt-tear\" viewBox=\"0 0 100 7\" preserveAspectRatio=\"none\"><polyline points=\"0,0 2,7 4,0 6,7 8,0 10,7 12,0 14,7 16,0 18,7 20,0 22,7 24,0 26,7 28,0 30,7 32,0 34,7 36,0 38,7 40,0 42,7 44,0 46,7 48,0 50,7 52,0 54,7 56,0 58,7 60,0 62,7 64,0 66,7 68,0 70,7 72,0 74,7 76,0 78,7 80,0 82,7 84,0 86,7 88,0 90,7 92,0 94,7 96,0 98,7 100,0\" fill=\"var(--color-raised)\" stroke=\"var(--color-text)\" stroke-width=\"1.5\" vector-effect=\"non-scaling-stroke\"/></svg></div>",
+      "css": ".ds-receipt-paper{font-family:var(--font-mono);display:flex;flex-direction:column;gap:12px;padding:20px;background:var(--color-raised);color:var(--color-text);border:1.5px solid var(--color-text);border-bottom:0;font-size:13px;line-height:1.4;}.ds-receipt-head{display:flex;align-items:center;justify-content:space-between;}.ds-receipt-status{font-family:var(--font-sans);padding:4px 8px;border-radius:var(--radius-sm);background:var(--color-danger);color:var(--color-surface);font-size:13px;font-weight:500;}.ds-receipt-amount{font-size:16px;line-height:1.3;font-weight:500;}.ds-receipt-rows{margin:0;}.ds-receipt-rows div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;}.ds-receipt-rows div+div{border-top:1.5px solid var(--color-text);}.ds-receipt-rows dd{margin:0;text-align:right;}.ds-receipt-tear{display:block;width:100%;height:7px;overflow:visible;}"
+    },
+    {
+      "name": "Band",
+      "kind": "custom",
+      "refersTo": "stat-card-forest",
+      "description": "A stat card at page scale: ground, arc, rings, headline and ledger rows. Shown here on the declined ground.",
+      "html": "<section class=\"ds-band\"><span class=\"ds-band-arc\"></span><svg aria-hidden=\"true\" class=\"ds-band-rings\" width=\"240\" height=\"240\" viewBox=\"0 0 240 240\"><circle cx=\"240\" cy=\"0\" r=\"240\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"210\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"180\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"150\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"120\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"90\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"60\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"240\" cy=\"0\" r=\"30\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg><div class=\"ds-band-copy\"><h2 class=\"ds-band-title\">Refuse, before money moves.</h2><dl class=\"ds-band-rules\"><div><dt>Per-tap cap</dt><dd>PHP 500.00</dd></div><div><dt>Tx on refusal</dt><dd>None submitted</dd></div></dl></div></section>",
+      "css": ".ds-band{position:relative;overflow:clip;padding:64px 32px;background:var(--color-declined-tint);color:var(--color-text);border-top:1.5px solid var(--color-text);}.ds-band-arc{position:absolute;right:-180px;top:50%;width:420px;height:420px;border-radius:50%;background:var(--color-declined);transform:translateY(-50%);}.ds-band-rings{position:absolute;top:0;right:0;color:var(--color-declined);}.ds-band-copy{position:relative;max-width:46%;display:flex;flex-direction:column;gap:20px;}.ds-band-title{font-family:var(--font-sans);margin:0;font-size:clamp(38px,4.8vw,68px);line-height:1.06;font-weight:600;letter-spacing:-.025em;}.ds-band-rules{font-family:var(--font-mono);margin:0;font-size:14px;line-height:1.4;}.ds-band-rules div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;padding:10px 0;border-top:1.5px solid currentColor;}.ds-band-rules dd{margin:0 0 0 auto;text-align:right;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ruled Receipt",
+    "overview": "TAPat looks like a document that can be checked. Cream paper, ink rules at one weight, and amounts on ledger lines carry the system; a large arc and a set of corner rings in a green, mustard, terracotta or ice blue field give it warmth. The identity comes from the TAPat Mobile App UI Figma file, generated by `design/figma-plugin` on the \"TAPat Kit 2 - Clean Fintech\" brandkit. It pre-dates the landing page, and the app remains its incumbent expression.\n\nThe app is dense and phone-sized: a 390px screen, 20px gutters, stacked ruled cards. The landing page is the system's page-scale extension and adds no new materials. A stat card's ground, arc and rings become a full-bleed band, the receipt's paper and tear edge become a page section, and the receipt's ruled lines carry the limits and contract calls beside each claim. Page-scale values live in the landing tokens; the app's type scale and components stay unchanged and appear on the page as real components inside the phone mockup.\n\nDepth is mostly line, not shadow. Colour names a state before it decorates: a terracotta field means a refusal, an ice blue field means a freeze. This page's composition, a pinned phone walking through the bands, belongs to its surface brief at `.impeccable/surfaces/app-page-tsx.md` and is not a system rule.",
+    "keyCharacteristics": [
+      "Cream paper grounds with ink rules at a constant 1.5px.",
+      "Field colours that keep their kit meaning at every scale.",
+      "One recurring figure: a large arc plus corner rings, from a 64px stat card to a 240px band corner.",
+      "Outfit for words and headline figures, Azeret Mono for ledger lines and contract calls.",
+      "Square paper for receipts and bands, gently rounded cards and controls.",
+      "Status always written out, so colour is never the only signal."
+    ],
+    "rules": [
+      {
+        "name": "The Kit Meaning Rule",
+        "body": "A colour field keeps its meaning at every scale. Terracotta Tint is a refusal, Ice Blue is a freeze, Mustard as a full field is money coming back. A new band picks its ground by what the section is about, never for variety.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ground-and-Arc Rule",
+        "body": "Every field pairs a ground with one fixed arc and ring colour: Forest with Field Green and Pressed Green, Field Green with Forest and Pressed Green, Cream with Sunken Cream and Ring Cream, Mint and Ice Blue with Cream and Raised Paper, Terracotta Tint with Terracotta, Mustard with Pale Mustard and Ring Mustard, Ink with Pressed Green and Field Green. Don't invent new pairs.",
+        "section": "colors"
+      },
+      {
+        "name": "The Word-and-Ledger Rule",
+        "body": "Outfit sets words, stat tiles and headline figures. Azeret Mono sets anything a reader might check: amounts on ruled lines, transaction references, thresholds and contract calls. The direction contract asked for Azeret on all amounts; the build, matching the Figma card-value style, keeps tiles and display figures in Outfit, and that is the system.",
+        "section": "typography"
+      },
+      {
+        "name": "The PHP Label Rule",
+        "body": "Azeret Mono has no ₱ glyph, so amounts are spelled \"PHP 1,500.00\", the label the kit itself uses. Landing mockups rewrite any shared string that carries the symbol.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ink-Before-Shadow Rule",
+        "body": "Cards, receipts, chips and bands get a rule, not a shadow. If a surface needs separating, draw the line.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do take every colour, radius and type size from the Figma-derived tokens in `app/globals.css`, and add a page-scale token only where app sizes cannot reach.",
+      "Do draw rules at 1.5px, in Ink on paper and the current text colour on dark grounds.",
+      "Do spell amounts with the \"PHP\" label wherever they are set in Azeret Mono.",
+      "Do write status out in a chip or sentence alongside any status colour.",
+      "Do build mockups from the app's real components and label them \"Sample data\".",
+      "Do place the logo on Cream or Raised Paper, cropped to the icon's middle band as the top bar does, since it blends with `mix-blend-mode: darken`.",
+      "Do gate motion behind `prefers-reduced-motion: no-preference`, and keep a band legible when the scroll-driven arc swell is unsupported."
+    ],
+    "donts": [
+      "Don't use Ice Blue for anything but a freeze, or Terracotta and its tint for anything but refusal and invalid input.",
+      "Don't set the ₱ glyph in Azeret Mono.",
+      "Don't give cards, receipts, chips or bands a shadow, and don't use hard offset shadows anywhere.",
+      "Don't set Muted Green-Grey as body copy.",
+      "Don't round receipts or bands, or square off cards and controls.",
+      "Don't place a small uppercase label above a headline. Uppercase belongs to printed artefacts and status: the receipt header, the fuel credit card's face, and status chips such as DECLINED.",
+      "Don't replace the kit's 1.5px line icons with glyphs or emoji."
+    ]
+  }
+}

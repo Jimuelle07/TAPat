@@ -8,7 +8,7 @@ export default function Stations() {
   const state = useDashboard();
   return (
     <>
-      <TopBar title="Stations" back="/" />
+      <TopBar title="Stations" back="/dashboard" />
       <Body>
         {state.status === "loading" ? <Skeleton kinds={["card", "card"]} /> : null}
         {state.status === "no-program" ? <NoProgram body="Stations appear once a program is running." icon="pump" /> : null}

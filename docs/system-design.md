@@ -1167,7 +1167,7 @@ Which page renders which slice of `Dashboard`:
 
 UI layout, from the TAPat Mobile App UI Figma file: `/` shows the budget row, the five tiles, the invariant line and links. The station strip is on `/stations`, the card list on `/cards`, the merged feed on `/activity`, system health on `/health`. `/demo` keeps the five buttons and the station strip; the price chart and tranche panel are on `/demo/tranche`, the edge chart on `/demo/freeze`, the settlement panel on `/demo/settlement`, the sweep on `/demo/end`. When `program` is `null`, a page also offers **Create program**; a program created that way stays `draft` with no stations until `seed-demo.ts` runs.
 
-`Dashboard.stations` is therefore rendered on both `/` and `/demo`; the frozen badge and the settlement panel are the two observation points the runbook and test plan point at. Every page reaches the API only through `apps/web/lib/api.ts` (typed with `@tapat/shared`); SSE reaches the page only through `useStream(onEvent)` in `apps/web/lib/sse.ts`.
+`Dashboard.stations` is therefore rendered on both `/dashboard` and `/demo`; the frozen badge and the settlement panel are the two observation points the runbook and test plan point at. Every page reaches the API only through `apps/web/lib/api.ts` (typed with `@tapat/shared`); SSE reaches the page only through `useStream(onEvent)` in `apps/web/lib/sse.ts`.
 
 Every page reads `GET /api/program` for `{ program, phpPerXlm }`; when `program` is `null` it renders "No active program — run seed-demo.ts" and offers no money action.
 

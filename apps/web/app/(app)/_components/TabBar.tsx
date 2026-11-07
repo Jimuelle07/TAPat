@@ -8,9 +8,9 @@ import { Icon, type IconName } from "./Icon";
 const TABS: Array<{ label: string; href: string; icon: IconName; active: (path: string) => boolean }> = [
   {
     label: "Home",
-    href: "/",
+    href: "/dashboard",
     icon: "home",
-    active: (p) => p === "/" || ["/program", "/stations", "/cards", "/activity", "/health"].some((r) => p.startsWith(r)),
+    active: (p) => ["/dashboard", "/program", "/stations", "/cards", "/activity", "/health"].some((r) => p.startsWith(r)),
   },
   { label: "Masterlist", href: "/intake", icon: "list", active: (p) => p.startsWith("/intake") },
   { label: "Enroll", href: "/enroll", icon: "idcard", active: (p) => p.startsWith("/enroll") },
@@ -34,8 +34,10 @@ function ActiveCurve() {
   );
 }
 
-export function TabBar() {
-  const path = usePathname();
+/** `path` lets the landing page mockups show a tab as active. */
+export function TabBar({ path: shown }: { path?: string }) {
+  const current = usePathname();
+  const path = shown ?? current;
   // -1 when no tab matches (login, signup): no orb, so no raised circle points at the wrong tab.
   const activeIndex = TABS.findIndex((tab) => tab.active(path));
   // The login and signup screens are full-bleed, with no tab bar.

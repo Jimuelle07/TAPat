@@ -29,7 +29,7 @@ export default function Health() {
 
   return (
     <>
-      <TopBar title="System health" back="/" />
+      <TopBar title="System health" back="/dashboard" />
       <Body>
         {health === null && error === null ? <Skeleton kinds={["row", "row", "row", "row"]} /> : null}
         {error !== null ? <ErrorBlock title="Could not check the system" message={error} onRetry={load} /> : null}

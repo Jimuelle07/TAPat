@@ -32,7 +32,7 @@ export default function Cards() {
   const state = useDashboard();
   return (
     <>
-      <TopBar title="Cards" back="/" />
+      <TopBar title="Cards" back="/dashboard" />
       <Body>
         {state.status === "loading" ? <Skeleton kinds={["row", "row", "row", "row", "row"]} /> : null}
         {state.status === "no-program" ? <NoProgram body="Cards appear once a program is running." icon="idcard" /> : null}

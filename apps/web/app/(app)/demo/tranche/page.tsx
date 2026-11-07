@@ -162,7 +162,7 @@ export default function TrancheAgent() {
               Back to agents
             </LinkButton>
           ) : startError?.message.includes("no verified budget") ? (
-            <LinkButton href="/?sheet=budget">Fund the budget</LinkButton>
+            <LinkButton href="/dashboard?sheet=budget">Fund the budget</LinkButton>
           ) : (
             <OfficerOnly fallback={<OfficerNotice />}>
               <Button loading={running || starting} onClick={() => void start()}>

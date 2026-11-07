@@ -4,9 +4,9 @@ import { safeNextPath } from "./next-path";
 const ORIGIN = "http://localhost:3000";
 
 describe("safeNextPath", () => {
-  it("falls back to / for missing or empty", () => {
-    expect(safeNextPath(null, ORIGIN)).toBe("/");
-    expect(safeNextPath("", ORIGIN)).toBe("/");
+  it("falls back to the dashboard for missing or empty", () => {
+    expect(safeNextPath(null, ORIGIN)).toBe("/dashboard");
+    expect(safeNextPath("", ORIGIN)).toBe("/dashboard");
   });
 
   it("keeps same-origin paths with query", () => {
@@ -14,9 +14,9 @@ describe("safeNextPath", () => {
   });
 
   it.each(["//evil.com", "/\\evil.com", "https://evil.com", "/.//evil.com", "/..//evil.com"])(
-    "collapses %s to /",
+    "collapses %s to the dashboard",
     (next) => {
-      expect(safeNextPath(next, ORIGIN)).toBe("/");
+      expect(safeNextPath(next, ORIGIN)).toBe("/dashboard");
     },
   );
 });

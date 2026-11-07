@@ -118,7 +118,7 @@ export default function EndProgram() {
               Run again
             </Button>
           ) : null}
-          <LinkButton href="/">View final totals</LinkButton>
+          <LinkButton href="/dashboard">View final totals</LinkButton>
         </Actions>
       ) : null}
       {dashboard !== null && !sweeping && !ended && confirmed ? (

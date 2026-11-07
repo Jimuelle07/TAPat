@@ -12,7 +12,7 @@ export default function Activity() {
   const feed = state.status === "ready" ? buildFeed(state.dashboard) : [];
   return (
     <>
-      <TopBar title="Activity" back="/" />
+      <TopBar title="Activity" back="/dashboard" />
       <Body>
         {state.status === "loading" ? <Skeleton kinds={["row", "row", "row", "row", "row", "row"]} /> : null}
         {state.status === "no-program" ? <NoProgram body="Activity appears once a program is running." icon="pulse" /> : null}

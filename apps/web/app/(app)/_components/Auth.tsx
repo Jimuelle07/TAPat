@@ -101,13 +101,13 @@ export function useAuth(): AuthState {
   return context;
 }
 
-const PUBLIC_PATHS = ["/login", "/signup", "/desktop/login", "/desktop/signup"];
+export const PUBLIC_PATHS = ["/login", "/signup", "/desktop/login", "/desktop/signup"];
 
 /** Where a logged-out visitor on `pathname` is sent: the matching login screen, carrying `?next=` unless at the root. */
 function loginTarget(pathname: string, search: string): string {
   const desktop = pathname === "/desktop" || pathname.startsWith("/desktop/");
   const login = desktop ? "/desktop/login" : "/login";
-  if (pathname === "/" || pathname === "/desktop") return login;
+  if (pathname === "/dashboard" || pathname === "/desktop") return login;
   return `${login}?next=${encodeURIComponent(pathname + search)}`;
 }
 
@@ -191,7 +191,7 @@ export function OfficerOnly({ children, fallback }: { children: ReactNode; fallb
 /** The logged-out explanation shown in place of an officer-only action. */
 export function OfficerNotice() {
   const pathname = usePathname();
-  const next = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+  const next = pathname === "/dashboard" ? "" : `?next=${encodeURIComponent(pathname)}`;
   return (
     <Notice tone="info" title="Officer login required">
       Log in with the officer account to use this action.{" "}
