@@ -147,18 +147,28 @@
 }
 
 .step-pill {
-  bottom: 16px;
+  bottom: max(12px, env(safe-area-inset-bottom));
   left: 50%;
   translate: -50% 0;
   display: none;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   max-width: calc(100vw - 24px);
-  padding: 4px;
+  padding: 0;
   border: 1.5px solid var(--color-text);
   border-radius: 999px;
   background: var(--color-surface);
   box-shadow: var(--depth-2), var(--depth-sheen);
+}
+.step-pill[data-away="true"] {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+.step-pill:focus-within {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
 }
 @media (max-width: 1023.98px) {
   .step-pill {

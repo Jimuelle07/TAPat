@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 /*
  * One small ledger drawing per step of the loop. Each is a pure function of `frame`, so a Remotion Player can drive it
@@ -59,16 +59,19 @@ function Label({
   y,
   anchor = "start",
   opacity = 1,
+  className = "",
   children,
 }: {
   x: number;
   y: number;
   anchor?: "start" | "middle" | "end";
   opacity?: number;
+  /** Phone-only nudges live in steps.css under these class names; they never apply from 640px up. */
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <text x={x} y={y} textAnchor={anchor} fontSize="13" opacity={opacity} className="fill-text font-mono">
+    <text x={x} y={y} textAnchor={anchor} fontSize="13" opacity={opacity} className={`specimen-label fill-text font-mono ${className}`}>
       {children}
     </text>
   );
@@ -87,15 +90,36 @@ const STAMP_TEXT: Record<StampTone, string> = {
 };
 
 /** A small rotated stamp that lands: scales from 1.2 to 1 while it fades in. `t` is its 0 → 1 progress. */
-function Stamp({ cx, cy, tone, rotate, t, children }: { cx: number; cy: number; tone: StampTone; rotate: number; t: number; children: string }) {
+function Stamp({
+  cx,
+  cy,
+  tone,
+  rotate,
+  t,
+  dx = 0,
+  dy = 0,
+  children,
+}: {
+  cx: number;
+  cy: number;
+  tone: StampTone;
+  rotate: number;
+  t: number;
+  /** Phone-only nudge in user units, applied with the phone enlargement in steps.css. */
+  dx?: number;
+  dy?: number;
+  children: string;
+}) {
   const w = children.length * 8.1 + 16;
   const scale = 1.2 - 0.2 * t;
   return (
     <g transform={`translate(${cx} ${cy}) rotate(${rotate}) scale(${scale.toFixed(3)})`} opacity={clamp(t * 1.6)}>
-      <rect x={-w / 2} y={-12} width={w} height={24} rx={3} strokeWidth="1.5" className={STAMP_RECT[tone]} />
-      <text y={4.5} textAnchor="middle" fontSize="13" className={`font-mono ${STAMP_TEXT[tone]}`}>
-        {children}
-      </text>
+      <g className="specimen-stamp" style={{ "--stamp-dx": `${dx}px`, "--stamp-dy": `${dy}px` } as CSSProperties}>
+        <rect x={-w / 2} y={-12} width={w} height={24} rx={3} strokeWidth="1.5" className={STAMP_RECT[tone]} />
+        <text y={4.5} textAnchor="middle" fontSize="13" className={`font-mono ${STAMP_TEXT[tone]}`}>
+          {children}
+        </text>
+      </g>
     </g>
   );
 }
@@ -149,11 +173,11 @@ function List({ f }: { f: number }) {
             {isGhost ? (
               <rect x={x} y={y} width="60" height="26" rx="13" strokeWidth="1.5" fill="none" strokeDasharray="4 4" opacity={g} className="stroke-text" />
             ) : null}
-            <Label x={x + 12} y={y + 17}>{`R${String(i + 1).padStart(2, "0")}`}</Label>
+            <Label x={x + 12} y={y + 17} className="specimen-rowid">{`R${String(i + 1).padStart(2, "0")}`}</Label>
             {isGhost ? (
-              <Tick d={`M${x + 42} ${y + 8} l9 9 M${x + 51} ${y + 8} l-9 9`} t={mark} className="stroke-declined" />
+              <Tick d={`M${x + 42} ${y + 8} l9 9 M${x + 51} ${y + 8} l-9 9`} t={mark} className="stroke-declined specimen-tick" />
             ) : (
-              <Tick d={`M${x + 40} ${y + 13} l4 4 8 -9`} t={mark} className="stroke-primary" />
+              <Tick d={`M${x + 40} ${y + 13} l4 4 8 -9`} t={mark} className="stroke-primary specimen-tick" />
             )}
           </g>
         );
@@ -182,7 +206,7 @@ function Enroll({ f }: { f: number }) {
       <g transform={`translate(${((1 - card) * -16).toFixed(2)} 0)`} opacity={card}>
         <rect x="8" y="30" width="128" height="80" rx="10" strokeWidth="1.5" className="fill-accent-tint stroke-text" />
         <rect x="22" y="44" width="22" height="16" rx="3" strokeWidth="1.5" fill="none" className="stroke-text" />
-        <Label x={22} y={98}>
+        <Label x={22} y={98} className="specimen-cardname">
           Ana V. …A1B2
         </Label>
       </g>
@@ -294,7 +318,7 @@ function Refuse({ f }: { f: number }) {
       <Stamp cx={382} cy={88} tone="danger" rotate={3} t={declined}>
         DECLINED
       </Stamp>
-      <Label x={382} y={116} anchor="middle" opacity={zero}>
+      <Label x={382} y={116} anchor="middle" opacity={zero} className="specimen-zero">
         0 tx
       </Label>
       <Label x={8} y={172}>
@@ -331,13 +355,13 @@ function Freeze({ f }: { f: number }) {
       <Label x={8} y={lineY - 5} opacity={thr}>
         {THRESHOLD.toFixed(2)}
       </Label>
-      <Label x={416} y={140} anchor="middle" opacity={progress(f, 90, 100)}>
+      <Label x={416} y={140} anchor="middle" opacity={progress(f, 90, 100)} className="specimen-score">
         {SCORES[lastIdx].toFixed(2)}
       </Label>
       <Label x={396} y={48} anchor="end" opacity={progress(f, 108, 120)}>
         Rotonda Fuels frozen
       </Label>
-      <Stamp cx={400} cy={16} tone="frozen" rotate={-4} t={stamp}>
+      <Stamp cx={400} cy={16} tone="frozen" rotate={-4} t={stamp} dx={-8} dy={1}>
         FROZEN
       </Stamp>
       <Label x={8} y={172}>
@@ -365,10 +389,10 @@ function Return({ f }: { f: number }) {
         const d = `M${8 + r.w} ${cy} H290 V${entryY[r.i]} H322`;
         return (
           <g key={r.name}>
-            <Label x={8} y={r.barY - 6} opacity={r.grow}>
+            <Label x={8} y={r.barY - 6} opacity={r.grow} className="specimen-sweepname">
               {r.name}
             </Label>
-            <Label x={278} y={r.barY - 6} anchor="end" opacity={r.grow}>
+            <Label x={278} y={r.barY - 6} anchor="end" opacity={r.grow} className="specimen-amount">
               {peso(r.pesos)}
             </Label>
             <rect x="8" y={r.barY} width={r.w * r.grow} height="20" strokeWidth="1.5" opacity={r.grow > 0 ? 1 : 0} className="fill-accent stroke-text" />
@@ -386,11 +410,11 @@ function Return({ f }: { f: number }) {
           </g>
         );
       })}
-      <Label x={377} y={44} anchor="middle">
+      <Label x={377} y={44} anchor="middle" className="specimen-wallet-text">
         LGU wallet
       </Label>
-      <rect x="322" y="52" width="110" height="96" strokeWidth="1.5" className="fill-accent-tint stroke-text" />
-      <Label x={377} y={104} anchor="middle">
+      <rect x="322" y="52" width="110" height="96" strokeWidth="1.5" className="specimen-wallet-box fill-accent-tint stroke-text" />
+      <Label x={377} y={104} anchor="middle" className="specimen-wallet-text">
         {done ? PHP_3190 : peso(Math.round(total * 100) / 100)}
       </Label>
       <Label x={432} y={166} anchor="end" opacity={progress(f, 100, 118)}>

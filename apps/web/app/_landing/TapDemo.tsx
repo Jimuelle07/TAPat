@@ -74,7 +74,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
         aria-label="Try a tap"
         onPointerDown={() => setTouched(true)}
         onFocus={() => setTouched(true)}
-        className="grid grid-cols-3 gap-2 px-5 pt-4"
+        className="grid grid-cols-2 gap-2 px-5 pt-4 min-[440px]:grid-cols-3"
       >
         {choices.map((c) => (
           <button
@@ -85,7 +85,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
               setTouched(true);
               run(c, reducedNow());
             }}
-            className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-2 text-label text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface"
+            className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-1.5 text-label whitespace-nowrap text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface max-[479px]:text-[13px] max-[439px]:last:col-span-2 min-[480px]:px-2"
           >
             {c.button}
           </button>

@@ -176,7 +176,7 @@ function Logo({ priority = false }: { priority?: boolean }) {
 
 function Actions() {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:w-full sm:[&>a]:w-auto">
       <Cta href="/login" look="accent">
         Open the app
       </Cta>
@@ -288,7 +288,7 @@ export default function Landing() {
         </section>
 
         <StepRail steps={RAIL} />
-        <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken">
+        <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken max-lg:pb-24">
           <div className={`${PAGE_WIDTH} py-20 lg:py-28`}>
             <div className="landing-reveal flex max-w-3xl flex-col gap-5">
               <h2 className="landing-h2">Six steps. One receipt.</h2>
@@ -301,9 +301,9 @@ export default function Landing() {
               <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24 lg:col-span-5">
                 <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
                 <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
                     <Logo />
-                    <div className="flex flex-col items-end gap-1 text-right">
+                    <div className="flex flex-col gap-1 min-[480px]:items-end min-[480px]:text-right">
                       <p className="flex items-center gap-2">
                         RECEIPT
                         <Stamp tone="outline">SAMPLE DATA</Stamp>
@@ -321,13 +321,13 @@ export default function Landing() {
                         <div
                           data-step={line.step}
                           data-tone={line.stamp?.[0] ?? "mint"}
-                          className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5"
+                          className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
                         >
-                          <span className="font-medium">{line.code}</span>
-                          <span className="row-span-2 row-start-1 col-start-2">{line.what}</span>
-                          <span className="col-start-3 row-start-1 text-right tabular-nums">{line.amount}</span>
+                          <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">{line.code}</span>
+                          <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">{line.what}</span>
+                          <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">{line.amount}</span>
                           {line.stamp === undefined ? null : (
-                            <span className="col-start-3 row-start-2 justify-self-end">
+                            <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
                               <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
                             </span>
                           )}

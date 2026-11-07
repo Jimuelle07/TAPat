@@ -47,21 +47,52 @@ export function ScrollGauge() {
   );
 }
 
-/** Step navigator for the loop: a left-edge rail from lg, a bottom pill below it. Shown only while #loop crosses the middle half of the viewport. */
+/** Step navigator for the loop: a left-edge rail from lg, a bottom pill below it. Shown only while the steps list crosses the middle half of the viewport. */
 export function StepRail({ steps }: { steps: RailStep[] }) {
   const [active, setActive] = useState(0);
   const [shown, setShown] = useState(false);
+  const pill = useRef<HTMLDivElement>(null);
+
+  // Tuck the pill away while scrolling down; bring it back on scroll up or after the scroll settles. No React state per frame.
+  useEffect(() => {
+    const el = pill.current;
+    if (el === null) return;
+    let last = window.scrollY;
+    let frame = 0;
+    let settle = 0;
+    const paint = () => {
+      frame = 0;
+      const y = window.scrollY;
+      if (y - last > 6) el.dataset.away = el.contains(document.activeElement) ? "false" : "true";
+      else if (last - y > 6) el.dataset.away = "false";
+      else return;
+      last = y;
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        el.dataset.away = "false";
+      }, 220);
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = window.requestAnimationFrame(paint);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+    };
+  }, []);
 
   useEffect(() => {
-    const loop = document.getElementById("loop");
-    if (loop === null) return;
+    const list = document.getElementById("loop")?.querySelector("ol.loop-steps");
+    if (!list) return;
     const seen = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) setShown(entry.isIntersecting);
       },
       { rootMargin: "-25% 0px -25% 0px", threshold: 0 },
     );
-    seen.observe(loop);
+    seen.observe(list);
 
     // A thin band across the middle of the viewport: the step crossing it is the current one.
     const current = new IntersectionObserver(
@@ -104,7 +135,7 @@ export function StepRail({ steps }: { steps: RailStep[] }) {
         </ol>
       </nav>
 
-      <div role="group" aria-label="Loop steps" className="step-pill" data-shown={shown}>
+      <div ref={pill} role="group" aria-label="Loop steps" className="step-pill" data-shown={shown} data-away="false">
         <button type="button" aria-label="Previous step" disabled={active === 0} onClick={() => go(active - 1)}>
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M13 8H3M7 4L3 8l4 4" />

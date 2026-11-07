@@ -83,7 +83,7 @@ export function ContractSection({ rows }: { rows: Array<[string, string, IconNam
                   </span>
                   {call}
                 </p>
-                <span className="duel-stamp pointer-events-none absolute right-3 -bottom-3 md:right-6 md:-bottom-4">
+                <span className="duel-stamp pointer-events-none justify-self-end pr-1 pb-1 md:absolute md:right-6 md:-bottom-4 md:justify-self-auto md:p-0">
                   <Stamp tone={verdict.tone}>
                     <span className="flex items-center gap-1.5">
                       <span aria-hidden="true">

@@ -135,6 +135,13 @@ html:has(.landing) {
 html:has(.landing) {
   scroll-padding-top: 4rem;
 }
+/* Below lg the step pill floats at the bottom edge: keep anchor jumps and focus clear of it. */
+@media (max-width: 1023.98px) {
+  html:has(.landing) {
+    scroll-padding-bottom: 5rem;
+  }
+}
+
 
 .landing-display {
   font-size: clamp(56px, 8vw, 128px);
@@ -143,6 +150,12 @@ html:has(.landing) {
   letter-spacing: -0.045em;
   text-wrap: balance;
 }
+@media (max-width: 639.98px) {
+  .landing-display {
+    font-size: clamp(42px, 13vw, 56px);
+  }
+}
+
 
 .landing-step {
   font-size: clamp(32px, 3.6vw, 52px);
@@ -313,6 +326,16 @@ html:has(.landing) {
     bottom: calc(var(--art) * -0.5);
     width: var(--art);
     translate: none;
+  }
+}
+
+/* Below lg the close art would sit behind the copy: push it down and right, and soften it. Base .band-arc rules are untouched. */
+@media (max-width: 1023.98px) {
+  .close-band .band-arc {
+    right: -30vw;
+    bottom: -34vw;
+    width: min(96vw, 560px);
+    opacity: 0.35;
   }
 }
 
