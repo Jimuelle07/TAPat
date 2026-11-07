@@ -45,6 +45,7 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
       return (
         <div className="step-art step-ledger">
           <Drawing id="list" />
+          <p className="step-ledger-note">precomputed</p>
           <Facts facts={step.facts} />
         </div>
       );

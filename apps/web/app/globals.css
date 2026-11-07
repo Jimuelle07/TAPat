@@ -172,14 +172,13 @@ html:has(.landing) {
   letter-spacing: -0.03em;
 }
 
-/* The hero's "no." gets a terracotta stroke whenever the terminal declines a tap. A fixed dash length (px, since the
-   stroke is non-scaling) is longer than the word, so the wipe works at any size. */
-.hero-no-mark path {
-  stroke-dasharray: 600;
-  stroke-dashoffset: 600;
+/* The hero's "no." gets a terracotta stroke whenever the terminal declines a tap. A clip wipes it in, so its speed
+   doesn't depend on the word's width; the negative insets leave room for the stroke's thickness and round caps. */
+.hero-no-mark {
+  clip-path: inset(-100% 105% -100% -5%);
 }
-.hero:has([data-verdict="declined"]) .hero-no-mark path {
-  stroke-dashoffset: 0;
+.hero:has([data-verdict="declined"]) .hero-no-mark {
+  clip-path: inset(-100% -5% -100% -5%);
 }
 
 /* Light on the Forest hero: a lighter pool behind the terminal, a darker edge. Palette tokens only. */
@@ -412,8 +411,11 @@ html:has(.landing) {
     animation: landing-rise 1000ms var(--ease-out) both;
     animation-delay: calc(var(--i, 0) * 80ms);
   }
-  .hero-no-mark path {
-    transition: stroke-dashoffset 650ms var(--ease-out) 150ms;
+  .hero-no-mark {
+    transition: clip-path 300ms ease-in-out;
+  }
+  .hero:has([data-verdict="declined"]) .hero-no-mark {
+    transition-duration: 1000ms;
   }
   /* The sample feed scrolls: two copies, each sliding its own width left, so the loop is seamless. */
   .ticker-copy {

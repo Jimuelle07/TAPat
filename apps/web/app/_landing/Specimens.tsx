@@ -10,7 +10,8 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 export type SpecimenId = "list" | "enroll" | "fund" | "refuse" | "freeze" | "return";
 
 export const SPECIMEN_FPS = 30;
-export const SPECIMEN_FRAMES = 150;
+// About 120 frames of drawing plus a 3 second hold on the finished result, then the loop starts over.
+export const SPECIMEN_FRAMES = 210;
 export const SPECIMEN_WIDTH = 440;
 export const SPECIMEN_HEIGHT = 180;
 
@@ -182,9 +183,6 @@ function List({ f }: { f: number }) {
           </g>
         );
       })}
-      <Label x={8} y={172}>
-        precomputed
-      </Label>
       <Label x={432} y={172} anchor="end" opacity={note}>
         10 kept · 2 ghosts out
       </Label>

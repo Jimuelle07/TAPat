@@ -9,7 +9,8 @@ import { Art, ART_SETTLED, Corner, type ArtId } from "./art";
 const FPS = 30;
 // Long enough that the idle motion's loop point is never noticed.
 const ART_FRAMES = 5 * 60 * FPS;
-const CORNER_FRAMES = 60;
+// 60 frames growing in, then a 3 second hold before the loop starts over.
+const CORNER_FRAMES = 150;
 const CORNER_SIZE = 240;
 
 /**
@@ -64,6 +65,7 @@ function CornerPlayer({ art, box }: { art: ArtId; box: RefObject<Element | null>
       compositionWidth={CORNER_SIZE}
       compositionHeight={CORNER_SIZE}
       fps={FPS}
+      loop
       numberOfSharedAudioTags={0}
       style={{ width: "100%", height: "100%" }}
     />

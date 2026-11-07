@@ -30,6 +30,7 @@ export function ReelPlayer({ id, onReady }: { id: SpecimenId; onReady?: () => vo
           compositionWidth={SPECIMEN_WIDTH}
           compositionHeight={SPECIMEN_HEIGHT}
           fps={SPECIMEN_FPS}
+          loop
           numberOfSharedAudioTags={0}
           style={{ width: "100%", height: "100%" }}
         />

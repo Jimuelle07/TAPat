@@ -75,8 +75,17 @@
   background-color: var(--color-raised);
   background-image:
     linear-gradient(to right, transparent calc(2.75rem - 0.75px), var(--color-primary) calc(2.75rem - 0.75px) calc(2.75rem + 0.75px), transparent calc(2.75rem + 0.75px)),
-    repeating-linear-gradient(to bottom, transparent 0 27px, var(--color-ring-surface) 27px 28px);
+    linear-gradient(to top, var(--color-ring-surface) 1px, transparent 1px);
+  /* Rules count up from the bottom padding: the drawing's height scales with width, the 28px text rows below it don't. */
+  background-size: 100% 100%, 100% 28px;
+  background-position: 0 0, 0 calc(100% - 0.5rem);
+  background-repeat: no-repeat, repeat-y;
   box-shadow: var(--depth-2), var(--depth-sheen);
+}
+.step-ledger-note {
+  margin-top: 0.75rem;
+  font-size: var(--text-small);
+  line-height: 28px;
 }
 .step-ledger::before,
 .step-ledger::after {
@@ -98,9 +107,6 @@
   rotate: 1deg;
   translate: 4px 6px;
   box-shadow: var(--depth-1);
-}
-.step-ledger .step-facts {
-  margin-top: 0.75rem;
 }
 .step-ledger .step-fact {
   min-height: 56px;
@@ -302,6 +308,9 @@
 /* The rubber stamp's start keyframe swings past the column; clip (not hidden) so it can't widen the page. */
 .loop-step {
   overflow-x: clip;
+  /* Clip 8px outside the column so the tilted number box's outline isn't cut; the content box stays put. */
+  margin-inline: -8px;
+  padding-inline: 8px;
 }
 .step-rubber {
   display: block;
@@ -504,7 +513,10 @@
 @media (max-width: 639.98px) {
   .step-ledger {
     padding: 0.75rem 0.5rem 0.25rem;
-    background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--color-ring-surface) 27px 28px);
+    background-image: linear-gradient(to top, var(--color-ring-surface) 1px, transparent 1px);
+    background-size: 100% 28px;
+    background-position: 0 calc(100% - 0.25rem);
+    background-repeat: repeat-y;
   }
   .step-nfc-card {
     padding: 0.375rem;

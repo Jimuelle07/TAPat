@@ -241,7 +241,8 @@ export default function Landing() {
         <section id="top" className="hero relative overflow-clip bg-primary-deep text-surface">
           <HeroArt />
           <div className={`${PAGE_WIDTH} relative grid items-center gap-12 py-16 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-12 lg:py-20`}>
-            <div className="hero-copy flex flex-col gap-7 lg:col-span-7">
+            {/* Centred in the row's minimum height, not its actual height, so a tall receipt can't push the words down. */}
+            <div className="hero-copy flex flex-col gap-7 lg:col-span-7 lg:min-h-[calc(100dvh-14rem)] lg:justify-center lg:self-start">
               <h1 className="landing-display" style={stagger(1)}>
                 Fuel aid that can say{" "}
                 <span className="relative inline-block">
