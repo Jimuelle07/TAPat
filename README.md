@@ -66,6 +66,13 @@ A tap is a contract simulation, not a checkout: the station page posts the norma
 
 ## Architecture
 
+<p align="center">
+  <img src="docs/assets/tapat-architecture.png" alt="TAPat architecture: drivers, station phones, LGU officers and judges reach one always-free VM through Tailscale Funnel (optional Vercel front end). Inside the VM, Caddy routes pages to Next.js and /api/* to Fastify, which runs every agent, holds every secret, and writes SQLite. Fastify calls Telegram and the Velo API; the @tapat/agent module calls Noir contracts through @noirx402/agent-sdk, with fees sponsored by the Velo Gas Station." width="100%">
+</p>
+
+<details>
+<summary>Text version (Mermaid)</summary>
+
 ```mermaid
 flowchart LR
     Phone["Android phone<br/>Chrome + Web NFC"] -->|HTTPS| Funnel
@@ -85,6 +92,8 @@ flowchart LR
     API -->|"checkout, sponsor, submit"| VeloAPI["Velo API + Gas Station"]
     API -->|"long poll"| TG["Telegram Bot API"]
 ```
+
+</details>
 
 - `apps/web` is presentation only and talks to `/api/*` (the Next.js rewrite locally, Caddy in prod). It holds no secret.
 - `apps/server` owns every secret, every agent decision, every `chain_txs` row and SQLite; it calls every contract through `@tapat/agent`. The agents and the Telegram poller run in that one process, so the host must be always-on.
