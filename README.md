@@ -8,7 +8,7 @@
 
 **Live website:** https://tapat-nine.vercel.app/
 
-**Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
+**Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) 
 
 <h3 align="center">Team</h3>
 
