@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/tapat-logo.png" alt="TAPat logo" width="220">
+  <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="220">
 </p>
 
 # TAPat
@@ -8,7 +8,7 @@
 
 **Live website:** set at DEP2 as the Funnel URL (`https://tapat.<tailnet>.ts.net`, basic auth) — **not deployed yet**; the deployment is scheduled for Nov 6 ([`docs/deployment.md`](docs/deployment.md)).
 
-**Demo video (2 min):** recorded at V1 on Nov 7 (the 2-minute cut, plus a full-length backup recording) — **not recorded yet**; both links are added at submission.
+**Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
 
 **Team:** Jim, Dev2, BegA, BegB — role tags, not real names ([`docs/build-schedule.md`](docs/build-schedule.md)); the names and Discord handles are registered through the Google Form at submission.
 
