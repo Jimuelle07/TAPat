@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="160">
+  <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="120">
 </p>
 
 <h1 align="center">TAPat</h1>
