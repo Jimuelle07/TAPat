@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="220">
+  <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="160">
 </p>
 
 <h1 align="center">TAPat</h1>
