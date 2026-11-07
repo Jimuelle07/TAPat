@@ -6,3 +6,6 @@ apps/server/data/
 dist
 coverage
 deploy/.wizard.env
+
+# Local Claude Code settings
+.claude/
