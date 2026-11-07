@@ -235,9 +235,6 @@ function Fund({ f }: { f: number }) {
   return (
     <Frame label={`Simulated diesel price: a one-day spike releases nothing; a sustained rise above ${PHP_65} releases the tranche`}>
       <path d="M8 130 H432" fill="none" strokeWidth="1.5" className="stroke-text" />
-      {Array.from({ length: 5 }, (_, k) => (
-        <path key={k} d={`M${x(k * 11)} 130 v5`} fill="none" strokeWidth="1.5" className="stroke-text" />
-      ))}
       <path d={`M8 ${line} H${(8 + 424 * thr).toFixed(1)}`} fill="none" strokeWidth="1.5" strokeDasharray="5 5" className="stroke-ring-accent" />
       <Label x={8} y={line - 5} opacity={thr}>
         {PHP_65}
@@ -277,9 +274,6 @@ function Refuse({ f }: { f: number }) {
   return (
     <Frame label={`${PHP_300} is paid; ${PHP_800} is over the ${PHP_500} cap and declined with no transaction (sample)`}>
       <path d="M8 128 H408" fill="none" strokeWidth="1.5" className="stroke-text" />
-      {[0, 250, 750, 1000].map((p) => (
-        <path key={p} d={`M${x(p)} 128 v5`} fill="none" strokeWidth="1.5" className="stroke-text" />
-      ))}
       <rect x="8" y="30" width={(x(300) - 8) * b1} height="24" strokeWidth="1.5" className="fill-mint stroke-text" />
       <Label x={16} y={46} opacity={clamp((b1 - 0.7) * 4)}>
         {PHP_300}

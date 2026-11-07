@@ -345,7 +345,17 @@ A hybrid that is mostly flat. Layers separate by 1.5px ink lines and tonal paper
 - **Sheet** (`box-shadow: 0 -4px 24px rgb(27 46 40 / 0.18)`): The bottom sheet, over a `rgb(27 46 40 / 0.45)` backdrop.
 
 ### Named Rules
-**The Ink-Before-Shadow Rule.** Cards, receipts, chips and bands get a rule, not a shadow. If a surface needs separating, draw the line.
+**The Ink-Before-Shadow Rule.** In the app, cards, receipts, chips and bands get a rule, not a shadow. If a surface needs separating, draw the line. The landing page is the one exception and has its own scale, below.
+
+### Landing Depth Scale
+The landing page is built from paper objects resting on surfaces, so it carries a layered scale in `app/_landing/depth.css`. Shadows are soft, stacked and tinted with Ink `rgb(27 46 40 / …)`; black appears only on Forest and Ink grounds. Objects the reader touches or reads sit higher than the grounds beneath them, and text gets no shadow.
+- `depth-1`: chips, stamps and slips resting on paper, and raised buttons (with a top sheen).
+- `depth-2`: cards, artifacts and panels, composed with `var(--depth-2)` in the owning stylesheet.
+- `depth-3`: hero-object strength. The pinned receipt uses a `drop-shadow` filter at this strength so the shadow follows its torn edge.
+- `depth-dark`: objects on Forest or Ink grounds, such as the tap terminal.
+- Inset: pressed keys and the sample feed slot use `--depth-inset`. The price board and the printer slot use dark (black-alpha) insets, as recessed metal and LCD surfaces.
+
+Hard offset shadows remain banned everywhere, and app screens keep the Ink-Before-Shadow Rule.
 
 ## Shapes
 
@@ -377,7 +387,7 @@ Tactile and plain: a solid block with a clear press state.
 ### Cards / Containers
 - **Corner Style:** 12px.
 - **Background:** Raised Paper.
-- **Shadow Strategy:** None, per the Ink-Before-Shadow Rule.
+- **Shadow Strategy:** None, per the Ink-Before-Shadow Rule. The landing page uses the Landing Depth Scale instead.
 - **Border:** 1.5px Ink.
 - **Internal Padding:** 16px, with 1.5px Ink rules between rows.
 - **Stat Card:** Value over caption, clipped, with the Arc and Rings. Cream tone on Raised Paper, Forest tone for the headline figure.
@@ -418,7 +428,7 @@ Remotion scenes (`app/_landing/screens.tsx`) at 390px, scaled and inert under `p
 ### Don't:
 - **Don't** use Ice Blue for anything but a freeze, or Terracotta and its tint for anything but refusal and invalid input.
 - **Don't** set the ₱ glyph in Azeret Mono.
-- **Don't** give cards, receipts, chips or bands a shadow, and don't use hard offset shadows anywhere.
+- **Don't** give cards, receipts, chips or bands a shadow in the app, and don't use hard offset shadows anywhere. The landing page's soft depth scale is the only exception.
 - **Don't** set Muted Green-Grey as body copy.
 - **Don't** round receipts or bands, or square off cards and controls.
 - **Don't** place a small uppercase label above a headline. Uppercase belongs to printed artefacts and status: the receipt header, the fuel credit card's face, and status chips such as DECLINED.

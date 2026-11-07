@@ -4,11 +4,14 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { DEFAULT_PHP_PER_XLM, phpToStroops, TAP_REASON_LABELS } from "@tapat/shared";
 import { php } from "@/lib/format";
-import { Icon, type IconName } from "./(app)/_components/Icon";
-import { Specimen, type SpecimenId } from "./_landing/Specimens";
-import { LazyBandMotion, SpecimenReel } from "./_landing/Reel";
+import type { IconName } from "./(app)/_components/Icon";
+import { ContractSection, StakesSection } from "./_landing/Evidence";
+import { ScrollGauge, StepRail } from "./_landing/Navigator";
+import { LazyBandMotion } from "./_landing/Reel";
+import { LoopSteps, type LoopStep } from "./_landing/Steps";
 import { TapDemo, type TapChoice } from "./_landing/TapDemo";
-import { Cta, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
+import { Cta, HeroArt, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
+import "./_landing/depth.css";
 
 export const metadata: Metadata = {
   title: "TAPat: fuel aid that can say no",
@@ -121,7 +124,11 @@ const STEPS = [
       ["1 CSV", "with a tx hash for the COA"],
     ],
   },
-] satisfies Array<{ id: SpecimenId; chip: [ChipTone, string]; title: string; body: string; facts: Array<[string, string]> }>;
+] satisfies LoopStep[];
+
+/** Short step names for the navigator, taken from the step titles. */
+const RAIL_LABELS = ["Clean list", "Enroll", "Fund", "Refuse", "Freeze", "Return"];
+const RAIL = STEPS.map((step, i) => ({ id: step.id, num: `0${i + 1}`, label: RAIL_LABELS[i] }));
 
 const STAKES = [
   { figure: "2.7B", peso: true, what: "nearly lost to ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
@@ -207,9 +214,9 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 export default function Landing() {
   return (
     <div className="landing">
-      <header className="sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
+      <header className="landing-header sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
         <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-6`}>
-          <Link href="/" aria-label="TAPat" className="block">
+          <Link href="/" prefetch={false} aria-label="TAPat" className="block">
             <Logo />
           </Link>
           <nav aria-label="Sections" className="hidden items-center gap-6 md:flex">
@@ -227,11 +234,12 @@ export default function Landing() {
             Open the app
           </Cta>
         </div>
+        <ScrollGauge />
       </header>
 
       <main>
         <section id="top" className="hero relative overflow-clip bg-primary-deep text-surface">
-          <LazyBandMotion art="top" motif="text-pressed" />
+          <HeroArt />
           <div className={`${PAGE_WIDTH} relative grid items-center gap-12 py-16 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-12 lg:py-20`}>
             <div className="hero-copy flex flex-col gap-7 lg:col-span-7">
               <h1 className="landing-display" style={stagger(1)}>
@@ -271,7 +279,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section aria-label="Sample feed" className="ticker flex border-y-[1.5px] border-text bg-text text-surface">
+        <section aria-label="Sample feed" className="ticker ticker-slot relative z-10 flex border-y-[1.5px] border-text bg-text text-surface">
           <p className="z-10 flex shrink-0 items-center border-r-[1.5px] border-surface/40 bg-text px-4 text-label whitespace-nowrap sm:px-6">SAMPLE FEED</p>
           <div className="ticker-track">
             <TickerCopy />
@@ -279,6 +287,7 @@ export default function Landing() {
           </div>
         </section>
 
+        <StepRail steps={RAIL} />
         <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken">
           <div className={`${PAGE_WIDTH} py-20 lg:py-28`}>
             <div className="landing-reveal flex max-w-3xl flex-col gap-5">
@@ -287,40 +296,10 @@ export default function Landing() {
             </div>
 
             <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:items-start">
-              <ol className="loop-steps lg:col-span-7">
-                {STEPS.map((step, i) => (
-                  <li
-                    key={step.id}
-                    id={step.id}
-                    className="loop-step relative isolate flex flex-col justify-center gap-6 border-t-[1.5px] border-text py-14 lg:min-h-[85vh]"
-                  >
-                    <span aria-hidden="true" className="loop-numeral pointer-events-none absolute top-8 right-0 -z-10 font-semibold select-none">
-                      {`0${i + 1}`}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <Stamp tone={step.chip[0]}>{step.chip[1]}</Stamp>
-                    </div>
-                    <h3 className="landing-step landing-reveal">{step.title}</h3>
-                    <p className="landing-lead landing-reveal max-w-[52ch]">{step.body}</p>
-                    <div className="landing-reveal">
-                      <SpecimenReel id={step.id}>
-                        <Specimen id={step.id} />
-                      </SpecimenReel>
-                    </div>
-                    <dl className="landing-reveal max-w-md font-mono text-[14px]">
-                      {step.facts.map(([value, label]) => (
-                        <div key={value} className="flex justify-between gap-4 border-b border-text/20 py-2">
-                          <dt className="font-sans text-small">{label}</dt>
-                          <dd>{value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </li>
-                ))}
-              </ol>
+              <LoopSteps steps={STEPS} />
 
-              <aside aria-label="Sample program receipt" className="lg:sticky lg:top-24 lg:col-span-5">
-                <div aria-hidden="true" className="mx-[-12px] h-3 rounded-full bg-text" />
+              <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24 lg:col-span-5">
+                <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
                 <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
                   <div className="flex items-center justify-between gap-3">
                     <Logo />
@@ -335,36 +314,45 @@ export default function Landing() {
                   <hr className="border-t-[1.5px] border-dashed border-text" />
                   <ol className="flex flex-col">
                     {RECEIPT_LINES.map((line) => (
-                      <li
-                        key={`${line.code}-${line.what}`}
-                        data-step={line.step}
-                        data-tone={line.stamp?.[0] ?? "mint"}
-                        className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5"
-                      >
-                        <span className="font-medium">{line.code}</span>
-                        <span className="row-span-2 row-start-1 col-start-2">{line.what}</span>
-                        <span className="col-start-3 row-start-1 text-right tabular-nums">{line.amount}</span>
-                        {line.stamp === undefined ? null : (
-                          <span className="col-start-3 row-start-2 justify-self-end">
-                            <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
-                          </span>
-                        )}
+                      <li key={`${line.code}-${line.what}`} className="receipt-slot">
+                        <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
+                          waiting for step {`0${line.step}`}…
+                        </span>
+                        <div
+                          data-step={line.step}
+                          data-tone={line.stamp?.[0] ?? "mint"}
+                          className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5"
+                        >
+                          <span className="font-medium">{line.code}</span>
+                          <span className="row-span-2 row-start-1 col-start-2">{line.what}</span>
+                          <span className="col-start-3 row-start-1 text-right tabular-nums">{line.amount}</span>
+                          {line.stamp === undefined ? null : (
+                            <span className="col-start-3 row-start-2 justify-self-end">
+                              <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
+                            </span>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ol>
                   <hr className="border-t-[1.5px] border-dashed border-text" />
-                  <div className="receipt-total flex flex-col">
-                    <dl className="flex flex-col">
-                      {TOTALS.map(([label, pesos]) => (
-                        <div key={label} className="flex justify-between py-0.5">
-                          <dt>{label}</dt>
-                          <dd className="tabular-nums">{money(pesos)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <div className="mt-2 flex items-center justify-between gap-4">
-                      <span>Funded = spent + held + pending + escrow + returned</span>
-                      <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
+                  <div className="relative">
+                    <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
+                      waiting for step 06…
+                    </div>
+                    <div className="receipt-total flex flex-col">
+                      <dl className="flex flex-col">
+                        {TOTALS.map(([label, pesos]) => (
+                          <div key={label} className="flex justify-between py-0.5">
+                            <dt>{label}</dt>
+                            <dd className="tabular-nums">{money(pesos)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <div className="mt-2 flex items-center justify-between gap-4">
+                        <span>Funded = spent + held + pending + escrow + returned</span>
+                        <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -374,48 +362,9 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="stakes" className="bg-text text-surface">
-          <div className={`${PAGE_WIDTH} flex flex-col gap-12 py-20 lg:py-28`}>
-            <h2 className="landing-h2 landing-reveal max-w-3xl">Safe and slow, or fast and leaky.</h2>
-            <ul>
-              {STAKES.map((row) => (
-                <li key={row.figure} className="landing-reveal grid gap-4 border-t-[1.5px] border-surface/40 py-10 lg:grid-cols-[5fr_4fr_3fr] lg:items-end">
-                  <p className="landing-figure">
-                    {row.peso ? <span className="mr-2 font-mono text-[0.3em] font-medium tracking-normal">PHP</span> : null}
-                    {row.figure}
-                  </p>
-                  <p className="text-[17px] leading-normal">
-                    {row.what} <span className="text-small text-mint">({row.source})</span>
-                  </p>
-                  <p className="text-[17px] leading-normal font-medium text-accent">{row.answer}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        <StakesSection rows={STAKES} />
 
-        <section id="contract" className="border-t-[1.5px] border-text bg-surface">
-          <div className={`${PAGE_WIDTH} flex flex-col gap-12 py-20 lg:py-28`}>
-            <h2 className="landing-h2 landing-reveal max-w-4xl">The agent decides. The contract has the last word.</h2>
-            <ul className="border-b-[1.5px] border-text">
-              {ENFORCEMENT.map(([decision, call, icon]) => (
-                <li key={decision} className="landing-reveal grid gap-3 border-t-[1.5px] border-text py-7 md:grid-cols-[1fr_2fr] md:items-center md:gap-8">
-                  <h3 className="flex items-center gap-3 text-h2">
-                    <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-full bg-mint text-primary">
-                      <Icon name={icon} />
-                    </span>
-                    <span className="relative">
-                      {decision}
-                      <span aria-hidden="true" className="contract-rule absolute -bottom-1 left-0 h-[3px] w-full origin-left bg-primary" />
-                    </span>
-                  </h3>
-                  <p className="font-mono text-mono [overflow-wrap:anywhere]">{call}</p>
-                </li>
-              ))}
-            </ul>
-            <p className="landing-reveal text-small">Velo verifies the budget and sponsors the fees. Per-tap limits are Noir&apos;s.</p>
-          </div>
-        </section>
+        <ContractSection rows={ENFORCEMENT} />
 
         <section className="close-band relative overflow-clip bg-primary-deep text-surface">
           <LazyBandMotion art="close" motif="text-pressed" />
@@ -426,7 +375,7 @@ export default function Landing() {
                 term === "=" || term === "+" ? (
                   <span key={i}>{term}</span>
                 ) : (
-                  <span key={i} className="eq-term rounded-sm border-[1.5px] px-2 py-1" style={{ "--t": i / 2 } as CSSProperties}>
+                  <span key={i} className="eq-term depth-1 rounded-sm border-[1.5px] px-2 py-1" style={{ "--t": i / 2 } as CSSProperties}>
                     {term}
                   </span>
                 ),

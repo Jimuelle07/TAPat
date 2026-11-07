@@ -55,7 +55,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   const replay = `${active?.id ?? "none"}-${shot}-${phase}`;
 
   return (
-    <div data-verdict={verdict} className="flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised text-text">
+    <div data-verdict={verdict} className="depth-dark flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised text-text">
       <div key={`card-${replay}`} className={phase === "error" ? "shake" : undefined}>
         <div className="flex items-center justify-between border-b-[1.5px] border-text px-5 py-3">
           <span className="text-label">Station A</span>
@@ -63,7 +63,9 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
         </div>
 
         <div className="px-5 pt-4">
-          <TapScene phase={phase} last4={active?.last4} simulated />
+          <div className="tap-stage rounded-md">
+            <TapScene phase={phase} last4={active?.last4} simulated />
+          </div>
         </div>
       </div>
 
@@ -83,14 +85,14 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
               setTouched(true);
               run(c, reducedNow());
             }}
-            className="min-h-11 rounded-md border-[1.5px] border-text px-2 text-label text-text transition-colors not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface"
+            className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-2 text-label text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface"
           >
             {c.button}
           </button>
         ))}
       </div>
 
-      <div aria-live={touched ? "polite" : "off"} className="px-5 pt-4">
+      <div aria-live={touched ? "polite" : "off"} className="slip-lift px-5 pt-4">
         <div
           key={`slip-${replay}`}
           className={`flex flex-col gap-2 border-[1.5px] border-b-0 border-text bg-surface p-4 font-mono text-mono ${active !== null && phase !== "reading" ? "receipt-in" : ""}`}

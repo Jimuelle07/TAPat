@@ -169,18 +169,106 @@ html:has(.landing) {
   stroke-dashoffset: 0;
 }
 
-.loop-numeral {
-  font-size: clamp(96px, 12vw, 200px);
-  line-height: 1;
-  color: transparent;
-  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-text) 28%, transparent);
+/* Light on the Forest hero: a lighter pool behind the terminal, a darker edge. Palette tokens only. */
+.hero {
+  background-image:
+    radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, var(--color-pressed) 140%),
+    radial-gradient(ellipse 70% 60% at 50% 78%, var(--color-primary) 0%, transparent 75%);
+}
+@media (min-width: 1024px) {
+  .hero {
+    background-image:
+      radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, var(--color-pressed) 140%),
+      radial-gradient(ellipse 45% 65% at 77% 48%, var(--color-primary) 0%, transparent 75%);
+  }
 }
 
-/* Titles stop before the numeral column so outlines never run through glyphs. */
-@media (min-width: 1024px) {
-  .loop-step > .landing-step {
-    padding-right: clamp(140px, 14vw, 220px);
+/* The cream header floats over the page; once scrolled its shadow deepens (CSS scroll timeline, no JS). */
+.landing-header {
+  box-shadow: var(--depth-1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .landing-header {
+      animation: header-lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 160px;
+    }
   }
+}
+@keyframes header-lift {
+  to { box-shadow: var(--depth-2); }
+}
+
+/* Tactile CTAs: raised with a sheen, deeper on hover, pressed in on :active. The outline look stays flat. */
+.cta-raised,
+.cta-outline {
+  transition: color 200ms, background-color 200ms, box-shadow 200ms var(--ease-out), translate 200ms var(--ease-out);
+}
+.cta-raised {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .cta-raised:hover {
+    box-shadow: var(--depth-2), var(--depth-sheen);
+    translate: 0 -1px;
+  }
+  .cta-outline:hover {
+    translate: 0 -1px;
+  }
+}
+.cta-raised:active {
+  box-shadow: var(--depth-inset);
+  translate: 0 1px;
+}
+
+/* Hero terminal: the stage is recessed, the choice keys are raised and press in, the slip rests slightly proud of the card. */
+.tap-stage {
+  position: relative;
+}
+.tap-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--depth-inset);
+}
+.tap-key {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+.tap-key:active,
+.tap-key[aria-pressed="true"] {
+  box-shadow: var(--depth-inset);
+}
+.tap-key:active {
+  translate: 0 1px;
+}
+.slip-lift {
+  filter: drop-shadow(0 1px 1px rgb(27 46 40 / 0.14)) drop-shadow(0 4px 6px rgb(27 46 40 / 0.12));
+}
+
+/* The sample feed is a slot cut into the page: inner shadow top and bottom, stamps resting on the band. */
+.ticker-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  box-shadow: inset 0 6px 8px -4px rgb(0 0 0 / 0.55), inset 0 -5px 6px -4px rgb(0 0 0 / 0.45);
+}
+.ticker-copy li > span:last-child {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+
+/* The pinned receipt is the loop's hero object. A filter, so the shadow follows the torn edge (drop-shadow has no spread, so the blur is tighter than --depth-3). */
+.receipt-aside {
+  filter: drop-shadow(0 2px 3px rgb(27 46 40 / 0.1)) drop-shadow(0 22px 22px rgb(27 46 40 / 0.2));
+}
+.printer-slot {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--color-text) 55%, black) 0%, var(--color-text) 55%, color-mix(in oklab, var(--color-text) 85%, white) 100%);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.6), inset 0 -1px 0 rgb(255 255 255 / 0.18), 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 /* Static feed: one pass, clipped if it overflows. The motion block turns it into a marquee. */
@@ -228,6 +316,25 @@ html:has(.landing) {
   }
 }
 
+/* The hero's tap art: rings breathe out of phase, as the Remotion piece did. Static under reduced motion. */
+.hero-tap-disc,
+.hero-tap-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-tap-disc {
+    animation: hero-tap-breathe 6s ease-in-out infinite;
+  }
+  .hero-tap-ring {
+    animation: hero-tap-breathe 6s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * -0.8s - 0.8s);
+  }
+}
+@keyframes hero-tap-breathe {
+  50% { transform: scale(1.04); }
+}
+
 .receipt-line[data-tone="mint"] {
   --tint: var(--color-mint);
 }
@@ -239,6 +346,38 @@ html:has(.landing) {
 }
 .receipt-line[data-tone="frozen"] {
   --tint: var(--color-frozen);
+}
+
+/* Placeholder for a receipt line that has not printed yet. Hidden by default; the scroll-timeline block shows it. */
+.receipt-slot {
+  position: relative;
+}
+.receipt-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  opacity: 0;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  font-size: 12px;
+  background: radial-gradient(circle, var(--color-ring-surface) 1px, transparent 1.5px) 0 calc(100% - 4px) / 8px 3px repeat-x;
+}
+.receipt-ghost::after {
+  content: "";
+  width: 7px;
+  height: 1em;
+  background: var(--color-text);
+  opacity: 0;
+}
+.receipt-slot:first-child .receipt-ghost::after {
+  opacity: 0.7;
+}
+.receipt-ghost-total {
+  align-items: flex-start;
+  padding-top: 8px;
 }
 
 /* `.landing-reveal` keeps its scroll-timeline rule in the block further down. */
@@ -266,20 +405,10 @@ html:has(.landing) {
     animation-play-state: paused;
   }
   @supports (animation-timeline: view()) {
-    .loop-numeral {
-      animation: numeral-drift linear both;
-      animation-timeline: view();
-      animation-range: cover;
-    }
     .landing-figure {
       animation: figure-wipe linear both;
       animation-timeline: view();
       animation-range: entry 15% cover 30%;
-    }
-    .contract-rule {
-      animation: rule-draw linear both;
-      animation-timeline: view();
-      animation-range: entry 30% cover 35%;
     }
     .eq-term {
       animation: term-lit linear both;
@@ -323,21 +452,40 @@ html:has(.landing) {
       animation-timeline: --step-6;
       animation-range: entry 60% cover 40%;
     }
+    /* Until a line prints, a faint ruled placeholder holds its place. It exists only inside this block, so the
+       static receipt never shows it. */
+    .receipt-ghost {
+      animation: ghost-wait linear both;
+      animation-range: entry 50% cover 45%;
+    }
+    .receipt-ghost[data-step="1"] { animation-timeline: --step-1; }
+    .receipt-ghost[data-step="2"] { animation-timeline: --step-2; }
+    .receipt-ghost[data-step="3"] { animation-timeline: --step-3; }
+    .receipt-ghost[data-step="4"] { animation-timeline: --step-4; }
+    .receipt-ghost[data-step="5"] { animation-timeline: --step-5; }
+    .receipt-ghost[data-step="6"] { animation-timeline: --step-6; }
+    .receipt-ghost-total {
+      animation-range: entry 60% cover 40%;
+    }
+    /* The printer head waits at the first empty line. */
+    .receipt-slot:first-child .receipt-ghost::after {
+      animation: ghost-caret 1s steps(1) infinite;
+    }
   }
 }
 
-@keyframes numeral-drift {
-  from { translate: 0 0; }
-  to { translate: 0 1.5rem; }
+@keyframes ghost-wait {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes ghost-caret {
+  50% { opacity: 0; }
 }
 @keyframes figure-wipe {
   from { clip-path: inset(0 100% 0 0); }
 }
-@keyframes rule-draw {
-  from { scale: 0 1; }
-}
 @keyframes term-lit {
-  from { background-color: transparent; color: var(--color-surface); border-color: color-mix(in oklab, var(--color-surface) 60%, transparent); }
+  from { background-color: transparent; color: var(--color-surface); border-color: color-mix(in oklab, var(--color-surface) 60%, transparent); box-shadow: none; }
 }
 @keyframes eq-stamp {
   from { opacity: 0; scale: 0.6; }

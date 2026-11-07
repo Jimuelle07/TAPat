@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 /*
  * Server-safe kit pieces for the landing page. The app's own Chip and Receipt live in client modules that pull in
@@ -33,10 +33,33 @@ export function TearEdge({ teeth = 30 }: { teeth?: number }) {
   );
 }
 
+/** The hero's contactless tap on the Forest ground: a disc with three rings rippling out, plus the corner ring set. Pure SVG and CSS. */
+export function HeroArt() {
+  return (
+    <>
+      <span aria-hidden="true" className="band-arc">
+        <svg viewBox="0 0 1000 1000" className="absolute inset-0 h-full w-full">
+          <circle cx="500" cy="500" r="230" className="hero-tap-disc fill-primary" />
+          {[300, 370, 440].map((r, i) => (
+            <circle key={r} cx="500" cy="500" r={r} fill="none" strokeWidth={30 - i * 8} className="hero-tap-ring stroke-primary" style={{ "--i": i } as CSSProperties} />
+          ))}
+        </svg>
+      </span>
+      <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
+        <svg viewBox="0 0 240 240" className="block h-full w-full">
+          {Array.from({ length: 8 }, (_, i) => (
+            <circle key={i} cx="240" cy="0" r={30 * (i + 1)} fill="none" strokeWidth="1.5" className="stroke-pressed" />
+          ))}
+        </svg>
+      </span>
+    </>
+  );
+}
+
 const CTA_LOOK = {
-  accent: "bg-accent text-text shadow-button hover:bg-accent-tint",
-  primary: "bg-primary text-surface shadow-button hover:bg-pressed",
-  outline: "border-[1.5px] border-current hover:bg-current/10",
+  accent: "cta-raised bg-accent text-text hover:bg-accent-tint",
+  primary: "cta-raised bg-primary text-surface hover:bg-pressed",
+  outline: "cta-outline border-[1.5px] border-current hover:bg-current/10",
 };
 
 const CTA_SIZE = { lg: "h-[54px] px-6", sm: "h-11 px-4" };
@@ -45,7 +68,8 @@ export function Cta({ href, look, size = "lg", children }: { href: string; look:
   return (
     <Link
       href={href}
-      className={`group inline-flex items-center gap-2 rounded-md text-label transition-colors duration-200 active:translate-y-px ${CTA_SIZE[size]} ${CTA_LOOK[look]}`}
+      prefetch={false}
+      className={`group inline-flex items-center gap-2 rounded-md text-label transition-colors duration-200 ${CTA_SIZE[size]} ${CTA_LOOK[look]}`}
     >
       {children}
       <svg

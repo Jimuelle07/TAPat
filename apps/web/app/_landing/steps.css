@@ -1,0 +1,499 @@
+/* Loop steps: six artifacts on one rhythm. Number box + chip, then words and object; even steps put the object first.
+   Depth comes from depth.css (--depth-*): paper rests, cards and boards sit higher, windows are pressed in. */
+
+.step-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 4px;
+  outline: 1.5px solid var(--color-text);
+  outline-offset: 2px;
+  /* Stamped into the page: a recessed box, not a raised one. */
+  background: var(--color-sunken);
+  box-shadow: var(--depth-inset);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  rotate: -3deg;
+  user-select: none;
+}
+.step-flip .step-no {
+  rotate: 2deg;
+}
+
+.step-visual {
+  width: 100%;
+  max-width: 34rem;
+  /* Pseudo-element sheets and shadows with z-index -1 stay behind their artifact, above the section ground. */
+  isolation: isolate;
+}
+.step-art {
+  position: relative;
+}
+@media (min-width: 1024px) {
+  .step-flip .step-visual {
+    order: -1;
+    margin-left: auto;
+  }
+  /* The number box stays first; the object comes next, then the words. */
+  .step-flip > :first-child {
+    order: -2;
+  }
+}
+@media (max-width: 1023.98px) {
+  .step-flip > :first-child {
+    order: 0;
+  }
+}
+
+/* Facts shared shape: value first, label second. Each artifact restyles it. */
+.step-facts {
+  display: flex;
+  flex-direction: column;
+}
+.step-fact {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.step-fact dd {
+  font-family: var(--font-mono);
+}
+.step-fact dt {
+  font-size: var(--text-small);
+}
+
+/* 01 list: an LGU masterlist page on a small stack of sheets. Ruled lines and the margin rule are printed into the paper. */
+.step-ledger {
+  padding: 1.25rem 1.25rem 0.5rem 3.75rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 4px;
+  background-color: var(--color-raised);
+  background-image:
+    linear-gradient(to right, transparent calc(2.75rem - 0.75px), var(--color-primary) calc(2.75rem - 0.75px) calc(2.75rem + 0.75px), transparent calc(2.75rem + 0.75px)),
+    repeating-linear-gradient(to bottom, transparent 0 27px, var(--color-ring-surface) 27px 28px);
+  box-shadow: var(--depth-2), var(--depth-sheen);
+}
+.step-ledger::before,
+.step-ledger::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1.5px solid var(--color-ring-surface);
+  border-radius: 4px;
+  background: var(--color-raised);
+  pointer-events: none;
+}
+.step-ledger::before {
+  rotate: -1.4deg;
+  translate: -3px 3px;
+  box-shadow: var(--depth-2);
+}
+.step-ledger::after {
+  rotate: 1deg;
+  translate: 4px 6px;
+  box-shadow: var(--depth-1);
+}
+.step-ledger .step-facts {
+  margin-top: 0.75rem;
+}
+.step-ledger .step-fact {
+  min-height: 56px;
+  justify-content: center;
+}
+.step-ledger .step-fact dd {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 28px;
+}
+.step-ledger .step-fact dt {
+  line-height: 28px;
+}
+.step-ledger .step-fact dd::before {
+  content: "\2713\00a0";
+  color: var(--color-primary);
+}
+
+/* 02 enroll: a card you can pick up. */
+.step-nfc-card {
+  position: relative;
+  padding: 1.25rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 16px;
+  background: var(--color-accent-tint);
+  box-shadow: var(--depth-2), var(--depth-sheen);
+  rotate: -1.5deg;
+  transform-origin: 30% 80%;
+}
+.step-nfc-card > * {
+  background: var(--color-raised);
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+/* Light slides across the card face: cream and white at low alpha. */
+.step-nfc-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14.5px;
+  background: linear-gradient(
+    115deg,
+    transparent 28%,
+    rgb(255 255 255 / 0.42) 44%,
+    color-mix(in srgb, var(--color-surface) 45%, transparent) 52%,
+    transparent 68%
+  ) 20% 0 / 260% 100% no-repeat;
+  pointer-events: none;
+}
+.step-nfc .step-facts {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.step-nfc .step-fact {
+  position: relative;
+  flex: 1 1 11rem;
+  padding: 0.75rem 1rem 0.75rem 2.25rem;
+  border: 1.5px dashed var(--color-text);
+  border-radius: 8px;
+  box-shadow: var(--depth-inset);
+}
+.step-nfc .step-fact::before {
+  content: "";
+  position: absolute;
+  left: 0.8rem;
+  top: 1rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 50%;
+  background: var(--color-surface);
+}
+.step-nfc .step-fact dd {
+  font-size: 20px;
+  font-weight: 500;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .step-nfc-card {
+    transition: rotate 300ms var(--ease-out), translate 300ms var(--ease-out), box-shadow 300ms var(--ease-out);
+  }
+  .step-nfc-card::after {
+    transition: background-position 600ms var(--ease-out);
+  }
+  .step-nfc:hover .step-nfc-card {
+    rotate: 1.5deg;
+    translate: 0 -6px;
+    box-shadow: var(--depth-3), var(--depth-sheen);
+  }
+  .step-nfc:hover .step-nfc-card::after {
+    background-position: 80% 0;
+  }
+}
+
+/* 03 fund: a station price board. Pump digits on ink in recessed windows, a raised mustard bezel. */
+.step-board {
+  padding: 0.75rem;
+  border: 5px solid var(--color-accent);
+  border-radius: 14px;
+  background: var(--color-text);
+  box-shadow: 0 0 0 1.5px var(--color-text), var(--depth-2), inset 0 3px 8px rgb(0 0 0 / 0.55);
+}
+/* The bezel: a light top edge and a shaded bottom edge over the rim. */
+.step-board::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 14px;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.5), inset 0 -2px 0 rgb(27 46 40 / 0.3);
+  pointer-events: none;
+}
+.step-board-window {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: var(--color-raised);
+  box-shadow: var(--depth-inset);
+}
+.step-board .step-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.step-board .step-fact {
+  padding: 0.75rem 0.875rem;
+  border: 1.5px solid color-mix(in srgb, var(--color-surface) 30%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-text) 80%, var(--color-pressed));
+  /* LCD window: pressed in, with a faint glow from the digits. */
+  box-shadow:
+    var(--depth-inset),
+    inset 0 3px 6px rgb(0 0 0 / 0.5),
+    inset 0 0 18px color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+.step-board .step-fact dd {
+  color: var(--color-accent);
+  font-size: clamp(26px, 5.4vw, 34px);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.step-board .step-fact dt {
+  margin-top: 0.4rem;
+  color: var(--color-mint);
+  font-size: var(--text-caption);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .step-board {
+    transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out);
+  }
+  .step-board:hover,
+  .step-board:focus-within {
+    transform: translateY(-3px);
+    box-shadow: 0 0 0 1.5px var(--color-text), var(--depth-3), inset 0 3px 8px rgb(0 0 0 / 0.55);
+  }
+}
+
+/* 04 refuse: a torn receipt stub with a rubber stamp. The drop-shadow filter follows the torn edge. */
+.step-stub {
+  padding: 1.25rem 1.25rem 2rem;
+  border: 1.5px solid var(--color-text);
+  border-bottom: 0;
+  background: var(--color-raised);
+  filter: drop-shadow(0 1px 1px rgb(27 46 40 / 0.1)) drop-shadow(0 10px 12px rgb(27 46 40 / 0.22));
+}
+.step-stub::after {
+  content: "";
+  position: absolute;
+  left: -1.5px;
+  right: -1.5px;
+  top: 100%;
+  height: 10px;
+  background:
+    linear-gradient(135deg, var(--color-raised) 50%, transparent 50%) 0 0 / 14px 10px,
+    linear-gradient(225deg, var(--color-raised) 50%, transparent 50%) 0 0 / 14px 10px;
+  filter: drop-shadow(0 1.5px 0 var(--color-text));
+}
+.step-stub .step-facts {
+  margin-top: 0.75rem;
+  border-top: 1.5px dashed var(--color-text);
+}
+.step-stub .step-fact {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--color-ring-surface);
+}
+.step-stub .step-fact dd {
+  font-size: 20px;
+  font-weight: 500;
+}
+/* The rubber stamp's start keyframe swings past the column; clip (not hidden) so it can't widen the page. */
+.loop-step {
+  overflow-x: clip;
+}
+.step-rubber {
+  display: block;
+  width: fit-content;
+  margin: 1.5rem 0.75rem 0 auto;
+  padding: 0.2rem 0.75rem;
+  border: 3px solid var(--color-declined);
+  border-radius: 6px;
+  outline: 1.5px solid var(--color-declined);
+  outline-offset: 2px;
+  color: var(--color-declined);
+  font-family: var(--font-mono);
+  font-size: clamp(22px, 5vw, 30px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  rotate: -9deg;
+  mix-blend-mode: multiply;
+  opacity: 0.88;
+  /* Uneven ink: two offset dot grids knock small gaps out of the impression. */
+  mask-image: radial-gradient(circle at 30% 40%, transparent 0 1px, #000 1.6px), radial-gradient(circle at 70% 60%, transparent 0 0.8px, #000 1.4px),
+    linear-gradient(100deg, rgb(0 0 0 / 0.78), #000 35%, rgb(0 0 0 / 0.86) 70%, #000);
+  mask-size: 9px 11px, 13px 7px, 100% 100%;
+  mask-composite: intersect;
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes stub-thump {
+  from {
+    opacity: 0;
+    scale: 1.35;
+    rotate: -16deg;
+  }
+  60% {
+    opacity: 0.88;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .step-rubber {
+      animation: stub-thump linear both;
+      animation-timeline: view();
+      animation-range: entry 40% cover 40%;
+    }
+  }
+}
+
+/* 05 freeze: a station sign gone to frost, hanging from two tabs. Only this one is paused. */
+.step-sign {
+  padding: 1rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 12px;
+  background-color: var(--color-frozen);
+  background-image: repeating-linear-gradient(135deg, transparent 0 9px, rgb(27 46 40 / 0.06) 9px 10px);
+  /* Soft cast shadow falls below, as the sign hangs clear of the wall. */
+  box-shadow: var(--depth-2), var(--depth-sheen), 0 26px 28px -22px rgb(27 46 40 / 0.34);
+}
+.step-sign::before,
+.step-sign::after {
+  content: "";
+  position: absolute;
+  top: -14px;
+  width: 10px;
+  height: 14px;
+  border: 1.5px solid var(--color-text);
+  border-bottom: 0;
+  background: var(--color-ring-surface);
+  box-shadow: 0 -1px 2px rgb(27 46 40 / 0.2);
+}
+.step-sign::before {
+  left: 18%;
+}
+.step-sign::after {
+  right: 18%;
+}
+.step-pause {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 44px;
+  height: 44px;
+  color: var(--color-text);
+}
+.step-sign {
+  display: flex;
+  flex-direction: column;
+}
+/* Frosted glass panel, pressed into the sign. */
+.step-sign-window {
+  padding: 0.5rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 8px;
+  background: linear-gradient(160deg, var(--color-raised), color-mix(in srgb, var(--color-frozen) 45%, var(--color-raised)));
+  box-shadow: var(--depth-inset);
+}
+.step-sign .step-facts {
+  order: -1;
+  gap: 0.125rem;
+  margin-bottom: 0.875rem;
+  padding-right: 3.5rem;
+}
+.step-sign .step-fact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.6rem;
+}
+.step-sign .step-fact dd {
+  order: -1;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.step-sign .step-fact dt {
+  font-size: 14px;
+}
+/* 06 return: coins flow to the LGU wallet slip. Mustard is money coming back. */
+.step-coins {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.375rem;
+  padding: 0 0.5rem 0.75rem;
+}
+.step-coins i {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--color-text);
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-accent-tint), var(--depth-1);
+}
+.step-coins i:nth-child(2) {
+  translate: 0 -6px;
+}
+.step-coins i:nth-child(3) {
+  translate: 0 -2px;
+}
+.step-coins::after {
+  content: "";
+  flex: 1;
+  align-self: center;
+  height: 0;
+  border-top: 1.5px dashed var(--color-text);
+}
+.step-slip {
+  position: relative;
+  padding: 1.25rem 1.25rem 1rem 2rem;
+  border: 1.5px solid var(--color-text);
+  border-radius: 4px;
+  background: var(--color-accent-tint);
+  box-shadow: var(--depth-2), var(--depth-sheen);
+}
+.step-slip::before {
+  content: "";
+  position: absolute;
+  inset: 0.75rem auto 0.75rem 0.6rem;
+  width: 8px;
+  background: radial-gradient(circle at 4px 4px, var(--color-surface) 3px, var(--color-text) 3.5px 4.5px, transparent 5px) 0 0 / 8px 16px repeat-y;
+}
+.step-slip .step-facts {
+  margin-top: 0.75rem;
+}
+.step-slip .step-fact {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1.5px dashed var(--color-text);
+}
+.step-slip .step-fact dd {
+  font-size: 20px;
+  font-weight: 500;
+}
+@keyframes coin-drop {
+  from {
+    translate: 0 -10px;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .step-coins i {
+      animation: coin-drop linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 35%;
+    }
+    .step-coins i:nth-child(2) {
+      animation-range: entry 28% cover 40%;
+    }
+    .step-coins i:nth-child(3) {
+      animation-range: entry 36% cover 45%;
+    }
+  }
+}
