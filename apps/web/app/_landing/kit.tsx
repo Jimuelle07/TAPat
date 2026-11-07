@@ -60,6 +60,12 @@ export function TearEdge({ teeth = 30 }: { teeth?: number }) {
 export function HeroArt() {
   return (
     <>
+      {/* A quiet ground under the tap: flat arcs in the hero's own greens, anchored to the lower left. */}
+      <svg aria-hidden="true" viewBox="0 0 1280 800" preserveAspectRatio="xMinYMax slice" className="absolute inset-0 h-full w-full">
+        <circle cx="-40" cy="880" r="560" fillOpacity="0.42" className="fill-primary" />
+        <circle cx="-40" cy="880" r="360" fillOpacity="0.38" className="fill-primary" />
+        <circle cx="520" cy="-420" r="620" fillOpacity="0.26" className="fill-pressed" />
+      </svg>
       <span aria-hidden="true" className="band-arc">
         <svg viewBox="0 0 1000 1000" className="absolute inset-0 h-full w-full">
           <circle cx="500" cy="500" r="230" className="hero-tap-disc fill-primary" />

@@ -302,6 +302,8 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **The Ground-and-Arc Rule.** Every field pairs a ground with one fixed arc and ring colour: Forest with Field Green and Pressed Green, Field Green with Forest and Pressed Green, Cream with Sunken Cream and Ring Cream, Mint and Ice Blue with Cream and Raised Paper, Terracotta Tint with Terracotta, Mustard with Pale Mustard and Ring Mustard, Ink with Pressed Green and Field Green. Don't invent new pairs.
 
+**The Quiet Ground Rule.** The hero carries one still, abstract background under its tap art: flat arcs from its field's pair at low contrast. It never moves, and no other band has one.
+
 ## Typography
 
 **Display Font:** Outfit (with ui-sans-serif, system-ui, sans-serif)
