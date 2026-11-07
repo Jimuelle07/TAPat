@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="docs/assets/tapat-readme-banner.gif" alt="TAPat — fuel aid that can say no" width="100%">
+</p>
+
+<p align="center">
   <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="160">
 </p>
 
