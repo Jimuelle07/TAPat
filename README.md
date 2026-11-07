@@ -10,18 +10,15 @@
 
 **Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
 
-<div align="center">
+<h3 align="center">Team</h3>
 
-**Team**
-
-| Name | Role | GitHub |
-|---|---|---|
-| Jimuelle R. Patron | Project Manager | [@Jimuelle07](https://github.com/Jimuelle07) |
-| Yancy Allen S. Tiburcio | Developer | [@yncyyalln](https://github.com/yncyyalln) |
-| Wiljean Mae G. Ariola | Researcher | [@Wiljean-Mae](https://github.com/Wiljean-Mae) |
-| Catherine Joyce V. Manuel | Researcher | [@cinaxinn](https://github.com/cinaxinn) |
-
-</div>
+<table align="center">
+  <tr><th>Name</th><th>Role</th><th>GitHub</th></tr>
+  <tr><td>Jimuelle R. Patron</td><td>Project Manager</td><td><a href="https://github.com/Jimuelle07">@Jimuelle07</a></td></tr>
+  <tr><td>Yancy Allen S. Tiburcio</td><td>Developer</td><td><a href="https://github.com/yncyyalln">@yncyyalln</a></td></tr>
+  <tr><td>Wiljean Mae G. Ariola</td><td>Researcher</td><td><a href="https://github.com/Wiljean-Mae">@Wiljean-Mae</a></td></tr>
+  <tr><td>Catherine Joyce V. Manuel</td><td>Researcher</td><td><a href="https://github.com/cinaxinn">@cinaxinn</a></td></tr>
+</table>
 
 ## Problem
 
