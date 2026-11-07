@@ -15,7 +15,7 @@ function parse(final: string) {
 }
 
 /**
- * Counts up once when scrolled into view. The final text is the server-rendered value and always stays in the
+ * Counts up each time it scrolls into view, including when it scrolls back in. The final text is the server-rendered value and always stays in the
  * layout (it sizes the box and is what assistive tech reads), so there is no layout shift. Under reduced motion
  * nothing animates.
  */
@@ -39,8 +39,12 @@ export function CountUp({ final }: { final: string }) {
     };
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
+        // Stop any running tween first so rapid enter/leave never stacks rAF loops.
+        cancelAnimationFrame(raf);
+        if (!entry.isIntersecting) {
+          setFrame(null);
+          return;
+        }
         const start = performance.now();
         const tick = (now: number) => {
           const t = Math.min(1, (now - start) / DURATION_MS);
