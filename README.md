@@ -10,7 +10,14 @@
 
 **Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
 
-**Team:** Jim, Dev2, BegA, BegB — role tags, not real names ([`docs/build-schedule.md`](docs/build-schedule.md)); the names and Discord handles are registered through the Google Form at submission.
+**Team:**
+
+| Name | Role | GitHub |
+|---|---|---|
+| Jimuelle R. Patron | Project Manager | [@Jimuelle07](https://github.com/Jimuelle07) |
+| Yancy Allen S. Tiburcio | Developer | [@yncyyalln](https://github.com/yncyyalln) |
+| Wiljean Mae G. Ariola | Researcher | [@Wiljean-Mae](https://github.com/Wiljean-Mae) |
+| Catherine Joyce V. Manuel | Researcher | [@cinaxinn](https://github.com/cinaxinn) |
 
 ## Problem
 
