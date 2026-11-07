@@ -19,6 +19,16 @@ export function ReelPlayer({ id, onReady }: { id: SpecimenId; onReady?: () => vo
     if (seen) onReady?.();
   }, [seen, onReady]);
 
+  // Parts of an artifact outside the drawing (the list's tally) animate from this frame number in CSS.
+  useEffect(() => {
+    const current = player.current;
+    const art = box.current?.closest<HTMLElement>(".step-art");
+    if (!current || !art) return;
+    const onFrame = ({ detail }: { detail: { frame: number } }) => art.style.setProperty("--reel-frame", String(detail.frame));
+    current.addEventListener("frameupdate", onFrame);
+    return () => current.removeEventListener("frameupdate", onFrame);
+  }, [seen, player]);
+
   return (
     <div ref={box} className="h-full w-full">
       {seen ? (

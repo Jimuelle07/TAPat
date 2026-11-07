@@ -159,7 +159,6 @@ function Tick({ d, t, className, width = 2 }: { d: string; t: number; className:
 
 function List({ f }: { f: number }) {
   const ghost = progress(f, 92, 112);
-  const note = progress(f, 100, 116);
   return (
     <Frame label="12 masterlist rows checked, 2 ghosts removed (precomputed sample)">
       {Array.from({ length: 12 }, (_, i) => {
@@ -184,9 +183,6 @@ function List({ f }: { f: number }) {
           </g>
         );
       })}
-      <Label x={432} y={172} anchor="end" opacity={note}>
-        10 kept · 2 ghosts out
-      </Label>
     </Frame>
   );
 }

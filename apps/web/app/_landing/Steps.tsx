@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SpecimenReel } from "./Reel";
 import { Specimen, type SpecimenId } from "./Specimens";
-import { Nums, Stamp, type ChipTone } from "./kit";
+import { Nums, Stamp, TearEdge, type ChipTone } from "./kit";
 import "./steps.css";
 
 export type LoopStep = { id: SpecimenId; chip: [ChipTone, string]; title: string; body: string; facts: Array<[string, string]> };
@@ -47,7 +47,12 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
       return (
         <div className="step-art step-ledger">
           <Drawing id="list" />
-          <p className="step-ledger-note">precomputed</p>
+          <p className="step-ledger-note">
+            <span>precomputed</span>
+            <span className="step-ledger-tally font-mono">
+              <Nums>10 kept · 2 ghosts out</Nums>
+            </span>
+          </p>
           <Facts facts={step.facts} />
         </div>
       );
@@ -77,6 +82,9 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
           <span aria-hidden="true" className="step-rubber">
             {step.chip[1]}
           </span>
+          <div className="step-stub-tear">
+            <TearEdge />
+          </div>
         </div>
       );
     case "freeze":
