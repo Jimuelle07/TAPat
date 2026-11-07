@@ -8,6 +8,9 @@
 
 **Live website:** https://tapat-nine.vercel.app/
 
+> [!IMPORTANT]
+> **Demo login — Officer:** `officer@tapat.demo` / `TapatDemo2026!`
+
 **Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) 
 
 <h3 align="center">Team</h3>
