@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="docs/assets/tapat-banner.gif" alt="TAPat banner: a tricycle driving beside a fuel credit receipt that approves a PHP 300 tap, declines a PHP 800 tap over the PHP 500 cap, and returns PHP 200 unspent at expiry (illustrative amounts)" width="100%">
+</p>
+
+<p align="center">
   <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="160">
 </p>
 
