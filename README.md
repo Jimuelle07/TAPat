@@ -2,15 +2,17 @@
   <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="220">
 </p>
 
-# TAPat
+<h1 align="center">TAPat</h1>
 
-**TAPat lets an AI agent release, cap, and return fuel aid for tricycle drivers — Noir policies on Stellar, Velo for the budget and the fees.**
+<p align="center"><strong>TAPat lets an AI agent release, cap, and return fuel aid for tricycle drivers — Noir policies on Stellar, Velo for the budget and the fees.</strong></p>
 
-**Live website:** set at DEP2 as the Funnel URL (`https://tapat.<tailnet>.ts.net`, basic auth) — **not deployed yet**; the deployment is scheduled for Nov 6 ([`docs/deployment.md`](docs/deployment.md)).
+**Live website:** https://tapat-nine.vercel.app/
 
 **Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
 
-**Team:**
+<div align="center">
+
+**Team**
 
 | Name | Role | GitHub |
 |---|---|---|
@@ -18,6 +20,8 @@
 | Yancy Allen S. Tiburcio | Developer | [@yncyyalln](https://github.com/yncyyalln) |
 | Wiljean Mae G. Ariola | Researcher | [@Wiljean-Mae](https://github.com/Wiljean-Mae) |
 | Catherine Joyce V. Manuel | Researcher | [@cinaxinn](https://github.com/cinaxinn) |
+
+</div>
 
 ## Problem
 
