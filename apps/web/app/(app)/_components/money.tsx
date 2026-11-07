@@ -16,24 +16,24 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
   ];
   const content = (
     <>
-      <div className="mx-4 flex items-center justify-between gap-2 border-b-[1.5px] border-text py-3">
+      <div className="mx-4 flex items-center justify-between gap-2 border-b border-ring-surface py-3">
         <h3 className="min-w-0 flex-1 text-label">{station.name}</h3>
-        <Chip tone={frozen ? "frozen" : "mint"}>{frozen ? "Frozen" : "Active"}</Chip>
+        <span className={`text-label ${frozen ? "text-declined" : "text-primary"}`}>{frozen ? "Frozen" : "Active"}</span>
       </div>
       {frozen && station.frozenReason !== null ? (
-        <p className="ice-sheen mx-4 border-b-[1.5px] border-text py-2 font-mono text-mono break-words">{station.frozenReason}</p>
+        <p className="mx-4 border-b border-ring-surface py-2 text-caption break-words">{station.frozenReason}</p>
       ) : null}
       <dl className="flex px-1">
         {figures.map(([key, value], index) => (
-          <div key={key} className={`my-3 flex min-w-0 flex-1 flex-col gap-1 px-3 ${index < 2 ? "border-r-[1.5px] border-text" : ""}`}>
-            <dt className="text-caption">{key}</dt>
-            <dd className="font-mono text-mono break-words">{php(value, phpPerXlm)}</dd>
+          <div key={key} className={`my-3 flex min-w-0 flex-1 flex-col gap-1 px-3 ${index < 2 ? "border-r border-ring-surface" : ""}`}>
+            <dt className="text-caption text-muted">{key}</dt>
+            <dd className="text-small tabular-nums break-words">{php(value, phpPerXlm)}</dd>
           </div>
         ))}
       </dl>
     </>
   );
-  const className = `block overflow-hidden rounded-md border-[1.5px] border-text bg-raised ${frozen ? "shiver" : "rise"}`;
+  const className = `block overflow-hidden rounded-md border border-ring-surface bg-raised ${frozen ? "shiver" : "rise"}`;
   return href === undefined ? (
     <div className={className}>{content}</div>
   ) : (
@@ -44,17 +44,15 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
 }
 
 export function Invariant({ ok, escrow }: { ok: boolean; escrow: string }) {
-  const border = ok ? "border-[1.5px]" : "border-[2.5px]";
   return (
-    <div className={`relative overflow-hidden rounded-md ${border} border-text bg-raised`}>
-      {ok ? <span key={Number(ok)} aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-md bg-mint ok-flash" /> : null}
-      <div className={`flex items-center justify-between gap-2 border-b-[1.5px] border-text px-3 py-2`}>
-        <span className="text-caption">Escrow remaining</span>
-        <span className="font-mono text-mono">{escrow}</span>
+    <div className={`overflow-hidden rounded-md border bg-raised ${ok ? "border-ring-surface" : "border-danger"}`}>
+      <div className="flex items-center justify-between gap-2 border-b border-ring-surface px-4 py-3">
+        <span className="text-caption text-muted">Escrow remaining</span>
+        <span className="text-small tabular-nums">{escrow}</span>
       </div>
-      <div className="flex items-center gap-2 px-3 py-2">
-        <span className="flex-1 text-caption">Funded = spent + held + pending + escrow + returned</span>
-        <Chip tone={ok ? "mint" : "ink"}>{ok ? "OK" : "MISMATCH"}</Chip>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <span className="flex-1 text-caption text-muted">Funded = spent + held + pending + escrow + returned</span>
+        <span className={`text-label ${ok ? "text-primary" : "text-danger"}`}>{ok ? "OK" : "MISMATCH"}</span>
       </div>
     </div>
   );

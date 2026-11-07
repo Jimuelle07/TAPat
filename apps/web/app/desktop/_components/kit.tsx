@@ -37,6 +37,41 @@ export function Page({ title, back, chip, actions, children }: { title: ReactNod
   );
 }
 
+/** The quiet index frame: a large title, one sentence of purpose, then content. Hierarchy comes from size and space, not rules. */
+export function QuietPage({ title, lead, meta, actions, children }: { title: ReactNode; lead: ReactNode; meta?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="mx-auto flex max-w-[1280px] flex-col gap-10 px-10 py-12">
+      <header className="flex items-end justify-between gap-8">
+        <div className="flex min-w-0 flex-col gap-3">
+          <h1 className="min-w-0 text-[48px] leading-[1.1] font-semibold">{title}</h1>
+          <p className="max-w-[60ch] text-small">{lead}</p>
+          {meta}
+        </div>
+        {actions}
+      </header>
+      <main className="fade-in flex flex-col gap-12">{children}</main>
+    </div>
+  );
+}
+
+const DOT: Record<"mint" | "danger" | "frozen" | "ink" | "outline", string> = {
+  mint: "bg-primary",
+  danger: "bg-danger",
+  frozen: "bg-frozen border border-text",
+  ink: "bg-text",
+  outline: "border border-muted",
+};
+
+/** A status as a coloured dot and its word, so colour is never the only signal and there is no pill to compete with the figures. */
+export function StatusText({ tone = "outline", children }: { tone?: keyof typeof DOT; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-small">
+      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${DOT[tone]}`} />
+      {children}
+    </span>
+  );
+}
+
 /**
  * A mobile screen on a desktop page. Single-task flows (log in, create program, enroll, the terminal) are form-sized on any
  * screen, and sharing the component keeps their money and validation logic in one place.
@@ -114,6 +149,7 @@ export function DataTable<T>({
   rowKey,
   href,
   onRow,
+  quiet = false,
 }: {
   label: string;
   columns: Array<Column<T>>;
@@ -121,16 +157,20 @@ export function DataTable<T>({
   rowKey: (row: T) => string;
   href?: (row: T) => string;
   onRow?: (row: T) => void;
+  /** Tone steps instead of heavy rules: a sunken well with hairline dividers and figures in the text face. */
+  quiet?: boolean;
 }) {
   const stretched = "text-left after:absolute after:inset-0";
+  const frame = quiet ? "overflow-x-auto rounded-md border border-ring-surface bg-sunken" : "overflow-x-auto rounded-md border-[1.5px] border-text bg-raised";
+  const rule = quiet ? "border-ring-surface" : "border-text";
   return (
-    <div className="overflow-x-auto rounded-md border-[1.5px] border-text bg-raised">
+    <div className={frame}>
       <table className="w-full border-collapse">
         <caption className="sr-only">{label}</caption>
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.header} scope="col" className={`px-4 py-3 text-caption ${column.right ? "text-right" : "text-left"}`}>
+              <th key={column.header} scope="col" className={`px-4 py-3 text-caption ${quiet ? "text-muted" : ""} ${column.right ? "text-right" : "text-left"}`}>
                 {column.header}
               </th>
             ))}
@@ -138,11 +178,11 @@ export function DataTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className={`relative border-t-[1.5px] border-text ${href !== undefined || onRow !== undefined ? "hover:bg-mint" : ""}`}>
+            <tr key={rowKey(row)} className={`relative ${quiet ? "border-t" : "border-t-[1.5px]"} ${rule} ${href !== undefined || onRow !== undefined ? (quiet ? "hover:bg-raised" : "hover:bg-mint") : ""}`}>
               {columns.map((column, index) => {
                 const content = column.cell(row);
                 return (
-                  <td key={column.header} className={`px-4 py-3 align-middle ${column.mono ? "font-mono text-mono whitespace-nowrap" : "text-small"} ${column.right ? "text-right" : "text-left"}`}>
+                  <td key={column.header} className={`px-4 py-3 align-middle ${column.mono ? (quiet ? "text-small whitespace-nowrap" : "font-mono text-mono whitespace-nowrap") : "text-small"} ${quiet ? "tabular-nums" : ""} ${column.right ? "text-right" : "text-left"}`}>
                     {index === 0 && href !== undefined ? (
                       <Link href={href(row)} className={stretched}>
                         {content}
@@ -166,7 +206,7 @@ export function DataTable<T>({
 }
 
 /** Taps and agent decisions, opening the same detail the mobile activity sheet shows. */
-export function FeedTable({ items }: { items: FeedItem[] }) {
+export function FeedTable({ items, quiet = false }: { items: FeedItem[]; quiet?: boolean }) {
   const [selected, setSelected] = useState<FeedItem | null>(null);
   return (
     <>
@@ -175,6 +215,7 @@ export function FeedTable({ items }: { items: FeedItem[] }) {
         rows={items}
         rowKey={(item) => item.id}
         onRow={setSelected}
+        quiet={quiet}
         columns={[
           {
             header: "Event",
@@ -187,7 +228,15 @@ export function FeedTable({ items }: { items: FeedItem[] }) {
           },
           { header: "Time", mono: true, cell: (item) => dateTime(item.createdAt) },
           { header: "Amount", mono: true, right: true, cell: (item) => item.value ?? "" },
-          { header: "Status", cell: (item) => <Chip tone={item.tone ?? item.detail.tone}>{item.chip ?? item.detail.chip}</Chip> },
+          {
+            header: "Status",
+            cell: (item) =>
+              quiet ? (
+                <StatusText tone={item.tone ?? item.detail.tone}>{item.chip ?? item.detail.chip}</StatusText>
+              ) : (
+                <Chip tone={item.tone ?? item.detail.tone}>{item.chip ?? item.detail.chip}</Chip>
+              ),
+          },
         ]}
       />
       <Sheet title={selected?.detail.title ?? "Activity"} open={selected !== null} onClose={() => setSelected(null)}>
