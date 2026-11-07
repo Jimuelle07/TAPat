@@ -131,6 +131,228 @@ html:has(.landing) {
   text-wrap: pretty;
 }
 
+/* ---- Landing: hero terminal and the printing receipt ---- */
+html:has(.landing) {
+  scroll-padding-top: 4rem;
+}
+
+.landing-display {
+  font-size: clamp(56px, 8vw, 128px);
+  line-height: 0.95;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.landing-step {
+  font-size: clamp(32px, 3.6vw, 52px);
+  line-height: 1.04;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.landing-figure {
+  font-size: clamp(48px, 6.4vw, 92px);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* The hero's "no." gets a terracotta stroke whenever the terminal declines a tap. A fixed dash length (px, since the
+   stroke is non-scaling) is longer than the word, so the wipe works at any size. */
+.hero-no-mark path {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+}
+.hero:has([data-verdict="declined"]) .hero-no-mark path {
+  stroke-dashoffset: 0;
+}
+
+.loop-numeral {
+  font-size: clamp(96px, 12vw, 200px);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-text) 28%, transparent);
+}
+
+/* Titles stop before the numeral column so outlines never run through glyphs. */
+@media (min-width: 1024px) {
+  .loop-step > .landing-step {
+    padding-right: clamp(140px, 14vw, 220px);
+  }
+}
+
+/* Static feed: one pass, clipped if it overflows. The motion block turns it into a marquee. */
+.ticker-track {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+.ticker-copy {
+  display: flex;
+  gap: 2.5rem;
+  padding: 0 1.5rem;
+}
+.ticker-copy[aria-hidden="true"] {
+  display: none;
+}
+
+/* The finished state: every term lit. Under motion the equation lights up in turn as it scrolls in. */
+.eq-term {
+  background-color: var(--color-mint);
+  color: var(--color-text);
+  border-color: var(--color-mint);
+}
+
+/* The hero art sits behind the terminal column, clear of the headline. */
+@media (min-width: 1024px) {
+  .hero .band-arc {
+    --art: min(92vmin, 52vw, 860px);
+    right: calc(var(--art) * -0.22);
+    width: var(--art);
+  }
+}
+
+/* The closing band's art sits low and right, clear of the headline, equation, lead and buttons. */
+@media (min-width: 1024px) {
+  .close-band .band-arc {
+    --art: min(70vmin, 40vw, 640px);
+    right: calc(var(--art) * -0.45);
+    top: auto;
+    bottom: calc(var(--art) * -0.5);
+    width: var(--art);
+    translate: none;
+  }
+}
+
+.receipt-line[data-tone="mint"] {
+  --tint: var(--color-mint);
+}
+.receipt-line[data-tone="accent"] {
+  --tint: var(--color-accent-tint);
+}
+.receipt-line[data-tone="danger"] {
+  --tint: var(--color-declined-tint);
+}
+.receipt-line[data-tone="frozen"] {
+  --tint: var(--color-frozen);
+}
+
+/* `.landing-reveal` keeps its scroll-timeline rule in the block further down. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+  .hero-copy > * {
+    animation: landing-rise 1000ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+  .hero-no-mark path {
+    transition: stroke-dashoffset 650ms var(--ease-out) 150ms;
+  }
+  /* The sample feed scrolls: two copies, each sliding its own width left, so the loop is seamless. */
+  .ticker-copy {
+    flex: none;
+    animation: ticker-run 40s linear infinite;
+  }
+  .ticker-copy[aria-hidden="true"] {
+    display: flex;
+  }
+  .ticker:hover .ticker-copy,
+  .ticker:focus-within .ticker-copy {
+    animation-play-state: paused;
+  }
+  @supports (animation-timeline: view()) {
+    .loop-numeral {
+      animation: numeral-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+    .landing-figure {
+      animation: figure-wipe linear both;
+      animation-timeline: view();
+      animation-range: entry 15% cover 30%;
+    }
+    .contract-rule {
+      animation: rule-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 30% cover 35%;
+    }
+    .eq-term {
+      animation: term-lit linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--t) * 10%) entry calc(30% + var(--t) * 10%);
+    }
+    .eq-stamp {
+      animation: eq-stamp linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--t) * 10%) entry calc(25% + var(--t) * 10%);
+    }
+  }
+}
+
+/* From lg the receipt is pinned and prints one step's lines as that step scrolls in. Without scroll timelines,
+   below lg, or under reduced motion, the receipt shows printed in full. The `animation` shorthand resets the
+   timeline and range, so each range follows its shorthand and the per-step timelines come after. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .loop {
+      timeline-scope: --step-1, --step-2, --step-3, --step-4, --step-5, --step-6;
+    }
+    .loop-step:nth-child(1) { view-timeline-name: --step-1; }
+    .loop-step:nth-child(2) { view-timeline-name: --step-2; }
+    .loop-step:nth-child(3) { view-timeline-name: --step-3; }
+    .loop-step:nth-child(4) { view-timeline-name: --step-4; }
+    .loop-step:nth-child(5) { view-timeline-name: --step-5; }
+    .loop-step:nth-child(6) { view-timeline-name: --step-6; }
+    .receipt-line {
+      animation: receipt-print linear both, receipt-active linear both;
+      animation-range: entry 50% cover 45%, cover 30% cover 70%;
+    }
+    .receipt-line[data-step="1"] { animation-timeline: --step-1, --step-1; }
+    .receipt-line[data-step="2"] { animation-timeline: --step-2, --step-2; }
+    .receipt-line[data-step="3"] { animation-timeline: --step-3, --step-3; }
+    .receipt-line[data-step="4"] { animation-timeline: --step-4, --step-4; }
+    .receipt-line[data-step="5"] { animation-timeline: --step-5, --step-5; }
+    .receipt-line[data-step="6"] { animation-timeline: --step-6, --step-6; }
+    .receipt-total {
+      animation: receipt-print linear both;
+      animation-timeline: --step-6;
+      animation-range: entry 60% cover 40%;
+    }
+  }
+}
+
+@keyframes numeral-drift {
+  from { translate: 0 0; }
+  to { translate: 0 1.5rem; }
+}
+@keyframes figure-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+}
+@keyframes rule-draw {
+  from { scale: 0 1; }
+}
+@keyframes term-lit {
+  from { background-color: transparent; color: var(--color-surface); border-color: color-mix(in oklab, var(--color-surface) 60%, transparent); }
+}
+@keyframes eq-stamp {
+  from { opacity: 0; scale: 0.6; }
+}
+@keyframes ticker-run {
+  to { translate: -100% 0; }
+}
+@keyframes receipt-print {
+  from { opacity: 0; clip-path: inset(0 0 100% 0); translate: 0 -8px; }
+}
+@keyframes receipt-active {
+  0%, 100% { background-color: transparent; }
+  20%, 80% { background-color: var(--tint); }
+}
+
 /* Fine paper grain over the whole page. Fixed, so it never repaints while scrolling. */
 .landing::after {
   content: "";
