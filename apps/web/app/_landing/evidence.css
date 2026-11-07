@@ -102,10 +102,9 @@
 .duel-rule::after {
   right: -2px;
 }
-/* Inked verdict: the stamp sinks into the paper. */
+/* Verdict chip: solid, so the rule and the call box behind it don't show through. */
 .duel-stamp > span {
   box-shadow: var(--depth-1);
-  mix-blend-mode: multiply;
 }
 
 /* Static: the stamp shows on devices that cannot hover; with hover it appears on hover. */
