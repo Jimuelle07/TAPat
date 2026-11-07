@@ -245,13 +245,70 @@ Boot rules and the full validation list: [`docs/api-and-data.md`](docs/api-and-d
 
 ## Screenshots
 
-Not captured yet — taken at V1 on Nov 7 together with the 2-minute demo video, then added here and in the submission form.
+Desktop officer dashboard on Stellar Testnet. Amounts use the fixed demo rate.
+
+### Landing and sign-in
+
+![Landing page](docs/assets/screenshots/landing.webp)
+
+| Log in | Sign up |
+|---|---|
+| ![Log in](docs/assets/screenshots/login.png) | ![Sign up](docs/assets/screenshots/signup.png) |
+
+### Program
+
+![Overview: every funded peso, and where it is now](docs/assets/screenshots/overview.png)
+
+| Masterlist | Cards |
+|---|---|
+| ![Masterlist upload](docs/assets/screenshots/masterlist.png) | ![Cards](docs/assets/screenshots/cards.png) |
+| **Stations** | **Activity** |
+| ![Stations](docs/assets/screenshots/stations.png) | ![Activity](docs/assets/screenshots/activity.png) |
+
+### Operate
+
+![Agents: fund, refuse, return](docs/assets/screenshots/agents.png)
+
+![Station terminal](docs/assets/screenshots/station-terminal.png)
+
+**Enroll a driver** in three steps:
+
+| 1. Pick the driver | 2. Read the card | 3. Confirm |
+|---|---|---|
+| ![Enroll step 1](docs/assets/screenshots/enroll-1-driver.png) | ![Enroll step 2, waiting for the card](docs/assets/screenshots/enroll-2-read-card.png) | ![Enroll step 3](docs/assets/screenshots/enroll-3-confirm.png) |
+| | ![Enroll step 2, card read](docs/assets/screenshots/enroll-2-card-read.png) | |
+
+![System health](docs/assets/screenshots/system-health.png)
+
+### Mobile (officer on a phone)
+
+| Log in | Sign up | Home |
+|---|---|---|
+| <img src="docs/assets/screenshots/mobile-login.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-signup.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-home.jpg" width="240"> |
+| **Masterlist** | **Enroll** | **Station** |
+| <img src="docs/assets/screenshots/mobile-masterlist.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-enroll.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-station.jpg" width="240"> |
+| **Station: reading the card** | **Agents** | |
+| <img src="docs/assets/screenshots/mobile-station-reading.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-agents.jpg" width="240"> | |
+
+Tranche Agent: waiting, feed running, then fired at the real price shift (the day-15 spike is ignored).
+
+| Idle | Feed running | Fired |
+|---|---|---|
+| <img src="docs/assets/screenshots/mobile-tranche-idle.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-tranche-running.jpg" width="240"> | <img src="docs/assets/screenshots/mobile-tranche-fired.jpg" width="240"> |
 
 ## What's next
 
-Deliberate demo limits, stated to judges rather than hidden: Testnet only; no real OCR or vision model (the CSV path is fully live); no PDAX cash-out; no clawback of held pending payments; custodial station and card-agent keys; simulated price/burst streams.
+Today TAPat is a Testnet alpha. These limits are deliberate and stated to judges rather than hidden: Testnet only; no real OCR or vision model (the CSV path is fully live); no PDAX cash-out; no clawback of held pending payments; custodial station and card-agent keys; simulated price and burst streams. The plan below removes them, roughly in order of value. Sources: [`docs/PRD.md`](docs/PRD.md) §6, [`docs/demo-runbook.md`](docs/demo-runbook.md), [`docs/TAPat-market-research.md`](docs/TAPat-market-research.md).
 
-After the hackathon, in order of value: an adapter behind the precomputed OCR/vision path; non-custodial card agent keys (device or passkey custody); a merchant allow-list at the contract layer; a mainnet security audit; and fiat cash-out through PDAX. Details: [`docs/PRD.md`](docs/PRD.md) §6.
+- [ ] **Real OCR and vision.** Put an adapter behind the precomputed OCR and plate/TODA/OR-CR photo path, so scanned masterlists and driver photos are read live instead of looked up by file hash.
+- [ ] **Non-custodial card agent keys.** Move each card agent key from the server to the driver's device or a passkey, and station keys to HSM or device custody.
+- [ ] **Merchant allow-list at the contract layer.** Noir's `authorize()` accepts any merchant address today; the service only signs for registered stations. Restrict spending to fuel stations on-chain.
+- [ ] **Mainnet security audit.** Reviewed commits, key-custody procedures and an audit (or documented risk acceptance) before any real funds move. Mainnet also needs the non-custodial keys above.
+- [ ] **Fiat cash-out through PDAX.** Let drivers and stations cash out to pesos, instead of "returned" meaning back to the LGU wallet.
+- [ ] **Live data instead of fixtures.** Replace the simulated DOE price series, burst edges and honest baseline with real feeds and real tap history.
+- [ ] **Real hosting.** Move off the single always-free VM behind Tailscale Funnel and the shared basic-auth login to production deployment.
+- [ ] **A field pilot with an LGU.** Measure admin time saved, duplicate enrollment without wrongly excluding eligible drivers, predictable station reimbursement and dispute handling, behaviour under real connectivity and staffing, and total operating cost.
+- [ ] **Banks and fuel-card providers as partners.** Explore integrating with existing station acceptance and settlement (for example LANDBANK's Fuel Subsidy System) rather than replacing it.
 
 ## Credits
 
