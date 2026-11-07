@@ -101,7 +101,7 @@ export function useAuth(): AuthState {
   return context;
 }
 
-const PUBLIC_PATHS = ["/login", "/signup", "/desktop/login", "/desktop/signup"];
+export const PUBLIC_PATHS = ["/login", "/signup", "/desktop/login", "/desktop/signup"];
 
 /** Where a logged-out visitor on `pathname` is sent: the matching login screen, carrying `?next=` unless at the root. */
 function loginTarget(pathname: string, search: string): string {
