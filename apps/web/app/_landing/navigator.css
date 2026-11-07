@@ -101,6 +101,10 @@
   min-height: 32px;
   padding: 0 6px;
   border: 1.5px solid transparent;
+  /* Finger-sized on large touch screens. */
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
   border-radius: 4px;
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -108,6 +112,9 @@
   text-decoration: none;
   background: var(--color-raised);
   box-shadow: var(--depth-1);
+}
+.step-rail-num {
+  font-family: var(--font-num);
 }
 .step-rail a:hover {
   border-color: var(--color-text);

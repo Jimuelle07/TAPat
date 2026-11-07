@@ -21,11 +21,11 @@ colors:
   ring-surface: "#e3d6b2"
 typography:
   landing-display:
-    fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(52px, 7vw, 96px)"
-    fontWeight: 600
-    lineHeight: 1.02
-    letterSpacing: "-0.03em"
+    fontFamily: "Bricolage Grotesque, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(56px, 8vw, 128px)"
+    fontWeight: 700
+    lineHeight: 0.95
+    letterSpacing: "-0.035em"
   landing-figure:
     fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(48px, 6.4vw, 92px)"
@@ -33,10 +33,10 @@ typography:
     lineHeight: 1
     letterSpacing: "-0.03em"
   landing-h2:
-    fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(38px, 4.8vw, 68px)"
-    fontWeight: 600
-    lineHeight: 1.06
+    fontFamily: "Bricolage Grotesque, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(40px, 5vw, 76px)"
+    fontWeight: 700
+    lineHeight: 1.02
     letterSpacing: "-0.025em"
   landing-lead:
     fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
@@ -273,12 +273,12 @@ Depth is mostly line, not shadow. Colour names a state before it decorates: a te
 A warm cream and forest palette with three state fields (terracotta, ice blue, mustard) and a single near-black green ink.
 
 ### Primary
-- **Forest** (#29664e): The dark field. Forest stat cards, the fuel credit card, and the first and closing landing bands.
+- **Forest** (#29664e): The dark field. Forest stat cards, the fuel credit card, and the first landing band.
 - **Field Green** (#2e6f55): Filled buttons, selected filter chips, the active tab disc, chart price line, focus ring, and the arc on Forest. Also a landing band ground, with Forest as its arc.
 - **Pressed Green** (#1f5540): Hover and active state of filled buttons, the rings on green grounds, and the arc on Ink.
 
 ### Secondary
-- **Mustard** (#f7b93e): Return at page scale, the accent CTA on dark grounds, the "Velo verified" chip, the chart threshold line, and landing text selection.
+- **Mustard** (#f7b93e): Return at page scale, the closing landing band, the accent CTA on dark grounds, the "Velo verified" chip, the chart threshold line, and landing text selection.
 - **Pale Mustard** (#fbd88f): Hover on the accent CTA, and the arc on a Mustard band.
 - **Ring Mustard** (#c98f1e): Corner rings on a Mustard band only.
 
@@ -302,6 +302,8 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **The Ground-and-Arc Rule.** Every field pairs a ground with one fixed arc and ring colour: Forest with Field Green and Pressed Green, Field Green with Forest and Pressed Green, Cream with Sunken Cream and Ring Cream, Mint and Ice Blue with Cream and Raised Paper, Terracotta Tint with Terracotta, Mustard with Pale Mustard and Ring Mustard, Ink with Pressed Green and Field Green. Don't invent new pairs.
 
+**The Quiet Ground Rule.** The hero carries one still, abstract background under its tap art: flat arcs from its field's pair at low contrast. It never moves, and no other band has one.
+
 ## Typography
 
 **Display Font:** Outfit (with ui-sans-serif, system-ui, sans-serif)
@@ -310,10 +312,12 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **Character:** Outfit is round and friendly, and it keeps a serious subject approachable. Azeret Mono reads as a printed ledger, so anything set in it looks checkable.
 
+**Landing page only:** Bricolage Grotesque 700 sets the display and section headlines, Fraunces soft italic sets the annotations (the hero's "no." and the contract slips), and IBM Plex Mono sets ledger words and contract calls. Outfit stays the body font. Numbers keep Outfit and Azeret Mono. Amounts use ₱; neither of those fonts has the glyph, so the sign alone is set in Plex Mono beside Azeret digits and in Bricolage beside Outfit digits. The app keeps Outfit, Azeret Mono and the "PHP" label.
+
 ### Hierarchy
-- **Landing Display** (600, clamp(52px, 7vw, 96px), 1.02, -0.03em): The landing page's one headline.
-- **Landing Figure** (600, clamp(48px, 6.4vw, 92px), 1, -0.03em): Cited figures on the stakes band. A currency prefix sits in Azeret Mono at 0.3em.
-- **Landing H2** (600, clamp(38px, 4.8vw, 68px), 1.06, -0.025em, balanced): Band and section headlines.
+- **Landing Display** (Bricolage Grotesque 700, clamp(56px, 8vw, 128px), 0.95, -0.035em): The landing page's one headline.
+- **Landing Figure** (600, clamp(48px, 6.4vw, 92px), 1, -0.03em): Cited figures on the stakes band, in Outfit, with a full-size ₱.
+- **Landing H2** (Bricolage Grotesque 700, clamp(40px, 5vw, 76px), 1.02, -0.025em, balanced): Band and section headlines.
 - **Landing Lead** (400, clamp(17px, 1.45vw, 20px), 1.5, pretty): Band body copy, held to the band's copy column or 56 to 62ch.
 - **H2** (500, 22px, 1.35): App screen titles and section titles, and the decision names in the enforcement table.
 - **Small** (400, 15px, 1.45): App body copy.
@@ -377,7 +381,7 @@ Tactile and plain: a solid block with a clear press state.
 - **Secondary:** Raised Paper with a 1.5px Ink border, going to Mint on hover.
 - **Tertiary:** Field Green label with no fill, going to Mint on hover.
 - **Disabled:** Sunken Cream with Ink label. A loading button adds a spinning refresh icon.
-- **Landing CTA:** Auto width with 24px padding and a 1.5px border. Mustard with an Ink border on dark grounds; outlined in the current colour for the second action, filling Cream on hover. The header uses a 44px compact Field Green version.
+- **Landing CTA:** Auto width with 24px padding and a 1.5px border. Mustard with an Ink border on dark grounds; outlined in the current colour for the second action, filling Cream on hover. The header uses a 44px compact Field Green version, and the Mustard closing band uses a full-size Field Green one.
 
 ### Chips
 - **Style:** 8px corners, 1.5px Ink border, caption type, 4px by 8px padding. Always a written status, never colour alone.
@@ -404,6 +408,12 @@ Tactile and plain: a solid block with a clear press state.
 
 ### Receipt
 The system's core artefact. Square Raised Paper with a 1.5px Ink border, the cropped logo, a written status chip with its amount, ruled ledger rows, dashed separators and the Tear Edge. A declined receipt shows the reason and no balance.
+
+### Loop Section
+One Sunken Cream ground with no vertical divider. 1.5px Ink rules separate the intro and the six steps and run edge to edge, passing behind the receipt, which is pinned in a 38% column on the right from `lg`. From 1280px each step sets its words beside its card, and even steps put the card first. The receipt prints each step's lines as that step scrolls in.
+
+### Closing Band
+Mustard ground and Ink text, with a Pale Mustard arc off the right edge and Ring Mustard corner rings. The rotating coins sit low on the left, in a 35% Ring Mustard shade of the ground with Ring Mustard outlines. The equation terms are Raised Paper with Ink borders.
 
 ### Band
 A stat card at page scale: a full-bleed ground, the band arc, a 240px ring set and a 1.5px Ink top rule. Beside the headline, ledger rows in Landing Rule type on current-colour rules state the limit or contract call behind the claim.

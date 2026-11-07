@@ -1,24 +1,26 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
+import { Nums } from "./kit";
 
 /*
  * One small ledger drawing per step of the loop. Each is a pure function of `frame`, so a Remotion Player can drive it
  * and the server can render the settled still (`frame` undefined). Sample, simulated and precomputed data only, and
- * each drawing says which. Peso amounts are literals in Azeret Mono's "PHP" form because the page passes no runtime
- * data here. Everything settles by about frame 120 and holds.
+ * each drawing says which. Peso amounts are literals because the page passes no runtime data here. Everything settles
+ * by about frame 120 and holds.
  */
 
 export type SpecimenId = "list" | "enroll" | "fund" | "refuse" | "freeze" | "return";
 
 export const SPECIMEN_FPS = 30;
-export const SPECIMEN_FRAMES = 150;
+// About 120 frames of drawing plus a 3 second hold on the finished result, then the loop starts over.
+export const SPECIMEN_FRAMES = 210;
 export const SPECIMEN_WIDTH = 440;
 export const SPECIMEN_HEIGHT = 180;
 
-const PHP_65 = "PHP 65.00";
-const PHP_300 = "PHP 300.00";
-const PHP_500 = "PHP 500.00";
-const PHP_800 = "PHP 800.00";
-const PHP_3190 = "PHP 3,190.00";
+const PHP_65 = "₱65.00";
+const PHP_300 = "₱300.00";
+const PHP_500 = "₱500.00";
+const PHP_800 = "₱800.00";
+const PHP_3190 = "₱3,190.00";
 
 // Copied from the sample series in screens.tsx: 44 quiet days, a one-day spike at index 14, then a sustained shift.
 const DIESEL = [
@@ -44,7 +46,7 @@ const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 /** Eased 0 → 1 progress of `frame` between `start` and `end`. */
 const progress = (frame: number, start: number, end: number) => easeOut(lin(frame, start, end));
 
-const peso = (n: number) => `PHP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n: number) => `₱${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Frame({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -72,7 +74,7 @@ function Label({
 }) {
   return (
     <text x={x} y={y} textAnchor={anchor} fontSize="13" opacity={opacity} className={`specimen-label fill-text font-mono ${className}`}>
-      {children}
+      {typeof children === "string" ? <Nums svg>{children}</Nums> : children}
     </text>
   );
 }
@@ -157,7 +159,6 @@ function Tick({ d, t, className, width = 2 }: { d: string; t: number; className:
 
 function List({ f }: { f: number }) {
   const ghost = progress(f, 92, 112);
-  const note = progress(f, 100, 116);
   return (
     <Frame label="12 masterlist rows checked, 2 ghosts removed (precomputed sample)">
       {Array.from({ length: 12 }, (_, i) => {
@@ -182,12 +183,6 @@ function List({ f }: { f: number }) {
           </g>
         );
       })}
-      <Label x={8} y={172}>
-        precomputed
-      </Label>
-      <Label x={432} y={172} anchor="end" opacity={note}>
-        10 kept · 2 ghosts out
-      </Label>
     </Frame>
   );
 }

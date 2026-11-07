@@ -29,7 +29,7 @@ export function StakesSection({ rows }: { rows: StakeRow[] }) {
                   <span aria-hidden="true" className="clipping-pin" />
                   <div className="clipping bg-raised px-6 pt-9 pb-10 text-text">
                     <p className="landing-figure clipping-figure">
-                      {row.peso ? <span className="mr-2 font-mono text-[0.3em] font-medium tracking-normal">PHP</span> : null}
+                      {row.peso ? <span className="peso">₱</span> : null}
                       <CountUp final={row.figure} />
                     </p>
                     <p className="mt-4 text-[17px] leading-normal">{row.what}</p>
@@ -71,9 +71,11 @@ export function ContractSection({ rows }: { rows: Array<[string, string, IconNam
             return (
               <li
                 key={decision}
+                // Each row is its own stacking layer, so rows stack in reverse or the next row's rule would cross this row's chip.
+                style={{ zIndex: rows.length - i }}
                 className="duel landing-reveal relative grid items-center gap-4 border-t-[1.5px] border-text py-8 md:grid-cols-[5fr_auto_7fr] md:gap-0"
               >
-                <h3 className="duel-slip w-fit bg-accent-tint px-5 text-h2" style={{ "--tilt": i % 2 ? "1.2deg" : "-1.2deg" } as CSSProperties}>
+                <h3 className="duel-slip landing-note w-fit bg-accent-tint px-5 text-h2" style={{ "--tilt": i % 2 ? "1.2deg" : "-1.2deg" } as CSSProperties}>
                   {decision}
                 </h3>
                 <span aria-hidden="true" className="duel-rule hidden h-[1.5px] w-16 bg-text md:block lg:w-28" />

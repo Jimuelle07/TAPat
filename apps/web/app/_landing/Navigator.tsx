@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Nums } from "./kit";
 import "./navigator.css";
 
 type RailStep = { id: string; num: string; label: string };
@@ -142,7 +143,7 @@ export function StepRail({ steps }: { steps: RailStep[] }) {
           </svg>
         </button>
         <span aria-live="off" aria-current="step" className="step-pill-text">
-          Step {step.num.replace(/^0/, "")} of {steps.length} · {step.label}
+          <Nums>{`Step ${step.num.replace(/^0/, "")} of ${steps.length} · ${step.label}`}</Nums>
         </span>
         <button type="button" aria-label="Next step" disabled={active === steps.length - 1} onClick={() => go(active + 1)}>
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

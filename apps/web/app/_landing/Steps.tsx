@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SpecimenReel } from "./Reel";
 import { Specimen, type SpecimenId } from "./Specimens";
-import { Stamp, type ChipTone } from "./kit";
+import { Nums, Stamp, TearEdge, type ChipTone } from "./kit";
 import "./steps.css";
 
 export type LoopStep = { id: SpecimenId; chip: [ChipTone, string]; title: string; body: string; facts: Array<[string, string]> };
@@ -13,7 +13,9 @@ function Facts({ facts }: { facts: Array<[string, string]> }) {
       {facts.map(([value, label]) => (
         <div key={value} className="step-fact">
           <dt>{label}</dt>
-          <dd>{value}</dd>
+          <dd>
+            <Nums>{value}</Nums>
+          </dd>
         </div>
       ))}
     </dl>
@@ -45,6 +47,12 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
       return (
         <div className="step-art step-ledger">
           <Drawing id="list" />
+          <p className="step-ledger-note">
+            <span>precomputed</span>
+            <span className="step-ledger-tally font-mono">
+              <Nums>10 kept · 2 ghosts out</Nums>
+            </span>
+          </p>
           <Facts facts={step.facts} />
         </div>
       );
@@ -74,6 +82,9 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
           <span aria-hidden="true" className="step-rubber">
             {step.chip[1]}
           </span>
+          <div className="step-stub-tear">
+            <TearEdge />
+          </div>
         </div>
       );
     case "freeze":
@@ -105,22 +116,20 @@ function Artifact({ step }: { step: LoopStep }): ReactNode {
 
 export function LoopSteps({ steps }: { steps: LoopStep[] }) {
   return (
-    <ol className="loop-steps lg:col-span-7">
+    <ol className="loop-steps">
       {steps.map((step, i) => (
-        <li
-          key={step.id}
-          id={step.id}
-          className={`loop-step step step-${step.id} ${i % 2 ? "step-flip" : ""} flex flex-col justify-center gap-7 py-14 lg:min-h-[85vh]`}
-        >
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="step-no">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <Stamp tone={step.chip[0]}>{step.chip[1]}</Stamp>
-          </div>
-          <div className="step-text landing-reveal flex flex-col gap-5">
-            <h3 className="landing-step">{step.title}</h3>
-            <p className="landing-lead max-w-[52ch]">{step.body}</p>
+        <li key={step.id} id={step.id} className={`loop-step step step-${step.id} ${i % 2 ? "step-flip" : ""} flex flex-col gap-7 py-14`}>
+          <div className="flex flex-col gap-7">
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="step-no">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <Stamp tone={step.chip[0]}>{step.chip[1]}</Stamp>
+            </div>
+            <div className="step-text landing-reveal flex flex-col gap-5">
+              <h3 className="landing-step">{step.title}</h3>
+              <p className="landing-lead max-w-[52ch]">{step.body}</p>
+            </div>
           </div>
           <div className="step-visual landing-reveal">
             <Artifact step={step} />

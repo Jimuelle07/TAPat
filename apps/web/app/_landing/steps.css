@@ -15,7 +15,7 @@
   /* Stamped into the page: a recessed box, not a raised one. */
   background: var(--color-sunken);
   box-shadow: var(--depth-inset);
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -35,19 +35,69 @@
 .step-art {
   position: relative;
 }
+
+/* The section's layout: ruled steps that run edge to edge, and the receipt in a column laid over their right side.
+   The percentages resolve against the section's width, so the content still lines up with the 1440px page on wide screens. */
+.loop {
+  --loop-edge: max(0px, (100% - 1440px) / 2);
+  --loop-gutter: calc(var(--loop-edge) + clamp(20px, 5vw, 72px));
+  --loop-col: calc(min(100%, 1440px) * 0.38);
+  --loop-clear: calc(var(--loop-edge) + var(--loop-col) + 40px);
+}
+.loop-intro {
+  padding: 5rem var(--loop-gutter) 3.5rem;
+}
+.loop-step {
+  padding-inline: var(--loop-gutter);
+  border-top: 1.5px solid var(--color-text);
+}
+.loop-receipt {
+  padding: 3.5rem var(--loop-gutter) 1rem;
+  border-top: 1.5px solid var(--color-text);
+}
 @media (min-width: 1024px) {
-  .step-flip .step-visual {
-    order: -1;
-    margin-left: auto;
+  .loop-intro,
+  .loop-step {
+    padding-right: var(--loop-clear);
   }
-  /* The number box stays first; the object comes next, then the words. */
-  .step-flip > :first-child {
-    order: -2;
+  .loop-intro {
+    padding-top: 6rem;
+  }
+  .loop-receipt {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    right: var(--loop-edge);
+    width: var(--loop-col);
+    padding: 6rem clamp(20px, 2.6vw, 36px) 1rem;
+    border-top: 0;
+  }
+  /* Room under step 06, so the receipt stays pinned while that step's lines and the totals print. */
+  .loop-steps {
+    padding-bottom: 10rem;
   }
 }
-@media (max-width: 1023.98px) {
-  .step-flip > :first-child {
-    order: 0;
+/* Words beside the card once the column is wide enough for both; even steps put the card first. */
+@media (min-width: 1280px) {
+  .loop-step {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+    gap: 2rem;
+    align-items: center;
+  }
+  .step-flip {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 5fr);
+  }
+  .step-flip .step-visual {
+    order: -1;
+  }
+  .loop-step .landing-step {
+    font-size: clamp(26px, 2.3vw, 33px);
+    line-height: 1.08;
+  }
+  .loop-step .landing-lead {
+    font-size: 17px;
   }
 }
 
@@ -75,8 +125,25 @@
   background-color: var(--color-raised);
   background-image:
     linear-gradient(to right, transparent calc(2.75rem - 0.75px), var(--color-primary) calc(2.75rem - 0.75px) calc(2.75rem + 0.75px), transparent calc(2.75rem + 0.75px)),
-    repeating-linear-gradient(to bottom, transparent 0 27px, var(--color-ring-surface) 27px 28px);
+    linear-gradient(to top, var(--color-ring-surface) 1px, transparent 1px);
+  /* Rules count up from the bottom padding: the drawing's height scales with width, the 28px text rows below it don't. */
+  background-size: 100% 100%, 100% 28px;
+  background-position: 0 0, 0 calc(100% - 0.5rem);
+  background-repeat: no-repeat, repeat-y;
   box-shadow: var(--depth-2), var(--depth-sheen);
+}
+.step-ledger-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 1rem;
+  margin-top: 0.75rem;
+  font-size: var(--text-small);
+  line-height: 28px;
+}
+/* Fades in over frames 100-116 as the ghosts drop out. Without a playing reel (still, reduced motion) it just shows. */
+.step-ledger-tally {
+  opacity: clamp(0, calc((var(--reel-frame, 116) - 100) / 16), 1);
 }
 .step-ledger::before,
 .step-ledger::after {
@@ -98,9 +165,6 @@
   rotate: 1deg;
   translate: 4px 6px;
   box-shadow: var(--depth-1);
-}
-.step-ledger .step-facts {
-  margin-top: 0.75rem;
 }
 .step-ledger .step-fact {
   min-height: 56px;
@@ -271,17 +335,12 @@
   background: var(--color-raised);
   filter: drop-shadow(0 1px 1px rgb(27 46 40 / 0.1)) drop-shadow(0 10px 12px rgb(27 46 40 / 0.22));
 }
-.step-stub::after {
-  content: "";
+/* Centred on the side borders' 1.5px stroke, so the outline runs unbroken into the teeth. */
+.step-stub-tear {
   position: absolute;
-  left: -1.5px;
-  right: -1.5px;
+  left: -0.75px;
+  right: -0.75px;
   top: 100%;
-  height: 10px;
-  background:
-    linear-gradient(135deg, var(--color-raised) 50%, transparent 50%) 0 0 / 14px 10px,
-    linear-gradient(225deg, var(--color-raised) 50%, transparent 50%) 0 0 / 14px 10px;
-  filter: drop-shadow(0 1.5px 0 var(--color-text));
 }
 .step-stub .step-facts {
   margin-top: 0.75rem;
@@ -504,7 +563,10 @@
 @media (max-width: 639.98px) {
   .step-ledger {
     padding: 0.75rem 0.5rem 0.25rem;
-    background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--color-ring-surface) 27px 28px);
+    background-image: linear-gradient(to top, var(--color-ring-surface) 1px, transparent 1px);
+    background-size: 100% 28px;
+    background-position: 0 calc(100% - 0.25rem);
+    background-repeat: repeat-y;
   }
   .step-nfc-card {
     padding: 0.375rem;
@@ -569,7 +631,8 @@
   .specimen-score {
     translate: -6px 0;
   }
-  /* Return: the wallet box widens leftward to 290 (where the flow lines already turn) so "PHP 3,190.00" fits;
+  /* Widths below were worked out for the longer "PHP" form and the wider Azeret; "₱" and Plex only leave more room.
+     Return: the wallet box widens leftward to 290 (where the flow lines already turn) so "PHP 3,190.00" fits;
      its texts re-centre on the new box (17 units: 12 glyphs x 10.54 = 126.5, centred on 361 -> 298..424 inside 290..432).
      The sweep name and amount share one label row, so at 17 units they collide: 13 glyphs x 10.54 = 137 plus
      12 x 10.54 = 126.5 leaves under 10 units across 8..282. Both drop to 15 units (0.62em = 9.3/glyph):

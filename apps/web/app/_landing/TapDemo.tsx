@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TapScene, type TapPhase } from "../(app)/_components/TapScene";
-import { Stamp, TearEdge } from "./kit";
+import { Nums, Stamp, TearEdge } from "./kit";
 
 /** One sample tap. Every string comes from the server page, so this island ships no money or label code. */
 export type TapChoice = {
@@ -20,6 +20,44 @@ const READ_MS = 1100;
 const AUTOPLAY_MS = 900;
 
 const reducedNow = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const SLIP = "flex flex-col gap-2 border-[1.5px] border-b-0 border-text bg-surface p-4 font-mono text-mono";
+
+/** The contract's answer printed on the receipt. */
+function Verdict({ choice }: { choice: TapChoice }) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <span className="stamp inline-flex">
+          <Stamp tone={choice.verdict === "approved" ? "accent" : "danger"}>{choice.verdict === "approved" ? "PAID" : "DECLINED"}</Stamp>
+        </span>
+        <span className="text-amount-sm">
+          <Nums>{choice.amount}</Nums>
+        </span>
+      </div>
+      <hr className="border-t-[1.5px] border-dashed border-text" />
+      <dl>
+        <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+          <dt>Card</dt>
+          <dd className="text-right">{choice.card}</dd>
+        </div>
+        {choice.reason === null ? null : (
+          <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+            <dt>Reason</dt>
+            <dd className="text-right">
+              <Nums>{choice.reason}</Nums>
+            </dd>
+          </div>
+        )}
+        <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+          <dt>Tx</dt>
+          <dd className="text-right">{choice.verdict === "approved" ? "Submitted (sample)" : "None submitted"}</dd>
+        </div>
+      </dl>
+      <p>{choice.note}</p>
+    </>
+  );
+}
 
 /** A sample station terminal: pick a tap and see the contract's answer. Nothing leaves the browser. */
 export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay: TapChoice["id"] }) {
@@ -87,53 +125,34 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
             }}
             className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-1.5 text-label whitespace-nowrap text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface max-[479px]:text-[13px] max-[439px]:last:col-span-2 min-[480px]:px-2"
           >
-            {c.button}
+            <Nums>{c.button}</Nums>
           </button>
         ))}
       </div>
 
-      <div aria-live={touched ? "polite" : "off"} className="slip-lift px-5 pt-4">
-        <div
-          key={`slip-${replay}`}
-          className={`flex flex-col gap-2 border-[1.5px] border-b-0 border-text bg-surface p-4 font-mono text-mono ${active !== null && phase !== "reading" ? "receipt-in" : ""}`}
-        >
-          {active === null ? (
-            <p>Pick a tap to see the contract answer.</p>
-          ) : phase === "reading" ? (
-            <p>Reading card …{active.last4}</p>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-4">
-                <span key={`stamp-${replay}`} className="stamp inline-flex">
-                  <Stamp tone={active.verdict === "approved" ? "accent" : "danger"}>{active.verdict === "approved" ? "PAID" : "DECLINED"}</Stamp>
-                </span>
-                <span className="text-amount-sm">{active.amount}</span>
-              </div>
-              <hr className="border-t-[1.5px] border-dashed border-text" />
-              <dl>
-                <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
-                  <dt>Card</dt>
-                  <dd className="text-right">{active.card}</dd>
-                </div>
-                {active.reason === null ? null : (
-                  <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
-                    <dt>Reason</dt>
-                    <dd className="text-right">{active.reason}</dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
-                  <dt>Tx</dt>
-                  <dd className="text-right">{active.verdict === "approved" ? "Submitted (sample)" : "None submitted"}</dd>
-                </div>
-              </dl>
-              <p>{active.note}</p>
-            </>
-          )}
+      <div className="slip-lift grid grid-cols-1 px-5 pt-4 pb-5">
+        {/* Invisible copies of every receipt hold the tallest one's height at any width, so only the slip changes size. */}
+        {choices.map((c) => (
+          <div key={c.id} aria-hidden="true" className="invisible [grid-area:1/1]">
+            <div className={SLIP}>
+              <Verdict choice={c} />
+            </div>
+            <TearEdge />
+          </div>
+        ))}
+        <div aria-live={touched ? "polite" : "off"} className="self-start [grid-area:1/1]">
+          <div key={`slip-${replay}`} className={`${SLIP} ${active !== null && phase !== "reading" ? "receipt-in" : ""}`}>
+            {active === null ? (
+              <p>Pick a tap to see the contract answer.</p>
+            ) : phase === "reading" ? (
+              <p>Reading card …{active.last4}</p>
+            ) : (
+              <Verdict choice={active} />
+            )}
+          </div>
+          <TearEdge />
         </div>
-        <TearEdge />
       </div>
-
-      <p className="px-5 pt-3 pb-5 text-caption">Simulated tap on sample data. Nothing is sent to the chain.</p>
     </div>
   );
 }

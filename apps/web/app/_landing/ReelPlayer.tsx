@@ -19,6 +19,17 @@ export function ReelPlayer({ id, onReady }: { id: SpecimenId; onReady?: () => vo
     if (seen) onReady?.();
   }, [seen, onReady]);
 
+  // Parts of an artifact outside the drawing (the list's tally) animate from this frame number in CSS.
+  useEffect(() => {
+    const current = player.current;
+    // Set on the tally itself: on the artifact it would restyle everything inside it, on every frame of all six cards.
+    const tally = box.current?.closest(".step-art")?.querySelector<HTMLElement>(".step-ledger-tally");
+    if (!current || !tally) return;
+    const onFrame = ({ detail }: { detail: { frame: number } }) => tally.style.setProperty("--reel-frame", String(detail.frame));
+    current.addEventListener("frameupdate", onFrame);
+    return () => current.removeEventListener("frameupdate", onFrame);
+  }, [seen, player]);
+
   return (
     <div ref={box} className="h-full w-full">
       {seen ? (
@@ -30,6 +41,7 @@ export function ReelPlayer({ id, onReady }: { id: SpecimenId; onReady?: () => vo
           compositionWidth={SPECIMEN_WIDTH}
           compositionHeight={SPECIMEN_HEIGHT}
           fps={SPECIMEN_FPS}
+          loop
           numberOfSharedAudioTags={0}
           style={{ width: "100%", height: "100%" }}
         />

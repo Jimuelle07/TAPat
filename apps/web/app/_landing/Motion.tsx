@@ -9,7 +9,8 @@ import { Art, ART_SETTLED, Corner, type ArtId } from "./art";
 const FPS = 30;
 // Long enough that the idle motion's loop point is never noticed.
 const ART_FRAMES = 5 * 60 * FPS;
-const CORNER_FRAMES = 60;
+// 60 frames growing in, then a 3 second hold before the loop starts over.
+const CORNER_FRAMES = 150;
 const CORNER_SIZE = 240;
 
 /**
@@ -64,13 +65,14 @@ function CornerPlayer({ art, box }: { art: ArtId; box: RefObject<Element | null>
       compositionWidth={CORNER_SIZE}
       compositionHeight={CORNER_SIZE}
       fps={FPS}
+      loop
       numberOfSharedAudioTags={0}
       style={{ width: "100%", height: "100%" }}
     />
   );
 }
 
-/** A band's art: the main piece on the right, its motif in the top corner, and a quieter echo bottom left on desktop. */
+/** A band's art: the main piece, placed by the band's own CSS, and its motif in the top corner. */
 export function BandMotion({ art, motif }: { art: ArtId; motif: string }) {
   const box = useRef<HTMLSpanElement>(null);
   const { player, seen } = usePlayOnScreen(box, ART_SETTLED);
@@ -93,9 +95,6 @@ export function BandMotion({ art, motif }: { art: ArtId; motif: string }) {
         ) : null}
       </span>
       <span aria-hidden="true" className={`absolute top-0 right-0 size-30 lg:size-60 ${motif}`}>
-        <CornerPlayer art={art} box={box} />
-      </span>
-      <span aria-hidden="true" className={`absolute bottom-0 left-0 hidden size-60 rotate-180 opacity-50 lg:block ${motif}`}>
         <CornerPlayer art={art} box={box} />
       </span>
     </>
