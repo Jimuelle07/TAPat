@@ -66,25 +66,9 @@ A tap is a contract simulation, not a checkout: the station page posts the norma
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Phone["Android phone<br/>Chrome + Web NFC"] -->|HTTPS| Funnel
-    Laptop["LGU laptop<br/>dashboard, /demo"] -->|HTTPS| Funnel
-    Judges["Judges"] -->|HTTPS| Funnel
-    Velo["Velo webhooks"] -->|HTTPS POST| Funnel
-
-    subgraph VM["Always-free VM (prod profile)"]
-        Funnel["tailscaled Funnel<br/>tapat.&lt;tailnet&gt;.ts.net"] --> Caddy["Caddy :8080<br/>basic auth, router"]
-        Caddy -->|"/api/*"| API["apps/server · Fastify<br/>REST, SSE, agents, Telegram poller"]
-        Caddy -->|"everything else"| Web["apps/web · Next.js<br/>dashboard, intake, enroll, station, demo"]
-        API --> DB[("SQLite<br/>apps/server/data/tapat.db")]
-    end
-
-    API -->|"prepare, submit, reads"| SDK["@noirx402/agent-sdk<br/>over Soroban RPC"]
-    SDK --> Noir["Noir contracts<br/>device_registry, agent_registry,<br/>payment_escrow"]
-    API -->|"checkout, sponsor, submit"| VeloAPI["Velo API + Gas Station"]
-    API -->|"long poll"| TG["Telegram Bot API"]
-```
+<p align="center">
+  <img src="docs/assets/architecture.jpg" alt="How TAPat is wired" width="100%">
+</p>
 
 - `apps/web` is presentation only and talks to `/api/*` (the Next.js rewrite locally, Caddy in prod). It holds no secret.
 - `apps/server` owns every secret, every agent decision, every `chain_txs` row and SQLite; it calls every contract through `@tapat/agent`. The agents and the Telegram poller run in that one process, so the host must be always-on.
