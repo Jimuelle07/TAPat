@@ -15,7 +15,7 @@
   /* Stamped into the page: a recessed box, not a raised one. */
   background: var(--color-sunken);
   box-shadow: var(--depth-inset);
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -581,7 +581,8 @@
   .specimen-score {
     translate: -6px 0;
   }
-  /* Return: the wallet box widens leftward to 290 (where the flow lines already turn) so "PHP 3,190.00" fits;
+  /* Widths below were worked out for the longer "PHP" form and the wider Azeret; "₱" and Plex only leave more room.
+     Return: the wallet box widens leftward to 290 (where the flow lines already turn) so "PHP 3,190.00" fits;
      its texts re-centre on the new box (17 units: 12 glyphs x 10.54 = 126.5, centred on 361 -> 298..424 inside 290..432).
      The sweep name and amount share one label row, so at 17 units they collide: 13 glyphs x 10.54 = 137 plus
      12 x 10.54 = 126.5 leaves under 10 units across 8..282. Both drop to 15 units (0.62em = 9.3/glyph):

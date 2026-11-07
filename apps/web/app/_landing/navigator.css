@@ -109,6 +109,9 @@
   background: var(--color-raised);
   box-shadow: var(--depth-1);
 }
+.step-rail-num {
+  font-family: var(--font-num);
+}
 .step-rail a:hover {
   border-color: var(--color-text);
 }

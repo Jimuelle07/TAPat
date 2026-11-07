@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TapScene, type TapPhase } from "../(app)/_components/TapScene";
-import { Stamp, TearEdge } from "./kit";
+import { Nums, Stamp, TearEdge } from "./kit";
 
 /** One sample tap. Every string comes from the server page, so this island ships no money or label code. */
 export type TapChoice = {
@@ -31,7 +31,9 @@ function Verdict({ choice }: { choice: TapChoice }) {
         <span className="stamp inline-flex">
           <Stamp tone={choice.verdict === "approved" ? "accent" : "danger"}>{choice.verdict === "approved" ? "PAID" : "DECLINED"}</Stamp>
         </span>
-        <span className="text-amount-sm">{choice.amount}</span>
+        <span className="text-amount-sm">
+          <Nums>{choice.amount}</Nums>
+        </span>
       </div>
       <hr className="border-t-[1.5px] border-dashed border-text" />
       <dl>
@@ -42,7 +44,9 @@ function Verdict({ choice }: { choice: TapChoice }) {
         {choice.reason === null ? null : (
           <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
             <dt>Reason</dt>
-            <dd className="text-right">{choice.reason}</dd>
+            <dd className="text-right">
+              <Nums>{choice.reason}</Nums>
+            </dd>
           </div>
         )}
         <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
@@ -121,7 +125,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
             }}
             className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-1.5 text-label whitespace-nowrap text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface max-[479px]:text-[13px] max-[439px]:last:col-span-2 min-[480px]:px-2"
           >
-            {c.button}
+            <Nums>{c.button}</Nums>
           </button>
         ))}
       </div>

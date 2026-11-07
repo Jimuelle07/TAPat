@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Bricolage_Grotesque, Fraunces, IBM_Plex_Mono } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
@@ -10,8 +11,13 @@ import { ScrollGauge, StepRail } from "./_landing/Navigator";
 import { LazyBandMotion } from "./_landing/Reel";
 import { LoopSteps, type LoopStep } from "./_landing/Steps";
 import { TapDemo, type TapChoice } from "./_landing/TapDemo";
-import { Cta, HeroArt, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
+import { Cta, HeroArt, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
 import "./_landing/depth.css";
+
+// Landing only, so the app does not load them. The peso sign lives in latin-ext.
+const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin", "latin-ext"], axes: ["opsz"] });
+const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], style: "italic", axes: ["SOFT", "WONK", "opsz"] });
+const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {
   title: "TAPat: fuel aid that can say no",
@@ -20,11 +26,8 @@ export const metadata: Metadata = {
 
 const PAGE_WIDTH = "mx-auto w-full max-w-[1440px] px-[clamp(20px,5vw,72px)]";
 
-/** Sample pesos in the app's "PHP 1,234.00" form, through the same stroop formatter as the dashboard. */
-const money = (pesos: number) => php(phpToStroops(pesos), DEFAULT_PHP_PER_XLM);
-
-/** Azeret Mono has no ₱ glyph, so mono text spells it out. */
-const azeret = (label: string) => label.replace("₱", "PHP ");
+/** Sample pesos as "₱1,234.00", through the same stroop formatter as the dashboard. */
+const money = (pesos: number) => php(phpToStroops(pesos), DEFAULT_PHP_PER_XLM).replace("PHP ", "₱");
 
 const TAP_CHOICES: TapChoice[] = [
   {
@@ -44,7 +47,7 @@ const TAP_CHOICES: TapChoice[] = [
     card: "Juan D. …9C7E",
     last4: "9C7E",
     verdict: "declined",
-    reason: azeret(TAP_REASON_LABELS.OVER_CAP),
+    reason: TAP_REASON_LABELS.OVER_CAP,
     note: "Rejected by the Noir contract. No tx submitted.",
   },
   {
@@ -54,7 +57,7 @@ const TAP_CHOICES: TapChoice[] = [
     card: "Pedro R. …3A54",
     last4: "3A54",
     verdict: "declined",
-    reason: azeret(TAP_REASON_LABELS.EXPIRED),
+    reason: TAP_REASON_LABELS.EXPIRED,
     note: "Rejected by the Noir contract. No tx submitted.",
   },
 ];
@@ -90,8 +93,8 @@ const STEPS = [
     title: "Fund, when the shift is real.",
     body: "The agent releases aid only when the diesel price stays above the threshold, inside a budget Velo has verified. A one-day spike releases nothing.",
     facts: [
-      ["PHP 65", "per litre threshold"],
-      ["PHP 1,500", "per card"],
+      ["₱65", "per litre threshold"],
+      ["₱1,500", "per card"],
     ],
   },
   {
@@ -100,7 +103,7 @@ const STEPS = [
     title: "Refuse, before money moves.",
     body: "Over the cap or past its expiry, a tap gets a no from the contract. A refused tap writes nothing to the chain.",
     facts: [
-      ["PHP 500", "per-tap cap"],
+      ["₱500", "per-tap cap"],
       ["0 tx", "on a refusal"],
     ],
   },
@@ -203,7 +206,9 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
     <ul aria-hidden={hidden || undefined} className="ticker-copy">
       {TICKER.map((e) => (
         <li key={e.text} className="flex items-center gap-3 py-3 font-mono text-mono whitespace-nowrap">
-          <span>{e.text}</span>
+          <span>
+            <Nums>{e.text}</Nums>
+          </span>
           <Stamp tone={e.stamp[0]}>{e.stamp[1]}</Stamp>
         </li>
       ))}
@@ -213,7 +218,7 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 
 export default function Landing() {
   return (
-    <div className="landing">
+    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable}`}>
       <header className="landing-header sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
         <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-6`}>
           <Link href="/" prefetch={false} aria-label="TAPat" className="block">
@@ -245,7 +250,7 @@ export default function Landing() {
             <div className="hero-copy flex flex-col gap-7 lg:col-span-7 lg:min-h-[calc(100dvh-14rem)] lg:justify-center lg:self-start">
               <h1 className="landing-display" style={stagger(1)}>
                 Fuel aid that can say{" "}
-                <span className="relative inline-block">
+                <span className="landing-note relative inline-block">
                   no.
                   <svg
                     aria-hidden="true"
@@ -317,16 +322,22 @@ export default function Landing() {
                     {RECEIPT_LINES.map((line) => (
                       <li key={`${line.code}-${line.what}`} className="receipt-slot">
                         <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
-                          waiting for step {`0${line.step}`}…
+                          <Nums>{`waiting for step 0${line.step}…`}</Nums>
                         </span>
                         <div
                           data-step={line.step}
                           data-tone={line.stamp?.[0] ?? "mint"}
                           className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
                         >
-                          <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">{line.code}</span>
-                          <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">{line.what}</span>
-                          <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">{line.amount}</span>
+                          <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">
+                            <Nums>{line.code}</Nums>
+                          </span>
+                          <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">
+                            <Nums>{line.what}</Nums>
+                          </span>
+                          <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">
+                            <Nums>{line.amount}</Nums>
+                          </span>
                           {line.stamp === undefined ? null : (
                             <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
                               <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
@@ -339,14 +350,16 @@ export default function Landing() {
                   <hr className="border-t-[1.5px] border-dashed border-text" />
                   <div className="relative">
                     <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
-                      waiting for step 06…
+                      <Nums>waiting for step 06…</Nums>
                     </div>
                     <div className="receipt-total flex flex-col">
                       <dl className="flex flex-col">
                         {TOTALS.map(([label, pesos]) => (
                           <div key={label} className="flex justify-between py-0.5">
                             <dt>{label}</dt>
-                            <dd className="tabular-nums">{money(pesos)}</dd>
+                            <dd className="tabular-nums">
+                              <Nums>{money(pesos)}</Nums>
+                            </dd>
                           </div>
                         ))}
                       </dl>

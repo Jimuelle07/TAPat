@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { splitNumbers } from "@/lib/numbers";
 
 /*
  * Server-safe kit pieces for the landing page. The app's own Chip and Receipt live in client modules that pull in
@@ -21,6 +22,28 @@ export const CHIP: Record<ChipTone, string> = {
 /** Status is always written out, so colour is never the only signal. */
 export function Stamp({ tone, children }: { tone: ChipTone; children: ReactNode }) {
   return <span className={`inline-flex w-fit shrink-0 items-center rounded-sm border-[1.5px] px-2 py-1 text-caption ${CHIP[tone]}`}>{children}</span>;
+}
+
+/**
+ * Sets a string's numbers in the number font (`.num`), leaving the words around them in the surrounding font, and gives
+ * the peso sign its own font (`.peso`).
+ */
+export function Nums({ children, svg = false }: { children: string; svg?: boolean }) {
+  const Tag = svg ? "tspan" : "span";
+  return (
+    <>
+      {splitNumbers(children).map((part, i) =>
+        i % 2 === 1 ? (
+          <Tag key={i} className="num">
+            {part.startsWith("₱") ? <Tag className="peso">₱</Tag> : null}
+            {part.replace("₱", "")}
+          </Tag>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
 }
 
 /** The torn bottom edge of a receipt, as on the station page. */

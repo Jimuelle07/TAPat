@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SpecimenReel } from "./Reel";
 import { Specimen, type SpecimenId } from "./Specimens";
-import { Stamp, type ChipTone } from "./kit";
+import { Nums, Stamp, type ChipTone } from "./kit";
 import "./steps.css";
 
 export type LoopStep = { id: SpecimenId; chip: [ChipTone, string]; title: string; body: string; facts: Array<[string, string]> };
@@ -13,7 +13,9 @@ function Facts({ facts }: { facts: Array<[string, string]> }) {
       {facts.map(([value, label]) => (
         <div key={value} className="step-fact">
           <dt>{label}</dt>
-          <dd>{value}</dd>
+          <dd>
+            <Nums>{value}</Nums>
+          </dd>
         </div>
       ))}
     </dl>

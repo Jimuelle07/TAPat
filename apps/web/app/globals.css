@@ -117,11 +117,36 @@ html:has(.landing) {
   color: var(--color-text);
 }
 
+/* Landing type. Words get the new faces; numbers keep Outfit and Azeret. Neither of those has a peso sign, and a font
+   stack can't supply one (next/font's generated fallback claims the glyph first), so the sign gets its own span. */
+.landing {
+  --font-mono: var(--font-plex), ui-monospace, monospace;
+  --font-num: var(--font-azeret), ui-monospace, monospace;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+}
+.num {
+  font-family: var(--font-num);
+}
+.peso {
+  font-family: var(--font-display);
+}
+.num .peso {
+  font-family: var(--font-mono);
+}
+/* The clerk's annotation: the hero's "no." and the contract slips. */
+.landing-note {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+}
+
 .landing-h2 {
+  font-family: var(--font-display);
   font-size: clamp(40px, 5vw, 76px);
   line-height: 1.02;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -144,10 +169,11 @@ html:has(.landing) {
 
 
 .landing-display {
+  font-family: var(--font-display);
   font-size: clamp(56px, 8vw, 128px);
   line-height: 0.95;
-  font-weight: 600;
-  letter-spacing: -0.045em;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 @media (max-width: 639.98px) {
@@ -158,10 +184,11 @@ html:has(.landing) {
 
 
 .landing-step {
+  font-family: var(--font-display);
   font-size: clamp(32px, 3.6vw, 52px);
   line-height: 1.04;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 

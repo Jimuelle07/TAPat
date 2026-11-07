@@ -21,11 +21,11 @@ colors:
   ring-surface: "#e3d6b2"
 typography:
   landing-display:
-    fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(52px, 7vw, 96px)"
-    fontWeight: 600
-    lineHeight: 1.02
-    letterSpacing: "-0.03em"
+    fontFamily: "Bricolage Grotesque, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(56px, 8vw, 128px)"
+    fontWeight: 700
+    lineHeight: 0.95
+    letterSpacing: "-0.035em"
   landing-figure:
     fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(48px, 6.4vw, 92px)"
@@ -33,10 +33,10 @@ typography:
     lineHeight: 1
     letterSpacing: "-0.03em"
   landing-h2:
-    fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(38px, 4.8vw, 68px)"
-    fontWeight: 600
-    lineHeight: 1.06
+    fontFamily: "Bricolage Grotesque, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(40px, 5vw, 76px)"
+    fontWeight: 700
+    lineHeight: 1.02
     letterSpacing: "-0.025em"
   landing-lead:
     fontFamily: "Outfit, ui-sans-serif, system-ui, sans-serif"
@@ -310,10 +310,12 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **Character:** Outfit is round and friendly, and it keeps a serious subject approachable. Azeret Mono reads as a printed ledger, so anything set in it looks checkable.
 
+**Landing page only:** Bricolage Grotesque 700 sets the display and section headlines, Fraunces soft italic sets the annotations (the hero's "no." and the contract slips), and IBM Plex Mono sets ledger words and contract calls. Outfit stays the body font. Numbers keep Outfit and Azeret Mono. Amounts use ₱; neither of those fonts has the glyph, so the sign alone is set in Plex Mono beside Azeret digits and in Bricolage beside Outfit digits. The app keeps Outfit, Azeret Mono and the "PHP" label.
+
 ### Hierarchy
-- **Landing Display** (600, clamp(52px, 7vw, 96px), 1.02, -0.03em): The landing page's one headline.
-- **Landing Figure** (600, clamp(48px, 6.4vw, 92px), 1, -0.03em): Cited figures on the stakes band. A currency prefix sits in Azeret Mono at 0.3em.
-- **Landing H2** (600, clamp(38px, 4.8vw, 68px), 1.06, -0.025em, balanced): Band and section headlines.
+- **Landing Display** (Bricolage Grotesque 700, clamp(56px, 8vw, 128px), 0.95, -0.035em): The landing page's one headline.
+- **Landing Figure** (600, clamp(48px, 6.4vw, 92px), 1, -0.03em): Cited figures on the stakes band, in Outfit, with a full-size ₱.
+- **Landing H2** (Bricolage Grotesque 700, clamp(40px, 5vw, 76px), 1.02, -0.025em, balanced): Band and section headlines.
 - **Landing Lead** (400, clamp(17px, 1.45vw, 20px), 1.5, pretty): Band body copy, held to the band's copy column or 56 to 62ch.
 - **H2** (500, 22px, 1.35): App screen titles and section titles, and the decision names in the enforcement table.
 - **Small** (400, 15px, 1.45): App body copy.
