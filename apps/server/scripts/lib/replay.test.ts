@@ -45,7 +45,7 @@ describe('planReplay', () => {
     addIntent('pi_old', 'paid', 100);
     addIntent('pi_new', 'paid', 200);
     addIntent('pi_open', 'created', null);
-    const plan = planReplay(db, ['--d3-expiry-offset=60']);
+    const plan = planReplay(db, ['--d3-expiry-offset=300']);
     expect(plan.frozenStations).toEqual(['B']);
     expect(plan.settle).toBe(true);
     expect(plan.end).toBe(true);
@@ -88,11 +88,11 @@ describe('planReplay', () => {
 });
 
 describe('parseReplayArgs', () => {
-  it('strips --dry-run, passes the rest through and defaults the D3 expiry to 60 s', () => {
+  it('strips --dry-run, passes the rest through and defaults the D3 expiry to 300 s', () => {
     const parsed = parseReplayArgs(['--dry-run', '--uid-d1=04A2B3C4D5E6F7']);
     expect(parsed.dryRun).toBe(true);
     expect(parsed.seedArgs).toContain('--uid-d1=04A2B3C4D5E6F7');
-    expect(parsed.seedArgs).toContain('--d3-expiry-offset=60');
+    expect(parsed.seedArgs).toContain('--d3-expiry-offset=300');
     expect(parsed.seedArgs).not.toContain('--dry-run');
   });
 

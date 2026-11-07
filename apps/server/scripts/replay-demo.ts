@@ -7,7 +7,7 @@
  *   sudo systemctl stop tapat-api
  *   sudo -H -u tapat pnpm -C /opt/tapat --filter server tsx scripts/replay-demo.ts [--dry-run] [seed-demo.ts flags]
  *   sudo systemctl start tapat-api
- * `--dry-run` prints the steps: no chain calls and no data changes. Without `--d3-expiry-offset=` the seed gets 60 s. Every other flag is
+ * `--dry-run` prints the steps: no chain calls and no data changes. Without `--d3-expiry-offset=` the seed gets 300 s. Every other flag is
  * passed to seed-demo.ts (`--uid-d1=…`, `--officer-password=…`, `--budget-intent=…`).
  */
 import { resolve } from 'node:path';

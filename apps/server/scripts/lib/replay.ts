@@ -8,14 +8,14 @@ const BUDGET_INTENT_FLAG = '--budget-intent=';
 
 /**
  * Strips the bare `--dry-run` flag; everything else goes to `seed-demo.ts`. The passthrough is validated with the seed's
- * own parser so a typo throws before any chain action. A replay right before a demo needs D3 expired within a minute,
- * so `--d3-expiry-offset=60` is appended unless the operator chose one.
+ * own parser so a typo throws before any chain action. D3's expiry counts from seed start and the seed registers D1 and
+ * D2 first (over 60 s on testnet), so `--d3-expiry-offset=300` is appended unless the operator chose one.
  */
 export function parseReplayArgs(argv: readonly string[]): { dryRun: boolean; seedArgs: string[] } {
   const dryRun = argv.includes('--dry-run');
   const seedArgs = argv.filter((arg) => arg !== '--dry-run');
   parseSeedArgs(seedArgs);
-  if (!seedArgs.some((arg) => arg.startsWith(D3_EXPIRY_FLAG))) seedArgs.push(`${D3_EXPIRY_FLAG}60`);
+  if (!seedArgs.some((arg) => arg.startsWith(D3_EXPIRY_FLAG))) seedArgs.push(`${D3_EXPIRY_FLAG}300`);
   return { dryRun, seedArgs };
 }
 
