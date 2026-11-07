@@ -2,22 +2,23 @@
   <img src="docs/assets/tapat-logo-rounded.png" alt="TAPat logo" width="220">
 </p>
 
-# TAPat
+<h1 align="center">TAPat</h1>
 
-**TAPat lets an AI agent release, cap, and return fuel aid for tricycle drivers — Noir policies on Stellar, Velo for the budget and the fees.**
+<p align="center"><strong>TAPat lets an AI agent release, cap, and return fuel aid for tricycle drivers — Noir policies on Stellar, Velo for the budget and the fees.</strong></p>
 
-**Live website:** set at DEP2 as the Funnel URL (`https://tapat.<tailnet>.ts.net`, basic auth) — **not deployed yet**; the deployment is scheduled for Nov 6 ([`docs/deployment.md`](docs/deployment.md)).
+**Live website:** https://tapat-nine.vercel.app/
 
-**Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) — the 2-minute cut and the full-length backup recording.
+**Demo video:** [Google Drive folder](https://drive.google.com/drive/folders/1cxa8gbji1mLqwwOId_1MvDJonBbKGCTs) 
 
-**Team:**
+<h3 align="center">Team</h3>
 
-| Name | Role | GitHub |
-|---|---|---|
-| Jimuelle R. Patron | Project Manager | [@Jimuelle07](https://github.com/Jimuelle07) |
-| Yancy Allen S. Tiburcio | Developer | [@yncyyalln](https://github.com/yncyyalln) |
-| Wiljean Mae G. Ariola | Researcher | [@Wiljean-Mae](https://github.com/Wiljean-Mae) |
-| Catherine Joyce V. Manuel | Researcher | [@cinaxinn](https://github.com/cinaxinn) |
+<table align="center">
+  <tr><th>Name</th><th>Role</th><th>GitHub</th></tr>
+  <tr><td>Jimuelle R. Patron</td><td>Project Manager</td><td><a href="https://github.com/Jimuelle07">@Jimuelle07</a></td></tr>
+  <tr><td>Yancy Allen S. Tiburcio</td><td>Developer</td><td><a href="https://github.com/yncyyalln">@yncyyalln</a></td></tr>
+  <tr><td>Wiljean Mae G. Ariola</td><td>Researcher</td><td><a href="https://github.com/Wiljean-Mae">@Wiljean-Mae</a></td></tr>
+  <tr><td>Catherine Joyce V. Manuel</td><td>Researcher</td><td><a href="https://github.com/cinaxinn">@cinaxinn</a></td></tr>
+</table>
 
 ## Problem
 
