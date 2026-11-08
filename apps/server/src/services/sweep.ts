@@ -26,6 +26,16 @@ interface SweepCardRow {
 
 type CardOutcome = EndProgramResponse['cards'][number];
 
+/** A revoke or sweep tx from an earlier call is still `pending` or `submission_unknown`; the card waits for it. */
+export const TX_UNRESOLVED = 'TX_UNRESOLVED';
+
+/** The chain tx a failed card left behind, recorded in its decision so a retry can find it. */
+interface Attempt {
+  kind: 'revoke' | 'sweep';
+  chainTxId: string;
+  balanceBeforeStroops: string | null;
+}
+
 type RevokeOutcome =
   | { status: 'revoked'; chainTxId: string }
   | { status: 'skipped'; reason: 'EXPIRED_POLICY' | 'NO_POLICY' };
@@ -198,7 +208,33 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
     reason: null,
   } satisfies CardOutcome;
 
+  // A retry must never sign a second tx while the first is unsettled (AGENTS.md §4): the reconciler owns it.
+  const prior = priorAttempt(deps.db, card.id);
+  if (prior !== null) {
+    const priorTx = readChainTx(deps.db, prior.chainTxId);
+    const priorStatus = priorTx?.status;
+    if (priorStatus === 'pending' || priorStatus === 'submission_unknown') {
+      deps.chain.log.warn({ cardId: card.id, chainTxId: prior.chainTxId, status: priorStatus }, 'card has an unresolved tx; not re-signing');
+      return { ...base, status: 'active', reason: TX_UNRESOLVED };
+    }
+    if (priorStatus === 'succeeded' && prior.kind === 'sweep' && prior.balanceBeforeStroops !== null) {
+      // The reconciler settled the earlier sweep: the escrow is already home, so record it instead of reading 0.
+      const returned = BigInt(prior.balanceBeforeStroops);
+      return finishCard(deps, base, at, {
+        returned,
+        status: 'swept',
+        reason: null,
+        decision: { decision: 'SWEPT', inputs: { balanceBeforeStroops: Number(returned), recovered: 1 } },
+        outputs: { returnedStroops: String(returned), recoveredFromChainTxId: prior.chainTxId },
+        txIds: [prior.chainTxId],
+        revokeTxId: null,
+        sweepTxId: prior.chainTxId,
+      });
+    }
+  }
+
   let policyLive = false;
+  let marker: { rowid: number; balanceBefore: bigint | null } | null = null;
   try {
     const policy: AgentPolicy | null = await deps.chain.noir.getPolicy(card.device_hash);
     policyLive = policy !== null && (policy.expiresAt === null || policy.expiresAt.getTime() >= at);
@@ -208,6 +244,7 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
       // An expired (or absent) policy already allows a sweep, and `revoke_agent` panics `AgentNotFound` without one.
       revoke = { status: 'skipped', reason: policy === null ? 'NO_POLICY' : 'EXPIRED_POLICY' };
     } else {
+      marker = { rowid: lastChainTxRowid(deps.db), balanceBefore: null };
       const revoked = await runChainTx(deps.chain, deps.programWallet, {
         kind: 'revokeAgent',
         deviceHash: card.device_hash,
@@ -217,6 +254,7 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
         return failedCard(deps, base, {
           at,
           policyLive,
+          attempt: { kind: 'revoke', chainTxId: revoked.chainTxId, balanceBeforeStroops: null },
           code: revoked.errorCode ?? 'CHAIN_ERROR',
         });
       }
@@ -237,6 +275,7 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
       });
     }
 
+    marker = { rowid: lastChainTxRowid(deps.db), balanceBefore };
     const swept = await runChainTx(deps.chain, deps.programWallet, {
       kind: 'sweepOnRevoke',
       deviceHash: card.device_hash,
@@ -249,6 +288,7 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
         at,
         policyLive,
         revoke,
+        attempt: { kind: 'sweep', chainTxId: swept.chainTxId, balanceBeforeStroops: String(balanceBefore) },
         code: swept.errorCode ?? 'CHAIN_ERROR',
       });
     }
@@ -266,9 +306,32 @@ async function sweepCard(deps: SweepDeps, card: SweepCardRow, at: number): Promi
       sweepTxId: swept.chainTxId,
     });
   } catch (error) {
-    // A chain read failed or `prepare()` refused: the card stays `active` and the loop moves on.
-    return failedCard(deps, base, { at, policyLive, code: errorCodeOf(error), error });
+    // A chain read failed, `prepare()` refused, or a write after the hand-off threw: the card stays `active` and the
+    // loop moves on. A tx persisted since the marker is recorded so a retry never re-signs it.
+    const attempt = marker === null ? undefined : inFlightAttempt(deps.db, marker);
+    return failedCard(deps, base, { at, policyLive, code: errorCodeOf(error), error, ...(attempt === undefined ? {} : { attempt }) });
   }
+}
+
+function lastChainTxRowid(db: Db): number {
+  return db.prepare(`SELECT COALESCE(MAX(rowid), 0) AS id FROM chain_txs`).get<{ id: number }>()?.id ?? 0;
+}
+
+/**
+ * The revoke/sweep tx handed off since `marker`; the in-process end guard means no other call writes one meanwhile.
+ * A `failed` row (a `prepare()` rejection) never reached the chain, so a retry may sign afresh and it is not an attempt.
+ */
+function inFlightAttempt(db: Db, marker: { rowid: number; balanceBefore: bigint | null }): Attempt | undefined {
+  const row = db
+    .prepare(
+      `SELECT id, kind FROM chain_txs
+        WHERE rowid > ? AND kind IN ('revoke_agent','sweep')
+          AND status != 'failed' ORDER BY rowid DESC LIMIT 1`,
+    )
+    .get<{ id: string; kind: string }>(marker.rowid);
+  if (row === undefined) return undefined;
+  const sweep = row.kind === 'sweep';
+  return { kind: sweep ? 'sweep' : 'revoke', chainTxId: row.id, balanceBeforeStroops: sweep ? String(marker.balanceBefore) : null };
 }
 
 interface CardWrite {
@@ -313,15 +376,21 @@ interface CardFailure {
   at: number;
   policyLive: boolean;
   revoke?: RevokeOutcome;
+  /** The chain tx this call signed and could not settle; a retry resolves it before it signs anything new. */
+  attempt?: Attempt;
   code: string;
   error?: unknown;
 }
 
 /** A card the sweep could not release: `status` stays `active`, `reason` carries the code, the attempt records it. */
 function failedCard(deps: SweepDeps, base: CardOutcome, failure: CardFailure): CardOutcome {
-  const { at, policyLive, revoke, code, error } = failure;
+  const { at, policyLive, revoke, attempt, code, error } = failure;
   const message = error === undefined ? undefined : error instanceof Error ? error.message : String(error);
   deps.chain.log.warn({ cardId: base.cardId, code }, 'card sweep failed; card stays active');
+  const txIds = [
+    ...(revoke !== undefined && revoke.status === 'revoked' ? [revoke.chainTxId] : []),
+    ...(attempt === undefined ? [] : [attempt.chainTxId]),
+  ];
   deps.db.transaction(() => {
     deps.db.prepare(`UPDATE cards SET error = ? WHERE id = ?`).run(message ?? code, base.cardId);
     insertDecision(deps.db, {
@@ -334,8 +403,9 @@ function failedCard(deps: SweepDeps, base: CardOutcome, failure: CardFailure): C
         beneficiaryId: base.beneficiaryId,
         error: code,
         ...(revoke === undefined ? {} : { revoke }),
+        ...(attempt === undefined ? {} : { attempt }),
       },
-      txIds: revoke !== undefined && revoke.status === 'revoked' ? [revoke.chainTxId] : [],
+      txIds,
       createdAt: at,
     });
   });
@@ -345,4 +415,46 @@ function failedCard(deps: SweepDeps, base: CardOutcome, failure: CardFailure): C
     status: 'active',
     reason: code,
   };
+}
+
+/** The slice of a stored sweep decision's `outputs_json` that `priorAttempt` reads; every field is checked before use. */
+interface StoredSweepOutputs {
+  cardId?: unknown;
+  attempt?: { kind?: unknown; chainTxId?: unknown; balanceBeforeStroops?: unknown } | null;
+}
+
+/**
+ * The newest recorded revoke/sweep tx for the card, if its last decision row carries one. A card whose newest row has
+ * no attempt (a failure before any tx was signed) has nothing in flight.
+ */
+function priorAttempt(db: Db, cardId: string): Attempt | null {
+  const rows = db
+    .prepare(`SELECT outputs_json FROM agent_decisions WHERE agent = 'sweep' AND decision = 'SWEPT' ORDER BY rowid DESC`)
+    .all<{ outputs_json: string }>();
+  for (const row of rows) {
+    let outputs: StoredSweepOutputs | null;
+    try {
+      outputs = JSON.parse(row.outputs_json);
+    } catch {
+      continue;
+    }
+    if (typeof outputs !== 'object' || outputs === null || outputs.cardId !== cardId) continue;
+    const attempt = outputs.attempt;
+    if (
+      typeof attempt === 'object' &&
+      attempt !== null &&
+      (attempt.kind === 'revoke' || attempt.kind === 'sweep') &&
+      typeof attempt.chainTxId === 'string' &&
+      (attempt.balanceBeforeStroops === null || typeof attempt.balanceBeforeStroops === 'string')
+    ) {
+      const balance = attempt.balanceBeforeStroops;
+      return {
+        kind: attempt.kind,
+        chainTxId: attempt.chainTxId,
+        balanceBeforeStroops: typeof balance === 'string' && /^\d+$/.test(balance) ? balance : null,
+      };
+    }
+    return null;
+  }
+  return null;
 }

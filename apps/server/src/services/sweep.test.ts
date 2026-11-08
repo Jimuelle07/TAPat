@@ -267,6 +267,83 @@ describe('POST /api/program/end', () => {
     });
   });
 
+  it('never re-signs a card whose sweep tx is still unresolved, and finishes it once that tx succeeds', async () => {
+    const { deps, db, fake, hashes } = fixture as Fixture;
+    const realSubmit = fake.submit.getMockImplementation() as (xdr: string, op?: { kind: string }) => Promise<string>;
+    fake.submit.mockImplementation(async (xdr: string, op?: { kind: string; deviceHash?: string }) => {
+      if (op?.kind === 'sweepOnRevoke' && op.deviceHash === hashes.D2) throw new Error('socket hang up');
+      return realSubmit(xdr, op);
+    });
+    const sweepRows = () =>
+      db.prepare(`SELECT COUNT(*) AS n FROM chain_txs WHERE kind = 'sweep'`).get<{ n: number }>()?.n;
+    const kindsBefore = () => chainKinds(db).length;
+
+    const first = await endProgram(deps);
+    expect(first.program.status).toBe('ending');
+    expect(first.cards.find((card) => card.cardId === 'card_D2')?.status).toBe('active');
+    const unresolved = db
+      .prepare(`SELECT id, status FROM chain_txs WHERE kind = 'sweep' AND status = 'submission_unknown'`)
+      .all<{ id: string; status: string }>();
+    expect(unresolved).toHaveLength(1);
+    const sweepsAfterFirst = sweepRows();
+    const txsAfterFirst = kindsBefore();
+
+    // Run again while the first sweep is unresolved: no chain call, no new tx, the card waits.
+    fake.submit.mockImplementation(realSubmit);
+    const second = await endProgram(deps);
+    expect(second.program.status).toBe('ending');
+    expect(second.cards.map((card) => [card.cardId, card.status, card.reason])).toEqual([
+      ['card_D2', 'active', 'TX_UNRESOLVED'],
+    ]);
+    expect(sweepRows()).toBe(sweepsAfterFirst);
+    expect(kindsBefore()).toBe(txsAfterFirst);
+
+    // The reconciler settles the first sweep: the card is finished from its recorded amount, with no new tx.
+    db.prepare(`UPDATE chain_txs SET status = 'succeeded' WHERE id = ?`).run(unresolved[0]?.id);
+    const third = await endProgram(deps);
+    expect(third.cards.map((card) => [card.cardId, card.status, card.reason, card.returnedStroops])).toEqual([
+      ['card_D2', 'swept', null, '540000000'],
+    ]);
+    expect(third.cards[0]?.sweepTxId).toBe(unresolved[0]?.id);
+    expect(third.program.status).toBe('ended');
+    expect(third.totalReturnedStroops).toBe('3190000000');
+    expect(sweepRows()).toBe(sweepsAfterFirst);
+    expect(kindsBefore()).toBe(txsAfterFirst);
+  });
+
+  it('records the in-flight tx when a sweep throws after hand-off, and recovers it without re-signing', async () => {
+    const { deps, db, bus } = fixture as Fixture;
+    const sweepRows = () => chainKinds(db).filter((kind) => kind === 'sweep').length;
+    // The fixture sweeps D1 first, then D2: the second published sweep tx is D2's, already persisted as succeeded.
+    let sweepsPublished = 0;
+    let failing = true;
+    const throwing: SseBus = {
+      ...bus,
+      publish: (event, data) => {
+        const isSweep = typeof data === 'object' && data !== null && 'kind' in data && data.kind === 'sweep';
+        if (failing && event === 'chain_tx' && isSweep && ++sweepsPublished === 2) {
+          throw new Error('publish fault');
+        }
+        bus.publish(event, data);
+      },
+    };
+
+    const first = await endProgram({ ...deps, bus: throwing });
+    expect(first.program.status).toBe('ending');
+    expect(first.cards.filter((card) => card.status === 'active').map((card) => card.cardId)).toEqual(['card_D2']);
+    const sweepsAfterFirst = sweepRows();
+    expect(sweepsAfterFirst).toBe(3);
+
+    failing = false;
+    const second = await endProgram({ ...deps, bus: throwing });
+    expect(second.cards.map((card) => [card.cardId, card.status, card.reason, card.returnedStroops])).toEqual([
+      ['card_D2', 'swept', null, '540000000'],
+    ]);
+    expect(second.program.status).toBe('ended');
+    expect(second.totalReturnedStroops).toBe('3190000000');
+    expect(sweepRows()).toBe(sweepsAfterFirst);
+  });
+
   it('answers 409 INVALID_STATE to a call made while another end is still running', async () => {
     const { deps, db } = fixture as Fixture;
     const first = endProgram(deps);

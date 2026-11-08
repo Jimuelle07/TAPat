@@ -255,6 +255,8 @@ export function coaRows(db: Db): CoaRow[] {
   // `sweep`: `cards.returned_stroops` is the authoritative amount; the tx comes from the decision's tx ids.
   for (const decision of decisionRows(db, 'sweep', ['SWEPT'])) {
     const outputs = parseJson(decision.outputs_json);
+    // A failed attempt moved no money; its retry or recovery decision is the sweep row.
+    if (outputs.error !== undefined && outputs.error !== null) continue;
     const card = cardById(db, typeof outputs.cardId === 'string' ? outputs.cardId : null);
     const chainTx = chainTxById(db, firstTxId(decision.tx_ids_json));
     rows.push({
