@@ -216,6 +216,8 @@ describe('freeze decision', () => {
     expect(stationStatus('B')).toBe('active');
 
     freeze.burst();
+    // The burst scores synchronously: B is frozen before the 202, not on the next interval tick.
+    expect(stationStatus('B')).toBe('frozen');
     freeze.tick();
 
     expect(stationStatus('B')).toBe('frozen');
@@ -269,6 +271,27 @@ describe('freeze decision', () => {
       .prepare(`SELECT COUNT(*) AS n FROM taps WHERE midas_score IS NULL`)
       .get<{ n: number }>()?.n;
     expect(unscored).toBe(0);
+  });
+
+  it('freezes Station B on the burst after an hour of uptime, never on the two ₱480 taps', async () => {
+    freeze.tick();
+
+    clock = T0 + 3_600_000;
+    await tapAtB(480);
+    freeze.tick();
+    clock += 20_000;
+    await tapAtB(480);
+    freeze.tick();
+    expect(stationStatus('B')).toBe('active');
+
+    clock += 10_000;
+    freeze.burst();
+    freeze.tick();
+
+    expect(stationStatus('B')).toBe('frozen');
+    expect(stationStatus('A')).toBe('active');
+    const outputs = JSON.parse(decision('FROZEN')?.outputs_json ?? '{}') as { rule: string };
+    expect(outputs.rule).toBe('MIDAS_F');
   });
 
   it('falls back to NEAR_CAP_STREAK when MIDAS-F cannot fire', async () => {

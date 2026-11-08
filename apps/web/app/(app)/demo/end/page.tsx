@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Dashboard, EndProgramResponse } from "@tapat/shared";
+import { NOT_SWEPT_YET, endView, mergeEndResult, type CardOutcome } from "@/lib/end-program";
 import { postProgramEnd } from "@/lib/api";
 import { cardLabel, txLookup } from "@/lib/feed";
 import { php, phpTile, shortHash } from "@/lib/format";
@@ -11,15 +12,13 @@ import { OfficerNotice, useAuth } from "../../_components/Auth";
 import { CoinFlow } from "../../_components/motion";
 import { Actions, Body, Button, Chip, ConfirmSheet, DemoRate, ErrorBlock, LinkButton, ListCard, NoProgram, Notice, Skeleton, StatCard, TopBar, type ListRow } from "../../_components/ui";
 
-type CardOutcome = EndProgramResponse["cards"][number];
-
 function outcomeRow(outcome: CardOutcome, dashboard: Dashboard): ListRow {
   const card = dashboard.cards.find((c) => c.id === outcome.cardId);
   const title = card === undefined ? outcome.cardId : cardLabel(card);
   const hash = txLookup(dashboard)(outcome.sweepTxId ?? outcome.revokeTxId);
   const value = php(outcome.returnedStroops, dashboard.phpPerXlm);
   if (outcome.status !== "swept" && outcome.status !== "revoked") {
-    return { id: outcome.cardId, title, meta: outcome.reason ?? "CHAIN_ERROR", chip: "Failed", tone: "danger" };
+    return { id: outcome.cardId, title, meta: outcome.reason ?? "CHAIN_ERROR", chip: outcome.reason === NOT_SWEPT_YET ? "Unswept" : "Failed", tone: "danger" };
   }
   if (outcome.reason === "EMPTY_ESCROW") return { id: outcome.cardId, title, meta: "Empty escrow, no sweep", value };
   return { id: outcome.cardId, title, meta: hash === null ? "Revoked" : `Revoked, tx ${shortHash(hash)}`, value };
@@ -40,7 +39,8 @@ export default function EndProgram() {
     setSweeping(true);
     setError(null);
     try {
-      setResult(await postProgramEnd());
+      const next = await postProgramEnd();
+      setResult((prev) => mergeEndResult(prev?.cards ?? outcomes, next));
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -50,13 +50,15 @@ export default function EndProgram() {
   };
 
   const dashboard = state.status === "ready" ? state.dashboard : null;
+  const view = dashboard === null ? null : endView(dashboard, result);
+  // What the page lists right now, so a retry after a reload merges into it instead of replacing it.
+  const outcomes = view?.outcomes ?? [];
   const rate = dashboard?.phpPerXlm ?? 10;
-  const ended = dashboard?.program.status === "ended" || result !== null;
-  // A reload after the sweep has no response in hand; the closing decision carries the same per-card rows.
-  const closing = dashboard?.recentDecisions.find((d) => d.agent === "sweep" && d.decision === "PROGRAM_ENDED");
-  const outcomes: CardOutcome[] = result?.cards ?? (Array.isArray(closing?.outputs.cards) ? (closing.outputs.cards as CardOutcome[]) : []);
-  const failures = outcomes.filter((c) => c.status !== "swept" && c.status !== "revoked");
-  const total = result?.totalReturnedStroops ?? dashboard?.returnedStroops ?? "0";
+  // `partial`: the program is still `ending` (a card failed, or a reload mid-sweep) — its return so far is real but not final.
+  const ended = view !== null && view.stage !== "confirm";
+  const final = view?.stage === "ended";
+  const failures = view?.failures ?? [];
+  const total = view?.totalReturnedStroops ?? "0";
   const unspent = dashboard === null ? "" : php(dashboard.escrowRemainingStroops, rate);
   const activeCards = dashboard?.cards.filter((c) => c.status === "active") ?? [];
 
@@ -75,8 +77,15 @@ export default function EndProgram() {
               </Notice>
             ) : null}
             {failures.length > 0 ? (
-              <Notice tone="error" title={`${failures.length === 1 ? "One sweep" : `${failures.length} sweeps`} did not go through`}>
-                The program still ended. These cards stay unchanged, and re-running skips cards already swept.
+              <Notice
+                tone="error"
+                title={
+                  result === null
+                    ? `${failures.length === 1 ? "One card" : `${failures.length} cards`} not swept yet`
+                    : `${failures.length === 1 ? "One sweep" : `${failures.length} sweeps`} did not go through`
+                }
+              >
+                The program stays open until every card is swept. Run again retries only these cards.
               </Notice>
             ) : null}
             {sweeping ? (
@@ -92,7 +101,7 @@ export default function EndProgram() {
                   <StatCard
                     tone="forest"
                     full
-                    label="Returned to the LGU wallet"
+                    label={final ? "Returned to the LGU wallet" : "Returned so far"}
                     value={phpTile(total, rate)}
                     live={{ to: Number(total), format: (n) => phpTile(String(Math.round(n)), rate) }}
                   />
@@ -113,12 +122,12 @@ export default function EndProgram() {
       ) : null}
       {dashboard !== null && !sweeping && ended ? (
         <Actions>
-          {isOfficer && failures.length > 0 ? (
+          {isOfficer && !final ? (
             <Button look="secondary" onClick={() => void end()}>
               Run again
             </Button>
           ) : null}
-          <LinkButton href="/dashboard">View final totals</LinkButton>
+          <LinkButton href="/dashboard">{final ? "View final totals" : "View totals so far"}</LinkButton>
         </Actions>
       ) : null}
       {dashboard !== null && !sweeping && !ended && confirmed ? (

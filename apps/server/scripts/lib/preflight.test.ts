@@ -109,6 +109,22 @@ describe('checkFreshDemo', () => {
     expect(checkFreshDemo(input).failures.some((f) => f.includes('telegram'))).toBe(true);
     expect(checkFreshDemo({ ...fresh(), tranche: null }).failures.length).toBeGreaterThan(0);
   });
+
+  it('only warns when Velo is down but the budget is already verified', () => {
+    const input = fresh();
+    (input.health as HealthResponse).velo = 'down';
+    const { failures, warnings } = checkFreshDemo(input);
+    expect(failures).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('health.velo');
+  });
+
+  it('fails when Velo is down and the budget is not verified', () => {
+    const input = fresh();
+    (input.health as HealthResponse).velo = 'down';
+    (input.dashboard as Dashboard).budget.state = 'none';
+    expect(checkFreshDemo(input).failures).toContain('health.velo is "down", expected "ok"');
+  });
 });
 
 describe('parsePreflightArgs', () => {
