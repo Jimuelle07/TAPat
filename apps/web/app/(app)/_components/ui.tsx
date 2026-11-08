@@ -428,8 +428,8 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
 
 // ---- Screen frame ----------------------------------------------------------------------------------------------
 
-/** Root screens show the logo; detail screens show a back target and a title. `account={false}` is for the landing page mockups, which have no session. */
-export function TopBar({ title, back, chip, tone, account = true }: { title?: string; back?: string; chip?: string; tone?: ChipTone; account?: boolean }) {
+/** Root screens show the logo; detail screens show a back target and a title. */
+export function TopBar({ title, back, chip, tone }: { title?: string; back?: string; chip?: string; tone?: ChipTone }) {
   return (
     <header className="drop-in flex h-14 items-center justify-between gap-1 pr-5 pl-1 pt-[env(safe-area-inset-top)]" data-root={back === undefined}>
       {back === undefined ? (
@@ -446,7 +446,7 @@ export function TopBar({ title, back, chip, tone, account = true }: { title?: st
         </>
       )}
       {chip !== undefined ? <Chip tone={tone}>{chip}</Chip> : null}
-      {account ? <AccountControl /> : null}
+      <AccountControl />
     </header>
   );
 }

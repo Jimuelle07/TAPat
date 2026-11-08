@@ -1,32 +1,23 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
-import localFont from "next/font/local";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { DEFAULT_PHP_PER_XLM, phpToStroops, TAP_REASON_LABELS } from "@tapat/shared";
 import { php } from "@/lib/format";
-import type { IconName } from "./(app)/_components/Icon";
-import { ContractSection, StakesSection } from "./_landing/Evidence";
-import { ScrollGauge, StepRail } from "./_landing/Navigator";
-import { LazyBandMotion } from "./_landing/Reel";
-import { LoopSteps, type LoopStep } from "./_landing/Steps";
+import cover from "./_landing/cover-tricycle-negros.jpg";
 import { TapDemo, type TapChoice } from "./_landing/TapDemo";
-import { Cta, HeroArt, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
-import "./_landing/depth.css";
+import { ButtonLink, SectionHeading, Status, type StatusTone } from "./_landing/kit";
 
-// Landing only, so the app does not load them. The two local files are cut down to what the page uses: see _landing/fonts/README.md.
-const bricolage = localFont({ src: "./_landing/fonts/bricolage-700.woff2", variable: "--font-bricolage", weight: "700", display: "swap" });
-const fraunces = localFont({ src: "./_landing/fonts/fraunces-italic-500.woff2", variable: "--font-fraunces", weight: "500", style: "italic", display: "swap" });
-// The peso sign lives in latin-ext.
-const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
+const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin", "latin-ext"], weight: ["400", "500", "600"], display: "swap" });
+// The peso sign (U+20B1) is in both families' latin-ext range.
+const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin", "latin-ext"], weight: ["400", "500"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "TAPat: fuel aid that can say no",
-  description: "An AI agent funds, caps, and returns fuel aid for tricycle drivers, with the limits enforced on-chain.",
+  title: "TAPat — fuel aid for tricycle drivers, held to limits on-chain",
+  description: "TAPat releases, caps and returns fuel aid for tricycle drivers. A Noir contract on Stellar enforces every per-tap limit.",
 };
 
-const PAGE_WIDTH = "mx-auto w-full max-w-[1440px] px-[clamp(20px,5vw,72px)]";
+const PAGE = "mx-auto w-full max-w-[1200px] px-[clamp(20px,4vw,48px)]";
 
 /** Sample pesos as "₱1,234.00", through the same stroop formatter as the dashboard. */
 const money = (pesos: number) => php(phpToStroops(pesos), DEFAULT_PHP_PER_XLM).replace("PHP ", "₱");
@@ -68,95 +59,49 @@ const TAP_CHOICES: TapChoice[] = [
 const LEDGER = { funded: 4500, spent: 350, held: 960, pending: 0, escrow: 0, returned: 3190 };
 const balanced = LEDGER.spent + LEDGER.held + LEDGER.pending + LEDGER.escrow + LEDGER.returned === LEDGER.funded;
 
+const CONTENTS = [
+  { id: "brief", num: "", fil: "Sa madaling salita", en: "In brief" },
+  { id: "problem", num: "1", fil: "Ang suliranin", en: "The problem" },
+  { id: "how", num: "2", fil: "Paano ito gumagana", en: "How it works" },
+  { id: "enforcement", num: "3", fil: "Ano ang nagpapatupad sa bawat patakaran", en: "What enforces each rule" },
+  { id: "ledger", num: "4", fil: "Halimbawang talaan", en: "Sample ledger" },
+  { id: "limits", num: "5", fil: "Mga limitasyon ng prototype", en: "Limits of this prototype" },
+  { id: "try", num: "", fil: "Subukan", en: "Try it" },
+];
+const LIMITS: Array<[string, string]> = [
+  ["Per-tap cap", money(500)],
+  ["Fuel aid per card (one tranche)", money(1500)],
+  ["Program budget deposit", money(10000)],
+  ["Diesel price that triggers funding", `${money(65)} per litre`],
+  ["Demo exchange rate", `${money(DEFAULT_PHP_PER_XLM)} per XLM`],
+];
+const STAKES = [ // cited figures from docs/PRD.md; text, not computed money
+  { figure: "₱2.7B", what: "nearly lost to ghost and duplicate beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts and duplicates come off the masterlist before anyone enrolls." },
+  { figure: "₱709.88M", what: "in DOTr subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns to the LGU wallet the day the program ends." },
+  { figure: "723,000", what: "tricycle drivers slated for aid", source: "PNA", answer: "Enrollment takes one card tap; the driver needs no app or data plan." },
+];
 const STEPS = [
-  {
-    id: "list",
-    chip: ["outline", "CLEANED"],
-    title: "A clean list goes in.",
-    body: "Ghost and duplicate drivers come off the masterlist. Only the uncertain ones get one Telegram message asking for evidence.",
-    facts: [
-      ["5%", "max wrongful denials"],
-      ["2%", "max ghost admissions"],
-    ],
-  },
-  {
-    id: "enroll",
-    chip: ["outline", "ENROLLED"],
-    title: "Enrolled in a minute.",
-    body: "A TODA officer taps one NFC card and its spending policy goes on-chain. The driver needs no app and no data plan.",
-    facts: [
-      ["1 card", "is all a driver carries"],
-      ["Telegram", "delivers the receipts"],
-    ],
-  },
-  {
-    id: "fund",
-    chip: ["mint", "FUNDED"],
-    title: "Fund, when the shift is real.",
-    body: "The agent releases aid only when the diesel price stays above the threshold, inside a budget Velo has verified. A one-day spike releases nothing.",
-    facts: [
-      ["₱65", "per litre threshold"],
-      ["₱1,500", "per card"],
-    ],
-  },
-  {
-    id: "refuse",
-    chip: ["danger", "DECLINED"],
-    title: "Refuse, before money moves.",
-    body: "Over the cap or past its expiry, a tap gets a no from the contract. A refused tap writes nothing to the chain.",
-    facts: [
-      ["₱500", "per-tap cap"],
-      ["0 tx", "on a refusal"],
-    ],
-  },
-  {
-    id: "freeze",
-    chip: ["frozen", "FROZEN"],
-    title: "Freeze the station, not the program.",
-    body: "When a tap pattern looks wrong, only that station stops. New taps are refused and its settlement is held until the LGU unfreezes it.",
-    facts: [
-      ["MIDAS-F", "scores every tap"],
-      ["1 station", "paused, the rest keep pumping"],
-    ],
-  },
-  {
-    id: "return",
-    chip: ["accent", "RETURNED"],
-    title: "Return what's left, the same day.",
-    body: "When the program ends, every card is revoked and its unspent aid goes back to the LGU wallet.",
-    facts: [
-      ["Same day", "not a year later at audit"],
-      ["1 CSV", "with a tx hash for the COA"],
-    ],
-  },
-] satisfies LoopStep[];
-
-/** Short step names for the navigator, taken from the step titles. */
-const RAIL_LABELS = ["Clean list", "Enroll", "Fund", "Refuse", "Freeze", "Return"];
-const RAIL = STEPS.map((step, i) => ({ id: step.id, num: `0${i + 1}`, label: RAIL_LABELS[i] }));
-
-const STAKES = [
-  { figure: "2.7B", peso: true, what: "nearly lost to ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
-  { figure: "709.88M", peso: true, what: "in subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns the same day." },
-  { figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
+  { num: "2.1", title: "Clean the masterlist", body: "Ghost and duplicate drivers come off the masterlist. Only the uncertain records get one Telegram message asking for evidence.", facts: [["5%", "maximum wrongful denials"], ["2%", "maximum ghost admissions"]] },
+  { num: "2.2", title: "Enroll a card", body: "A TODA officer taps one NFC card, and its spending policy goes on-chain. The driver needs no app and no data plan.", facts: [["1 card", "is all a driver carries"], ["Telegram", "delivers the receipts"]] },
+  { num: "2.3", title: "Fund when the price shift is real", body: "The Tranche Agent releases aid only when the diesel price stays above the threshold, inside a budget Velo has verified. A one-day spike releases nothing. The price series in this prototype is simulated.", facts: [[`${money(65)}`, "per litre threshold"], [money(1500), "per card"]] },
+  { num: "2.4", title: "Refuse taps outside the policy", body: "A tap over the cap or past the card's expiry is refused by the contract. A refused tap writes nothing to the chain.", facts: [[money(500), "per-tap cap"], ["0 tx", "on a refusal"]] },
+  { num: "2.5", title: "Freeze a suspicious station", body: "When a station's tap pattern looks wrong, only that station stops. New taps there are refused, and its settlement is held until the LGU unfreezes it.", facts: [["MIDAS-F", "scores every tap"], ["1 station", "paused; the others keep serving"]] },
+  { num: "2.6", title: "Return what is left", body: "When the program ends, every card is revoked and its unspent aid goes back to the LGU wallet.", facts: [["Same day", "not a year later at audit"], ["1 CSV", "with a tx hash behind every number, for the COA"]] },
+] as const;
+const ENFORCEMENT = [
+  { decision: "Fund", who: "Tranche Agent, on the diesel price", call: "payment_escrow.fund_escrow()" },
+  { decision: "Refuse", who: "Each card's policy: cap, expiry, nonce", call: "payment_escrow.authorize()" },
+  { decision: "Freeze", who: "Freeze Agent (MIDAS-F score) or an LGU rule", call: "API skips payment_escrow.claim()" },
+  { decision: "Return", who: "LGU officer ends the program", call: "payment_escrow.sweep_on_revoke()" },
 ];
-
-const ENFORCEMENT: Array<[string, string, IconName]> = [
-  ["Fund", "payment_escrow.fund_escrow()", "wallet"],
-  ["Refuse", "payment_escrow.authorize()", "close"],
-  ["Freeze", "API skips payment_escrow.claim()", "pause"],
-  ["Return", "payment_escrow.sweep_on_revoke()", "refresh"],
-];
-
-/** One line per event in the sample program; `step` ties the line to the loop step that prints it. */
-const RECEIPT_LINES: Array<{ step: 1 | 2 | 3 | 4 | 5 | 6; code: string; what: string; amount: string; stamp?: [ChipTone, string] }> = [
-  { step: 1, code: "01 INTAKE", what: "12 rows checked · 2 ghosts out", amount: "—" },
-  { step: 2, code: "02 ENROLL", what: "Ana V. …A1B2 · policy on-chain", amount: "—" },
-  { step: 3, code: "03 FUND", what: `3 cards × ${money(1500)}`, amount: `+${money(4500)}`, stamp: ["mint", "FUNDED"] },
-  { step: 4, code: "04 TAP", what: "Station A · Ana V. …A1B2", amount: `−${money(350)}`, stamp: ["accent", "PAID"] },
-  { step: 4, code: "04 TAP", what: "Station A · Juan D. …9C7E · over cap · 0 tx", amount: money(800), stamp: ["danger", "DECLINED"] },
-  { step: 5, code: "05 FREEZE", what: "Rotonda Fuels · MIDAS 2.31 ≥ 1.78", amount: money(960), stamp: ["frozen", "HELD"] },
-  { step: 6, code: "06 RETURN", what: "3 cards revoked · swept to LGU", amount: money(3190), stamp: ["accent", "RETURNED"] },
+const LEDGER_ROWS: Array<{ step: string; event: string; amount: string; status?: [StatusTone, string] }> = [
+  { step: "2.1 Intake", event: "12 rows checked; 2 ghosts removed", amount: "—" },
+  { step: "2.2 Enroll", event: "Ana V. …A1B2; policy on-chain", amount: "—" },
+  { step: "2.3 Fund", event: `3 cards × ${money(1500)}`, amount: `+${money(4500)}`, status: ["ok", "FUNDED"] },
+  { step: "2.4 Tap", event: "Station A; Ana V. …A1B2", amount: `−${money(350)}`, status: ["ok", "PAID"] },
+  { step: "2.4 Tap", event: "Station A; Juan D. …9C7E; over cap; no tx", amount: money(800), status: ["refused", "DECLINED"] },
+  { step: "2.5 Freeze", event: "Rotonda Fuels; MIDAS-F 2.31 ≥ 1.78", amount: money(960), status: ["held", "HELD"] },
+  { step: "2.6 Return", event: "3 cards revoked; swept to the LGU wallet", amount: money(3190), status: ["neutral", "RETURNED"] },
 ];
 
 const TOTALS: Array<[string, number]> = [
@@ -168,8 +113,6 @@ const TOTALS: Array<[string, number]> = [
   ["Returned", LEDGER.returned],
 ];
 
-const EQUATION = ["Funded", "=", "spent", "+", "held", "+", "pending", "+", "escrow", "+", "returned"];
-
 function Logo({ priority = false }: { priority?: boolean }) {
   return (
     <span className="block h-11 w-[88px] shrink-0 overflow-hidden">
@@ -179,248 +122,298 @@ function Logo({ priority = false }: { priority?: boolean }) {
   );
 }
 
-function Actions({ main = "accent" }: { main?: "accent" | "primary" }) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:w-full sm:[&>a]:w-auto">
-      <Cta href="/login" look={main}>
-        Open the app
-      </Cta>
-      <Cta href="/demo" look="outline">
-        Run the agent demo
-      </Cta>
-    </div>
-  );
-}
+const ACTIONS = (
+  <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+    <ButtonLink href="/login">Open the app</ButtonLink>
+    <Link href="/demo" prefetch={false} className="doc-link inline-flex min-h-11 items-center">
+      Run the agent demo
+    </Link>
+  </div>
+);
 
-const stagger = (i: number) => ({ "--i": i }) as CSSProperties;
+const SECTION = "border-t border-text py-16 lg:py-20";
+const SECTION_GRID = `${PAGE} grid gap-8 lg:grid-cols-12 lg:gap-x-8`;
+// min-w-0 lets the overflow-x-auto wrappers, not the page, scroll the min-w-[560px] tables on narrow screens.
+const SECTION_BODY = "flex min-w-0 flex-col gap-6 lg:col-span-8";
 
-const TICKER: Array<{ text: string; stamp: [ChipTone, string] }> = [
-  { text: `Station A · Ana V. …A1B2 · ${money(300)}`, stamp: ["accent", "PAID"] },
-  { text: `Station A · Juan D. …9C7E · ${money(800)} · 0 tx`, stamp: ["danger", "DECLINED"] },
-  { text: "Station A · Pedro R. …3A54 · card expired", stamp: ["danger", "DECLINED"] },
-  { text: `Rotonda Fuels · ${money(960)}`, stamp: ["frozen", "HELD"] },
-  { text: `LGU wallet · ${money(3190)}`, stamp: ["accent", "RETURNED"] },
-];
-
-/** One pass of the sample feed. The marquee shows two; the second is hidden from assistive tech. */
-function TickerCopy({ hidden = false }: { hidden?: boolean }) {
-  return (
-    <ul aria-hidden={hidden || undefined} className="ticker-copy">
-      {TICKER.map((e) => (
-        <li key={e.text} className="flex items-center gap-3 py-3 font-mono text-mono whitespace-nowrap">
-          <span>
-            <Nums>{e.text}</Nums>
-          </span>
-          <Stamp tone={e.stamp[0]}>{e.stamp[1]}</Stamp>
-        </li>
-      ))}
-    </ul>
-  );
-}
+const heading = (id: string) => {
+  const c = CONTENTS.find((item) => item.id === id)!;
+  return <SectionHeading id={c.id} num={c.num || undefined} fil={c.fil} en={c.en} />;
+};
 
 export default function Landing() {
   return (
-    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable}`}>
-      <header className="landing-header sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
-        <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-6`}>
+    <div className={`landing ${plexSans.variable} ${plexMono.variable}`}>
+      <header className="sticky top-0 z-40 border-b border-text bg-surface">
+        <div className={`${PAGE} flex h-14 items-center justify-between gap-6`}>
           <Link href="/" prefetch={false} aria-label="TAPat" className="block">
             <Logo priority />
           </Link>
-          <nav aria-label="Sections" className="hidden items-center gap-6 md:flex">
-            <a href="#loop" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
-              How it works
-            </a>
-            <a href="#stakes" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
-              Why
-            </a>
-            <a href="#contract" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
-              Contract
-            </a>
-          </nav>
-          <Cta href="/login" look="primary" size="sm">
-            Open the app
-          </Cta>
+          <div className="flex items-center gap-6">
+            <Link href="/demo" prefetch={false} className="doc-link hidden min-h-11 items-center sm:inline-flex">
+              Run the agent demo
+            </Link>
+            <ButtonLink href="/login">Open the app</ButtonLink>
+          </div>
         </div>
-        <ScrollGauge />
       </header>
 
       <main>
-        <section id="top" className="hero relative overflow-clip bg-primary-deep text-surface">
-          <HeroArt />
-          <div className={`${PAGE_WIDTH} relative grid items-center gap-12 py-16 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-12 lg:py-20`}>
-            {/* Centred in the row's minimum height, not its actual height, so a tall receipt can't push the words down. */}
-            <div className="hero-copy flex flex-col gap-7 lg:col-span-7 lg:min-h-[calc(100dvh-14rem)] lg:justify-center lg:self-start">
-              <h1 className="landing-display" style={stagger(1)}>
-                Fuel aid that can say{" "}
-                <span className="landing-note relative inline-block">
-                  no.
-                  <svg
-                    aria-hidden="true"
-                    className="hero-no-mark absolute bottom-[0.02em] left-0 h-[0.14em] w-full overflow-visible"
-                    viewBox="0 0 100 12"
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d="M2 8 C 30 2, 62 12, 98 4"
-                      fill="none"
-                      className="stroke-declined"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  </svg>
-                </span>
-              </h1>
-              <p className="landing-lead max-w-[46ch]" style={stagger(2)}>
-                An AI agent funds, caps, and returns fuel aid for tricycle drivers. The limits are enforced on-chain.
+        <div className="relative h-[clamp(240px,52vw,640px)] w-full overflow-hidden border-b border-text">
+          <Image src={cover} alt="A red motorized tricycle on a sunlit street" fill priority placeholder="blur" sizes="100vw" className="object-cover" style={{ objectPosition: "50% 55%" }} />
+        </div>
+
+        <div className={`${PAGE} grid gap-10 pb-16 lg:grid-cols-12 lg:gap-x-8`}>
+          <div className="relative z-10 flex flex-col gap-6 border border-text bg-raised p-6 sm:p-10 lg:col-span-7 lg:-mt-32">
+            <h1 className="doc-h1">Fuel aid for tricycle drivers, paid by card and held to limits on-chain.</h1>
+            <p className="doc-lead">
+              TAPat is a prototype aid program for TODA drivers. An agent releases each card&apos;s fuel aid when the diesel price has really moved. A Noir contract on Stellar refuses any tap over the cap or past its expiry. When the program ends, unspent aid goes back to the LGU wallet the same day.
+            </p>
+            {ACTIONS}
+            <p className="doc-small">Officers log in or create an account to try it. Drivers never need the app.</p>
+            <dl className="doc-small grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-t border-ring-surface pt-4">
+              <dt className="font-semibold">Status</dt>
+              <dd>Prototype on Stellar Testnet</dd>
+              <dt className="font-semibold">Built for</dt>
+              <dd>Velo × Noir Agentic Payment Hackathon, November 2026</dd>
+            </dl>
+          </div>
+
+          <div className="flex flex-col gap-8 lg:col-span-4 lg:col-start-9 lg:pt-8">
+            <p className="doc-mono text-[13px]">
+              Cover: a motorized tricycle in Negros Island Region. Photo by{" "}
+              <a className="doc-link" href="https://www.pexels.com/photo/old-tricycle-on-street-in-philippines-4330929/">
+                Denniz Futalan, Pexels
+              </a>
+              . Stock photo; not a TAPat driver or station.
+            </p>
+            <nav aria-label="Contents">
+              <p className="font-semibold">
+                <span lang="fil">Nilalaman</span> / Contents
               </p>
-              <div style={stagger(3)}>
-                <Actions />
-              </div>
-              <p className="text-small" style={stagger(4)}>
-                Log in or create an officer account to try it.
-              </p>
-            </div>
-            <div className="lg:col-span-5">
-              <TapDemo choices={TAP_CHOICES} autoplay="over" />
-            </div>
+              <ol className="mt-2">
+                {CONTENTS.map((c) => (
+                  <li key={c.id} className="border-b border-ring-surface">
+                    <a href={`#${c.id}`} className="block min-h-11 py-2.5 hover:underline">
+                      {c.num ? <span className="font-mono mr-3">{c.num}</span> : null}
+                      <span lang="fil">{c.fil}</span> / {c.en}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
-        </section>
+        </div>
 
-        <section aria-label="Sample feed" className="ticker ticker-slot relative z-10 flex border-y-[1.5px] border-text bg-text text-surface">
-          <p className="z-10 flex shrink-0 items-center border-r-[1.5px] border-surface/40 bg-text px-4 text-label whitespace-nowrap sm:px-6">SAMPLE FEED</p>
-          <div className="ticker-track">
-            <TickerCopy />
-            <TickerCopy hidden />
-          </div>
-        </section>
-
-        <StepRail steps={RAIL} />
-        <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken max-lg:pb-24">
-          <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
-            <svg viewBox="0 0 240 240" className="block h-full w-full">
-              {Array.from({ length: 8 }, (_, i) => (
-                <circle key={i} cx="240" cy="0" r={30 * (i + 1)} fill="none" strokeWidth="1.5" className="stroke-ring-surface" />
-              ))}
-            </svg>
-          </span>
-          <div className="loop-intro landing-reveal relative flex flex-col gap-5">
-            <h2 className="landing-h2">Six steps. One receipt.</h2>
-            <p className="landing-lead">Follow one sample program from the masterlist to the money coming back. The receipt on the right has to balance.</p>
-          </div>
-
-          <LoopSteps steps={STEPS} />
-
-          <div className="loop-receipt">
-            <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24">
-              <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
-              <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
-                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
-                  <Logo />
-                  <div className="flex flex-col gap-1 min-[480px]:items-end min-[480px]:text-right">
-                    <p className="flex items-center gap-2">
-                      RECEIPT
-                      <Stamp tone="outline">SAMPLE DATA</Stamp>
-                    </p>
-                    <p>TODA Fuel Aid — San Roque</p>
-                  </div>
-                </div>
-                <hr className="border-t-[1.5px] border-dashed border-text" />
-                <ol className="flex flex-col">
-                  {RECEIPT_LINES.map((line) => (
-                    <li key={`${line.code}-${line.what}`} className="receipt-slot">
-                      <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
-                        <Nums>{`waiting for step 0${line.step}…`}</Nums>
-                      </span>
-                      <div
-                        data-step={line.step}
-                        data-tone={line.stamp?.[0] ?? "mint"}
-                        className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
-                      >
-                        <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">
-                          <Nums>{line.code}</Nums>
-                        </span>
-                        <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">
-                          <Nums>{line.what}</Nums>
-                        </span>
-                        <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">
-                          <Nums>{line.amount}</Nums>
-                        </span>
-                        {line.stamp === undefined ? null : (
-                          <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
-                            <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-                <hr className="border-t-[1.5px] border-dashed border-text" />
-                <div className="relative">
-                  <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
-                    <Nums>waiting for step 06…</Nums>
-                  </div>
-                  <div className="receipt-total flex flex-col">
-                    <dl className="flex flex-col">
-                      {TOTALS.map(([label, pesos]) => (
-                        <div key={label} className="flex justify-between py-0.5">
-                          <dt>{label}</dt>
-                          <dd className="tabular-nums">
-                            <Nums>{money(pesos)}</Nums>
-                          </dd>
-                        </div>
+        <section aria-labelledby="brief" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("brief")}</div>
+            <div className={SECTION_BODY}>
+              <div className="grid gap-8 lg:grid-cols-8">
+                <div className="flex flex-col gap-4 lg:col-span-3">
+                  <p>The demo program runs on these limits. The LGU signs them; the contract enforces them.</p>
+                  <table className="doc-table">
+                    <caption className="sr-only">Demo program limits</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Limit</th>
+                        <th scope="col">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {LIMITS.map(([limit, value]) => (
+                        <tr key={limit}>
+                          <td>{limit}</td>
+                          <td className="doc-mono text-right">{value}</td>
+                        </tr>
                       ))}
-                    </dl>
-                    <div className="mt-2 flex items-center justify-between gap-4">
-                      <span>Funded = spent + held + pending + escrow + returned</span>
-                      <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
-                    </div>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
+                <figure className="lg:col-span-5">
+                  <TapDemo choices={TAP_CHOICES} autoplay="over" />
+                  <figcaption className="doc-small pt-3">Fig. 1. A sample station terminal. Pick a tap to see the contract&apos;s answer. Sample data; nothing leaves your browser.</figcaption>
+                </figure>
               </div>
-              <TearEdge />
-            </aside>
+            </div>
           </div>
         </section>
 
-        <StakesSection rows={STAKES} />
+        <section aria-labelledby="problem" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("problem")}</div>
+            <div className={SECTION_BODY}>
+              <p>Fuel aid programs usually pick one of two failures: checks so slow that aid arrives late, or payouts so loose that money leaks to ghost beneficiaries and goes unspent.</p>
+              <div className="overflow-x-auto">
+                <table className="doc-table min-w-[560px]">
+                  <thead>
+                    <tr>
+                      <th scope="col">Figure</th>
+                      <th scope="col">What it counts</th>
+                      <th scope="col">Source</th>
+                      <th scope="col">What TAPat changes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {STAKES.map((s) => (
+                      <tr key={s.figure}>
+                        <td className="doc-mono text-[20px] font-medium whitespace-nowrap">{s.figure}</td>
+                        <td>{s.what}</td>
+                        <td className="doc-small">{s.source}</td>
+                        <td>{s.answer}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <ContractSection rows={ENFORCEMENT} />
+        <section aria-labelledby="how" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("how")}</div>
+            <div className={SECTION_BODY}>
+              <p>One program, from the masterlist to its last day. Each step names the limit that applies.</p>
+              <ol className="border-t border-text">
+                {STEPS.map((s) => (
+                  <li key={s.num} className="grid gap-3 border-b border-ring-surface py-6 sm:grid-cols-[4rem_1fr]">
+                    <span className="doc-mono">{s.num}</span>
+                    <div>
+                      <h3 className="doc-h3">{s.title}</h3>
+                      <p className="max-w-[62ch]">{s.body}</p>
+                      <dl className="doc-small mt-2 flex flex-wrap gap-x-8 gap-y-1">
+                        {s.facts.map(([v, label]) => (
+                          <div key={v} className="flex gap-2">
+                            <dt className="doc-mono font-medium">{v}</dt>
+                            <dd>{label}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
 
-        <section className="close-band relative overflow-clip border-t-[1.5px] border-text bg-accent text-text">
-          <span aria-hidden="true" className="close-arc" />
-          <LazyBandMotion art="close" motif="text-ring-accent" />
-          <div className={`${PAGE_WIDTH} relative flex flex-col gap-8 py-24 lg:py-32`}>
-            <h2 className="landing-h2 landing-reveal max-w-4xl">Every peso has somewhere it has to be.</h2>
-            <p className="landing-reveal flex flex-wrap items-center gap-2 font-mono text-[clamp(16px,1.8vw,24px)]">
-              {EQUATION.map((term, i) =>
-                term === "=" || term === "+" ? (
-                  <span key={i}>{term}</span>
-                ) : (
-                  <span key={i} className="eq-term depth-1 rounded-sm border-[1.5px] px-2 py-1" style={{ "--t": i / 2 } as CSSProperties}>
-                    {term}
-                  </span>
-                ),
-              )}
-              <span className="eq-stamp" style={{ "--t": EQUATION.length / 2 } as CSSProperties}>
-                <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
-              </span>
-            </p>
-            <p className="landing-lead landing-reveal max-w-[52ch]">
-              Run the whole loop yourself on a laptop or a phone. No NFC card needed: Simulate card stands in for the tap.
-            </p>
-            <div className="landing-reveal">
-              <Actions main="primary" />
+        <section aria-labelledby="enforcement" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("enforcement")}</div>
+            <div className={SECTION_BODY}>
+              <p>The agents decide. The contract has the last word: a decision outside the signed limits does not execute.</p>
+              <div className="overflow-x-auto">
+                <table className="doc-table min-w-[560px]">
+                  <thead>
+                    <tr>
+                      <th scope="col">Decision</th>
+                      <th scope="col">Who decides</th>
+                      <th scope="col">What enforces it</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ENFORCEMENT.map((e) => (
+                      <tr key={e.decision}>
+                        <td>{e.decision}</td>
+                        <td>{e.who}</td>
+                        <td className="doc-mono">{e.call}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="doc-small">Velo verifies the budget checkout and sponsors the network fee of every Noir call. Velo does not verify individual taps; the per-tap limits belong to the Noir contract.</p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="ledger" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("ledger")}</div>
+            <div className={SECTION_BODY}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p>One sample program for one TODA, followed from intake to return. The totals must balance.</p>
+                <Status tone="neutral">SAMPLE DATA</Status>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="doc-table min-w-[560px]">
+                  <caption className="sr-only">Sample program ledger</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Step</th>
+                      <th scope="col">Event</th>
+                      <th scope="col" className="text-right">
+                        Amount
+                      </th>
+                      <th scope="col">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {LEDGER_ROWS.map((r, i) => (
+                      <tr key={i}>
+                        <td className="doc-mono whitespace-nowrap">{r.step}</td>
+                        <td>{r.event}</td>
+                        <td className="doc-mono text-right whitespace-nowrap">{r.amount}</td>
+                        <td>{r.status ? <Status tone={r.status[0]}>{r.status[1]}</Status> : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="max-w-[420px]">
+                <table className="doc-table">
+                  <caption className="sr-only">Totals</caption>
+                  <tbody>
+                    {TOTALS.map(([label, pesos]) => (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td className="doc-mono text-right">{money(pesos)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="doc-mono flex flex-wrap items-center gap-3">
+                Funded = spent + held + pending + escrow + returned <Status tone={balanced ? "ok" : "refused"}>{balanced ? "BALANCED" : "MISMATCH"}</Status>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="limits" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("limits")}</div>
+            <div className="lg:col-span-8">
+              <ul className="flex flex-col border-t border-text">
+                <li className="border-b border-ring-surface py-3">Runs on Stellar Testnet. No real pesos move.</li>
+                <li className="border-b border-ring-surface py-3">{`Amounts use a demo rate of ${money(DEFAULT_PHP_PER_XLM)} per XLM.`}</li>
+                <li className="border-b border-ring-surface py-3">The limits shown are the demo program&apos;s defaults.</li>
+                <li className="border-b border-ring-surface py-3">The sample terminal and the sample ledger on this page use sample data.</li>
+                <li className="border-b border-ring-surface py-3">In the app, the diesel price series and the burst of suspicious taps are simulated, and the masterlist OCR results are precomputed. Each is labelled where it appears.</li>
+                <li className="border-b border-ring-surface py-3">Velo verifies the budget checkout and sponsors network fees. It does not verify individual taps.</li>
+                <li className="border-b border-ring-surface py-3">The cover photo is a stock photo, not a TAPat driver or station.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="try" className={SECTION}>
+          <div className={SECTION_GRID}>
+            <div className="lg:col-span-4">{heading("try")}</div>
+            <div className={SECTION_BODY}>
+              <p>Run the whole loop on a laptop or a phone. No NFC card is needed: Simulate card stands in for the tap.</p>
+              {ACTIONS}
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-text py-8 text-surface">
-        <p className={`${PAGE_WIDTH} text-caption`}>
-          Prototype on Stellar Testnet at a demo rate. Limits shown are the demo program&apos;s. The tap terminal and receipt use sample data; price and MIDAS-F
-          series are simulated; intake results are precomputed. Motion rendered with Remotion from sample data.
-        </p>
+      <footer className="border-t border-text py-8">
+        <div className={`${PAGE} doc-small flex flex-col gap-1`}>
+          <p>TAPat — a prototype for the Velo × Noir Agentic Payment Hackathon, 2026.</p>
+          <p>Cover photo: Denniz Futalan / Pexels, used under the Pexels License.</p>
+        </div>
       </footer>
     </div>
   );

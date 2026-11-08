@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TapScene, type TapPhase } from "../(app)/_components/TapScene";
-import { Nums, Stamp, TearEdge } from "./kit";
+import { Status } from "./kit";
 
 /** One sample tap. Every string comes from the server page, so this island ships no money or label code. */
 export type TapChoice = {
@@ -16,45 +16,41 @@ export type TapChoice = {
   note: string;
 };
 
-const READ_MS = 1100;
-const AUTOPLAY_MS = 900;
+const READ_MS = 700;
+const START_MS = 600;
 
 const reducedNow = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const SLIP = "flex flex-col gap-2 border-[1.5px] border-b-0 border-text bg-surface p-4 font-mono text-mono";
+const SLIP = "border-t border-text pt-3 doc-mono";
 
-/** The contract's answer printed on the receipt. */
+const ROW = "flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0";
+
+/** The contract's answer printed on the slip. */
 function Verdict({ choice }: { choice: TapChoice }) {
+  const approved = choice.verdict === "approved";
   return (
     <>
       <div className="flex items-center justify-between gap-4">
-        <span className="stamp inline-flex">
-          <Stamp tone={choice.verdict === "approved" ? "accent" : "danger"}>{choice.verdict === "approved" ? "PAID" : "DECLINED"}</Stamp>
-        </span>
-        <span className="text-amount-sm">
-          <Nums>{choice.amount}</Nums>
-        </span>
+        <Status tone={approved ? "ok" : "refused"}>{approved ? "PAID" : "DECLINED"}</Status>
+        <span className="text-right">{choice.amount}</span>
       </div>
-      <hr className="border-t-[1.5px] border-dashed border-text" />
-      <dl>
-        <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+      <dl className="pt-2">
+        <div className={ROW}>
           <dt>Card</dt>
           <dd className="text-right">{choice.card}</dd>
         </div>
         {choice.reason === null ? null : (
-          <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+          <div className={ROW}>
             <dt>Reason</dt>
-            <dd className="text-right">
-              <Nums>{choice.reason}</Nums>
-            </dd>
+            <dd className="text-right">{choice.reason}</dd>
           </div>
         )}
-        <div className="flex justify-between gap-4 border-b border-ring-surface py-1.5 last:border-b-0">
+        <div className={ROW}>
           <dt>Tx</dt>
-          <dd className="text-right">{choice.verdict === "approved" ? "Submitted (sample)" : "None submitted"}</dd>
+          <dd className="text-right">{approved ? "Submitted (sample)" : "None submitted"}</dd>
         </div>
       </dl>
-      <p>{choice.note}</p>
+      <p className="doc-small font-sans pt-2">{choice.note}</p>
     </>
   );
 }
@@ -66,9 +62,9 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   const [touched, setTouched] = useState(false);
   const [phase, setPhase] = useState<TapPhase>("idle");
   const timer = useRef<number | undefined>(undefined);
-  // Pending autoplay-cycle timer; a user tap clears it so the loop stops for good.
+  // Pending autoplay start; a user tap clears it so the autoplay never overrides their pick.
   const loop = useRef<number | undefined>(undefined);
-  // Bumped inside `run` (a callback), so every tap re-keys the animated parts and replays their motion.
+  // Bumped inside `run` (a callback), so every tap re-keys the result slip and replays its fade.
   const [shot, setShot] = useState(0);
 
   const run = useCallback((choice: TapChoice, instant: boolean) => {
@@ -87,16 +83,8 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   useEffect(() => {
     const choice = choices.find((c) => c.id === autoplay);
     if (choice === undefined) return;
-    if (reducedNow()) {
-      timer.current = window.setTimeout(() => run(choice, true), 0);
-      return () => window.clearTimeout(timer.current);
-    }
-    // One pending timer at a time: each cycle runs the tap, then schedules only the next cycle after the verdict has shown.
-    const cycle = () => {
-      run(choice, false);
-      loop.current = window.setTimeout(cycle, READ_MS + AUTOPLAY_MS);
-    };
-    loop.current = window.setTimeout(cycle, AUTOPLAY_MS);
+    // Plays once: no rescheduling after the verdict shows.
+    loop.current = reducedNow() ? window.setTimeout(() => run(choice, true), 0) : window.setTimeout(() => run(choice, false), START_MS);
     return () => {
       window.clearTimeout(loop.current);
       window.clearTimeout(timer.current);
@@ -104,21 +92,17 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
   }, [autoplay, choices, run]);
 
   const verdict = active === null || phase === "reading" ? "pending" : active.verdict;
-  const replay = `${active?.id ?? "none"}-${shot}-${phase}`;
+  const showing = active !== null && phase !== "reading";
 
   return (
-    <div data-verdict={verdict} className="depth-dark flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised text-text">
-      <div key={`card-${replay}`} className={phase === "error" ? "shake" : undefined}>
-        <div className="flex items-center justify-between border-b-[1.5px] border-text px-5 py-3">
-          <span className="text-label">Station A</span>
-          <Stamp tone="outline">SAMPLE</Stamp>
-        </div>
+    <div data-verdict={verdict} className="flex flex-col border border-text bg-raised text-text">
+      <div className="flex items-center justify-between border-b border-text px-4 py-2.5">
+        <span className="font-medium">Station A</span>
+        <Status tone="neutral">SAMPLE</Status>
+      </div>
 
-        <div className="px-5 pt-4">
-          <div className="tap-stage rounded-md">
-            <TapScene phase={phase} last4={active?.last4} simulated />
-          </div>
-        </div>
+      <div className="px-4 pt-4">
+        <TapScene phase={phase} last4={active?.last4} simulated />
       </div>
 
       <div
@@ -126,7 +110,7 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
         aria-label="Try a tap"
         onPointerDown={() => setTouched(true)}
         onFocus={() => setTouched(true)}
-        className="grid grid-cols-2 gap-2 px-5 pt-4 min-[440px]:grid-cols-3"
+        className="grid grid-cols-1 gap-2 px-4 pt-4 min-[480px]:grid-cols-3"
       >
         {choices.map((c) => (
           <button
@@ -138,34 +122,30 @@ export function TapDemo({ choices, autoplay }: { choices: TapChoice[]; autoplay:
               window.clearTimeout(loop.current);
               run(c, reducedNow());
             }}
-            className="tap-key min-h-11 rounded-md border-[1.5px] border-text px-1.5 text-label whitespace-nowrap text-text not-aria-pressed:hover:bg-mint aria-pressed:bg-text aria-pressed:text-surface max-[479px]:text-[13px] max-[439px]:last:col-span-2 min-[480px]:px-2"
+            className="min-h-11 rounded-[2px] border border-text px-2 font-mono text-[14px] whitespace-nowrap transition-colors duration-[120ms] not-aria-pressed:hover:bg-sunken aria-pressed:bg-text aria-pressed:text-surface"
           >
-            <Nums>{c.button}</Nums>
+            {c.button}
           </button>
         ))}
       </div>
 
-      <div className="slip-lift grid grid-cols-1 px-5 pt-4 pb-5">
-        {/* Invisible copies of every receipt hold the tallest one's height at any width, so only the slip changes size. */}
+      <div className="grid px-4 pt-4 pb-4">
+        {/* Invisible copies of every slip hold the tallest one's height at any width, so nothing below shifts. */}
         {choices.map((c) => (
-          <div key={c.id} aria-hidden="true" className="invisible [grid-area:1/1]">
-            <div className={SLIP}>
-              <Verdict choice={c} />
-            </div>
-            <TearEdge />
+          <div key={c.id} aria-hidden="true" className={`invisible [grid-area:1/1] ${SLIP}`}>
+            <Verdict choice={c} />
           </div>
         ))}
         <div aria-live={touched ? "polite" : "off"} className="self-start [grid-area:1/1]">
-          <div key={`slip-${replay}`} className={`${SLIP} ${active !== null && phase !== "reading" ? "receipt-in" : ""}`}>
+          <div key={`slip-${active?.id ?? "none"}-${shot}-${phase}`} className={`${SLIP} ${showing ? "tap-result" : ""}`}>
             {active === null ? (
-              <p>Pick a tap to see the contract answer.</p>
+              <p>Pick a tap to see the contract&apos;s answer.</p>
             ) : phase === "reading" ? (
               <p>Reading card …{active.last4}</p>
             ) : (
               <Verdict choice={active} />
             )}
           </div>
-          <TearEdge />
         </div>
       </div>
     </div>
