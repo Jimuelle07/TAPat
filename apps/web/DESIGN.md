@@ -283,7 +283,7 @@ TAPat looks like a document that can be checked. Cream paper, ink rules at one w
 
 The app is dense and phone-sized: a 390px screen, 20px gutters, stacked ruled cards. The landing page is a separate civic ledger: a numbered program brief on the same Cream with 1px Ink rules, bilingual section headings (Filipino, then English), one cover photo, and no shadows, arcs or rings. Its type is IBM Plex, set by `doc-*` classes scoped to `.landing`.
 
-Depth is mostly line, not shadow. Colour names a state before it decorates: a terracotta field means a refusal, an ice blue field means a freeze. On the landing page colour appears only in written status words.
+Depth is mostly line, not shadow. Colour names a state before it decorates: a terracotta field means a refusal, an ice blue field means a freeze. On the landing page, apart from the cover photo and the sample terminal's illustration, colour appears only in written status words and text links.
 
 **Key Characteristics:**
 - Cream paper grounds with ink rules at a constant 1.5px.
@@ -327,7 +327,7 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **The Ground-and-Arc Rule.** App stat cards pair a ground with one fixed arc and ring colour: Forest with Field Green and Pressed Green, Cream with Sunken Cream and Ring Cream. Don't invent new pairs.
 
-**The Colour-for-Status Rule.** On the landing page colour appears only in `Status` words: Field Green for PAID and FUNDED, Alarm Red for DECLINED, Ice Blue for HELD. The rest is Ink on Cream.
+**The Colour-for-Status Rule.** On the landing page colour appears only in `Status` words and text links: Field Green for PAID, FUNDED and links, Alarm Red for DECLINED, Ice Blue for HELD. The rest is Ink on Cream.
 
 ## Typography
 
@@ -337,7 +337,7 @@ A warm cream and forest palette with three state fields (terracotta, ice blue, m
 
 **Character:** Outfit is round and friendly, and it keeps a serious subject approachable. Azeret Mono reads as a printed ledger, so anything set in it looks checkable.
 
-**Landing page only:** IBM Plex Sans (400, 500, 600) sets words and IBM Plex Mono (400, 500) sets amounts, contract calls and ledger lines, on the same Cream ground. Both carry ₱, so the landing page writes ₱ where the app keeps the "PHP" label. The sample terminal's `TapScene` text is the app's own. The app keeps Outfit, Azeret Mono and the "PHP" label.
+**Landing page only:** IBM Plex Sans (400, 500, 600) sets words and IBM Plex Mono (400, 500) sets amounts, contract calls and ledger lines, on the same Cream ground. Both carry ₱, so the landing page writes ₱ where the app keeps the "PHP" label. The sample terminal reuses the app's `TapScene` drawing, but `.landing` redefines `--font-sans` and `--font-mono`, so its labels render in Plex there. The app keeps Outfit, Azeret Mono and the "PHP" label.
 
 ### Hierarchy
 - **Landing:** see the Doc entries below, which set the landing page's type.
