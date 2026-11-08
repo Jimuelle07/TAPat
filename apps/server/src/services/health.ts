@@ -61,7 +61,8 @@ export function createHealthProbes(deps: HealthProbeDeps): HealthProbes {
 
   const velo = cached(async () => {
     try {
-      await deps.velo.paymentIntents.list({ limit: 1 }, { timeoutMs: 2000, maxRetries: 0 });
+      // Same 5 s budget as the RPC probe: a slow Velo answer is not an outage.
+      await deps.velo.paymentIntents.list({ limit: 1 }, { timeoutMs: 5000, maxRetries: 0 });
       return true;
     } catch {
       return false;

@@ -44,14 +44,25 @@ const ZERO_TOTALS = [
   'returnedStroops',
 ] as const;
 
-function checkHealth(health: HealthResponse | null, failures: string[]): void {
+/**
+ * Velo down is only a warning once the budget is verified: no beat after the seed calls the Velo payment-intent API.
+ * RPC (every beat) and Telegram (beat 3's receipt) stay hard failures.
+ */
+function checkHealth(health: HealthResponse | null, budgetVerified: boolean, failures: string[], warnings: string[]): void {
   if (health === null) {
     failures.push('health unavailable');
     return;
   }
   if (!health.ok) failures.push('health.ok is false');
   for (const key of ['rpc', 'velo', 'telegram'] as const) {
-    if (health[key] !== 'ok') failures.push(`health.${key} is "${health[key]}", expected "ok"`);
+    if (health[key] === 'ok') continue;
+    if (key === 'velo' && budgetVerified) {
+      warnings.push(
+        `health.velo is "${health.velo}": the budget is already verified, so no beat needs the Velo API (the replay does — wait for "ok" before replaying)`,
+      );
+    } else {
+      failures.push(`health.${key} is "${health[key]}", expected "ok"`);
+    }
   }
 }
 
@@ -115,7 +126,7 @@ function checkTranche(tranche: TrancheState | null, failures: string[]): void {
 export function checkFreshDemo(input: PreflightInput): { failures: string[]; warnings: string[] } {
   const failures: string[] = [];
   const warnings: string[] = [];
-  checkHealth(input.health, failures);
+  checkHealth(input.health, input.dashboard?.budget.state === 'verified', failures, warnings);
   checkDashboard(input.dashboard, failures);
   checkTranche(input.tranche, failures);
   if (input.health !== null && input.health.gasMode !== 'velo') {

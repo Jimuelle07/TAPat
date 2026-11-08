@@ -402,6 +402,9 @@ export function createFreezeService(deps: FreezeDeps): FreezeService {
         );
       queue.push(toTap(row));
     }
+    // Score the queued edges (and any pending live tap) now, so Station B is frozen and its `freeze` event published
+    // before the 202 goes out — a quick Run settlement must see B frozen, not wait for the next interval tick.
+    tick();
     return { accepted: true, edges: fixture.edges.length, tickMs: BURST_TICK_MS };
   }
 

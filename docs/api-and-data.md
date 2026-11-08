@@ -779,10 +779,11 @@ Steps (sequential, per card in enrollment order): program → `ending`; for each
 3. Else: `revoke_agent` when the policy is active (`expires_at_s >= now`, i.e. not yet expired); then `sweep_on_revoke` (Program Wallet) → card `swept`, `returned_stroops` = swept amount, `decision='SWEPT'`.
 4. A card already `failed` or `swept`/`revoked` is skipped.
 
-Program → `ended`. `device_registry.revoke` is **not** called here (`reset-demo.ts` does that).
+Program → `ended` only when every processed card ended `swept`/`revoked`. If any card's revoke or sweep fails, that card stays `active` with its `reason`, the response is still 200, and the program **stays `ending`** — no `PROGRAM_ENDED` decision and no `sweep` SSE event yet (each card's `chain_tx` events still publish). `device_registry.revoke` is **not** called here (`reset-demo.ts` does that).
 
-- This is not idempotent by request id, but it is safe to re-call: cards already `swept`/`revoked` are skipped.
-- Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status` is `draft`, or `ended` on a second call; a program left `ending` by an interrupted call is resumed), `502 CHAIN_ERROR` (a sweep failed; the response is still 200 with that card's `reason` and `status` unchanged — a hard failure only when `program` cannot be updated).
+- This is not idempotent by request id, but it is safe to re-call: a re-call on an `ending` program resumes it, retrying only the cards still `active` (cards already `swept`/`revoked` are skipped), so its `cards` lists only the retried cards.
+- `totalReturnedStroops` is cumulative: the sum of `cards.returned_stroops` across the program, so a resumed call also counts cards an earlier call swept. The closing `PROGRAM_ENDED` decision is cumulative too: `outputs.cards` lists every swept card of the program, `inputs.cardsProcessed`/`cardsSwept` count them, and `txIds` holds every revoke/sweep tx any call recorded.
+- Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status` is `draft`, `ended` on a call after every card was swept, or another end is still running — `"program end already running"`), `502 CHAIN_ERROR` (a hard failure only when the `program` row cannot be updated or read back; a failed card sweep is a 200 with that card's `reason` and `status` unchanged).
 
 #### 6. `POST /api/intake/upload`
 
@@ -972,9 +973,9 @@ Errors: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `404 CARD_NOT_ENROLLED`, `423 S
 
 #### 14. `POST /api/agents/freeze/burst`
 
-No body. Response 202: `{ "accepted": true, "edges": 30, "tickMs": 100 }`. Replays `fixtures/taps/burst.json` (20 virtual `card_ref`s → Station B, 30 edges, emitted 100 ms apart). Each edge is written directly by the burst service (it does not go through `POST /api/taps`) as a `taps` row with `simulated=1`, `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `chain_tx_id=NULL` — the virtual card refs are synthetic, so no `authorize` is attempted and **no money moves**; only the anomaly pattern is real. Those rows still feed the Freeze Agent's scorer exactly like authorized taps (edge key `card_ref|station_id`).
+No body. Response 202: `{ "accepted": true, "edges": 30, "tickMs": 100 }`. Replays `fixtures/taps/burst.json` (20 virtual `card_ref`s → Station B, 30 edges over 3 fixture ticks, all inserted in one call; `tickMs` is the web's pacing hint for the chart, not a server delay). Each edge is written directly by the burst service (it does not go through `POST /api/taps`) as a `taps` row with `simulated=1`, `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `chain_tx_id=NULL` — the virtual card refs are synthetic, so no `authorize` is attempted and **no money moves**; only the anomaly pattern is real. Those rows still feed the Freeze Agent's scorer exactly like authorized taps (edge key `card_ref|station_id`).
 
-Freezing happens when MIDAS-F crosses `apps/server/config/midas.json.threshold` or `NEAR_CAP_STREAK`/`VOLUME_SPIKE` fires; the freeze writes a `freeze/FROZEN` decision (`midas_score`, `threshold`, `rule`) and SSE `freeze` (`FreezeEvent`).
+Freezing happens when MIDAS-F crosses `apps/server/config/midas.json.threshold` or `NEAR_CAP_STREAK`/`VOLUME_SPIKE` fires; the freeze writes a `freeze/FROZEN` decision (`midas_score`, `threshold`, `rule`) and SSE `freeze` (`FreezeEvent`). The burst scores its edges in one synchronous Freeze Agent tick before answering, so after the two ₱480 taps Station B is already frozen when the 202 arrives.
 
 The decision's keys, so the dashboard and `demo:e2e` read one shape: `inputs = { midasScore, threshold, nearCapStreak, tapsLast10Ticks, baselineMeanPer10 }`, `outputs = { rule, stationId, stationName, frozenReason, frozenAt }` (`rule` is `MIDAS_F` \| `NEAR_CAP_STREAK` \| `VOLUME_SPIKE`), `txIds` empty, and `frozenReason` is the §5.2 #16 example string `MIDAS <score> >= <threshold> (<rule>)`. When both the model and an LGU rule fire on the same tick the model wins the `rule` field. `BASELINE_SET` (the warm-up) carries `inputs = { seeds, ticks }` and `outputs = { perStation }`; `UNFROZEN` carries `outputs = { stationId, stationName }`. The 60-tick honest replay is warm-up only: it sets the baselines and never freezes a station.
 

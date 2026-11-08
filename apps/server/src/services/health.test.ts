@@ -11,7 +11,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 /** The probe only calls `paymentIntents.list`, but the injected type is the SDK's whole object. */
-function fakeVelo(list: () => Promise<unknown>): Pick<Velo, 'paymentIntents'> {
+function fakeVelo(list: (params: unknown, options?: { timeoutMs?: number }) => Promise<unknown>): Pick<Velo, 'paymentIntents'> {
   return { paymentIntents: { list } } as unknown as Pick<Velo, 'paymentIntents'>;
 }
 
@@ -24,7 +24,7 @@ interface Harness {
 function harness(options: {
   rpc?: () => Promise<Response>;
   telegram?: () => Promise<Response>;
-  list?: () => Promise<unknown>;
+  list?: (options?: { timeoutMs?: number }) => Promise<unknown>;
 } = {}): Harness {
   const counts = { rpc: 0, telegram: 0, list: 0 };
   const now = { value: 0 };
@@ -34,9 +34,9 @@ function harness(options: {
 
   const probes = createHealthProbes({
     config: { STELLAR_RPC_URL: RPC_URL, TELEGRAM_BOT_TOKEN: BOT_TOKEN },
-    velo: fakeVelo(async () => {
+    velo: fakeVelo(async (_params, requestOptions) => {
       counts.list += 1;
-      return list();
+      return list(requestOptions);
     }),
     now: () => now.value,
     fetch: (async (input: string | URL | Request) => {
@@ -91,6 +91,17 @@ describe('checkHealth', () => {
       },
     });
     await expect(checkHealth(probes, 'velo')).resolves.toMatchObject({ ok: true, rpc: 'ok', velo: 'down' });
+  });
+
+  it('reports velo ok when Velo answers slowly but within a few seconds', async () => {
+    // Models a Velo that needs 3 s: the fake rejects like the SDK when the probe's timeout budget is under that.
+    const { probes } = harness({
+      list: async (options) => {
+        if ((options?.timeoutMs ?? Number.POSITIVE_INFINITY) < 3000) throw new Error('Velo request timed out');
+        return { data: [], has_more: false };
+      },
+    });
+    await expect(checkHealth(probes, 'velo')).resolves.toMatchObject({ velo: 'ok' });
   });
 
   it('caches rpc, velo and telegram for HEALTH_CACHE_MS', async () => {

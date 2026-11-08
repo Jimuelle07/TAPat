@@ -422,8 +422,9 @@ sequenceDiagram
     participant Gas as Velo Gas Station
 
     Op->>API: POST /api/agents/freeze/burst
-    API->>FA: enqueue 30 simulated edges 100 ms apart
-    loop each FREEZE_TICK_MS 1000 ms
+    API->>FA: insert and enqueue the 30 simulated edges at once
+    Note over FA: burst drains the queue in one tick before the 202, then every FREEZE_TICK_MS
+    loop burst tick, then each FREEZE_TICK_MS 1000 ms
         FA->>FA: stepMidas per edge, MIDAS-F score
         FA->>DB: taps.midas_score, taps.tick
         opt score >= threshold or a rule fires
@@ -470,8 +471,12 @@ sequenceDiagram
         end
         API->>DB: cards.status=swept, cards.returned_stroops
     end
-    API->>DB: program.status=ended
-    API-->>API: SSE sweep
+    alt every card swept
+        API->>DB: program.status=ended, PROGRAM_ENDED decision
+        API-->>API: SSE sweep
+    else a card failed
+        API->>DB: program stays ending, the next call retries only active cards
+    end
 ```
 
 The safe order is mandatory: **`revoke_agent` → `sweep_on_revoke` → (`device_registry.revoke`)**. `sweep_on_revoke` panics with `AgentStillActive=7` while the policy is live, so the revoke must land first. `device_registry.revoke` is **not** called on stage; `scripts/reset-demo.ts` calls it, because a demo reset must free the hashes for the next run.
@@ -1074,8 +1079,9 @@ Demo numbers: 3 cards × ₱1,500 = ₱4,500 funded from a ₱10,000 verified bu
 
 1. Require **at least one `authorized` tap at Station B**, from **Read card** or **Simulate tap** alike — a Simulate-tap tap is a real on-chain `authorize`, so `simulated` does not matter — else `409 INVALID_STATE` ("Tap D2 at Station B first"). An already-frozen Station B is also `409 INVALID_STATE` ("station already frozen").
 2. Load `fixtures/taps/burst.json`: 30 edges, 20 virtual cards, Station B, over 3 ticks.
-3. Emit them into the Freeze Agent queue 100 ms apart. Each edge also inserts a `taps` row with `simulated=1`, `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `card_ref=<edge.cardId>` (e.g. `burst01`), `chain_tx_id=NULL`. No `authorize` call, no nonce, no escrow movement — a simulated edge is a scoring input, never money. The MIDAS-F edge key for such a row is `${card_ref}|${station_id}`.
-4. Return `202 { accepted: true, edges: 30, tickMs: 100 }` ([api-and-data.md](api-and-data.md) #14).
+3. Insert and enqueue all 30 edges at once (the fixture's `tick_offset` spreads them over 3 ticks; `tickMs: 100` in the response is the web's pacing hint, not a server delay). Each edge also inserts a `taps` row with `simulated=1`, `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `card_ref=<edge.cardId>` (e.g. `burst01`), `chain_tx_id=NULL`. No `authorize` call, no nonce, no escrow movement — a simulated edge is a scoring input, never money. The MIDAS-F edge key for such a row is `${card_ref}|${station_id}`.
+4. Run one Freeze Agent tick synchronously, so the queued edges (and any pending live tap) are scored and Station B is frozen — `freeze/FROZEN` decision written and SSE `freeze` published — before the response goes out; a **Run settlement** pressed right after the burst therefore sees B frozen.
+5. Return `202 { accepted: true, edges: 30, tickMs: 100 }` ([api-and-data.md](api-and-data.md) #14).
 
 The `refused` status is what keeps simulated edges out of settlement, which sums only `status='authorized'` rows. A tap made through the **Simulate tap** picker (`simulated=1`, real `cardId`) is still a real `authorize` with real money and is settled like any other; `simulated` only labels how the card was read. The ₱960 held in the demo therefore comes only from the two D2 taps (each a real `authorize`, whether the UID came from **Read card** or **Simulate tap**), and the burst cannot invent pending money for Station B.
 
@@ -1100,16 +1106,16 @@ Errors: `404 NOT_FOUND` (no program), `502 CHAIN_ERROR` (a claim failed; the rem
 
 `POST /api/program/end`.
 
-1. Require `program.status='active'` → `program.status='ending'`.
+1. Refuse a call while another end is still running in this process (`409 INVALID_STATE`, "program end already running"), then require `program.status` `active` or `ending` → `program.status='ending'`. `ending` is a resume: a call that left a card unswept, or a process that died mid-sweep.
 2. Cards in enrollment order with `status='active'`:
    1. `policy = getPolicy(deviceHash)`. If a policy exists and is still live (`expires_at == 0 || now <= expires_at`) → `revokeAgent(programWallet, deviceHash)`. If the policy is expired, or no policy exists, skip the revoke and note `reason='EXPIRED_POLICY'` / `'NO_POLICY'` — an expired policy already allows a sweep, and `revoke_agent` on a missing policy panics `AgentNotFound=2`. The revoke result (tx id or `skipped`) goes into the card's `outputs_json.revoke`.
    2. `balanceBefore = getEscrowBalance(deviceHash)`.
    3. `balanceBefore = 0` → `cards.status='swept'`, `returned_stroops=0`, decision `SKIPPED` with `reason='EMPTY_ESCROW'`, **no sweep transaction**. `sweep_on_revoke` would return `0` without panicking, so this is an optimisation that saves a sponsored transaction and a useless line in the audit trail, not a correctness guard.
    4. Else `sweepOnRevoke(XLM_SAC_ID, deviceHash, agentPublic)`; on success `cards.status='swept'`, `returned_stroops = balanceBefore`, decision `SWEPT`. On failure the card stays `active`, `outputs_json.error` records the code and the SDK's synthesized message from `chain_txs.error` (a nested `device_registry` panic surfaces as the escrow table's own name, so the text does not identify the nested frame), and the loop continues with the next card.
-3. `program.status='ended'`; one `agent_decisions` row (`agent='sweep'`, `decision='PROGRAM_ENDED'`) with the returned total; SSE `sweep`.
+3. If any card of this call stayed `active`, the program **stays `ending`**: no `PROGRAM_ENDED` decision, no SSE `sweep`, and the 200 response lists this call's cards; the next call retries only the cards still `active`. Otherwise `program.status='ended'`; one `agent_decisions` row (`agent='sweep'`, `decision='PROGRAM_ENDED'`) whose `outputs_json.cards` lists every swept card of the program (an earlier call's cards rebuilt from their rows), so a reload of `/demo/end` shows them all; SSE `sweep`. `totalReturnedStroops` is always the program's cumulative `Σ cards.returned_stroops`.
 4. `device_registry.revoke` is **not** called here. `scripts/reset-demo.ts` calls `revokeDevice` for every card of the previous program so the same physical cards can enroll again. Run it as `pnpm --filter server tsx scripts/reset-demo.ts`. It first reads each registered card's escrow and **refuses while any balance is above zero** (revoking the device would strand those funds: run End program first); it deletes every row only after every revoke succeeded, and skips a card whose device is not registered to the Program Wallet.
 
-Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status='draft'`), `502 CHAIN_ERROR` (a sweep failed; that card keeps its `status` and `reason`, the rest still run).
+Errors: `404 NOT_FOUND`, `409 INVALID_STATE` (`status` `draft` or `ended`, or another end still running), `502 CHAIN_ERROR` (only when the `program` row cannot be updated or read back; a failed card sweep is a 200 with that card's `status` and `reason` unchanged).
 
 Sweep always pays the device owner (Program Wallet = LGU side), which is the whole point of D1.2.
 

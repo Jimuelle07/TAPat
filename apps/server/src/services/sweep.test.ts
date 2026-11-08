@@ -207,7 +207,7 @@ describe('POST /api/program/end', () => {
     expect(db.prepare(`SELECT COUNT(*) AS n FROM agent_decisions WHERE decision = 'PROGRAM_ENDED'`).get<{ n: number }>()?.n).toBe(0);
   });
 
-  it('keeps one failed card active, records its code and still ends the program', async () => {
+  it('keeps one failed card active and leaves the program ending', async () => {
     const { deps, db, fake, hashes } = fixture as Fixture;
     const realPrepare = fake.prepare.getMockImplementation() as (source: string, op: { kind: string }) => Promise<string>;
     fake.prepare.mockImplementation(async (source: string, op: { kind: string; deviceHash?: string }) => {
@@ -216,9 +216,8 @@ describe('POST /api/program/end', () => {
       }
       return realPrepare(source, op);
     });
-
     const response = await endProgram(deps);
-    expect(response.program.status).toBe('ended');
+    expect(response.program.status).toBe('ending');
     expect(response.cards.map((card) => [card.cardId, card.status, card.reason])).toEqual([
       ['card_D1', 'swept', null],
       ['card_D2', 'active', 'CONTRACT_AgentStillActive'],
@@ -237,6 +236,43 @@ describe('POST /api/program/end', () => {
       .get<{ decision: string; outputs_json: string }>();
     expect(decision?.decision).toBe('SWEPT');
     expect(JSON.parse(decision?.outputs_json ?? '{}')).toMatchObject({ error: 'CONTRACT_AgentStillActive' });
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM agent_decisions WHERE decision = 'PROGRAM_ENDED'`).get<{ n: number }>()?.n).toBe(0);
+
+    // Run again: only the unfinished card is retried, the total is cumulative, and the program ends once.
+    fake.prepare.mockImplementation(realPrepare);
+    const retry = await endProgram(deps);
+    expect(retry.cards.map((card) => [card.cardId, card.status, card.reason])).toEqual([['card_D2', 'swept', null]]);
+    expect(retry.program.status).toBe('ended');
+    expect(retry.totalReturnedStroops).toBe('3190000000');
+    const closing = db
+      .prepare(`SELECT inputs_json, outputs_json, tx_ids_json FROM agent_decisions WHERE decision = 'PROGRAM_ENDED'`)
+      .all<{ inputs_json: string; outputs_json: string; tx_ids_json: string }>();
+    expect(closing).toHaveLength(1);
+    // The audit row covers both calls: five cards processed and swept, and every revoke/sweep tx either call made.
+    expect(JSON.parse(closing[0]?.inputs_json ?? '{}')).toEqual({ cardsProcessed: 5, cardsSwept: 5 });
+    const bothCalls = [...response.cards, ...retry.cards]
+      .flatMap((card) => [card.revokeTxId, card.sweepTxId])
+      .filter((id) => id !== null);
+    expect(new Set(JSON.parse(closing[0]?.tx_ids_json ?? '[]'))).toEqual(new Set(bothCalls));
+    // A reload of /demo/end reads every card from the closing decision, including the four the first call swept.
+    expect(JSON.parse(closing[0]?.outputs_json ?? '{}')).toEqual({
+      totalReturnedStroops: '3190000000',
+      cards: [
+        { cardId: 'card_D1', returnedStroops: '1150000000', status: 'swept', reason: null },
+        { cardId: 'card_D2', returnedStroops: '540000000', status: 'swept', reason: null },
+        { cardId: 'card_D3', returnedStroops: '0', status: 'swept', reason: 'EMPTY_ESCROW' },
+        { cardId: 'card_D4', returnedStroops: '0', status: 'swept', reason: 'EMPTY_ESCROW' },
+        { cardId: 'card_D5', returnedStroops: '1500000000', status: 'swept', reason: null },
+      ],
+    });
+  });
+
+  it('answers 409 INVALID_STATE to a call made while another end is still running', async () => {
+    const { deps, db } = fixture as Fixture;
+    const first = endProgram(deps);
+    await expect(endProgram(deps)).rejects.toMatchObject({ statusCode: 409, code: 'INVALID_STATE', message: 'program end already running' });
+    expect((await first).program.status).toBe('ended');
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM agent_decisions WHERE decision = 'PROGRAM_ENDED'`).get<{ n: number }>()?.n).toBe(1);
   });
 
   it('answers 409 INVALID_STATE on a second call and leaves the ended program alone', async () => {
@@ -274,7 +310,7 @@ describe('POST /api/program/end', () => {
     fake.getPolicy.mockRejectedValue(new Error('rpc unavailable'));
 
     const response = await endProgram(deps);
-    expect(response.program.status).toBe('ended');
+    expect(response.program.status).toBe('ending');
     expect(response.cards.every((card) => card.status === 'active')).toBe(true);
     expect(response.cards.every((card) => card.reason === 'rpc unavailable')).toBe(true);
     expect(db.prepare('SELECT COUNT(*) AS n FROM chain_txs').get<{ n: number }>()?.n).toBe(0);
