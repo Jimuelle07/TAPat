@@ -277,6 +277,30 @@ describe('buildCoaCsv', () => {
     expect(rows.map((row) => row.event)).toEqual(['tap_rejected']);
     expect(rows[0]).toMatchObject({ station: 'B', amountStroops: 480_000_000n, txHash: '' });
   });
+
+  it('exports one sweep row when a failed attempt and its successful retry are both recorded', () => {
+    insertChainTx({ id: 'ctx_sweep', kind: 'sweep', sourcePublic: stationA.publicKey(), at: T0 + 6_000, outerHash: 'sweep_outer' });
+    insertDecision({
+      id: 'dec_failed',
+      agent: 'sweep',
+      decision: 'SWEPT',
+      outputs: { cardId: 'card_D1', error: 'CHAIN_ERROR' },
+      at: T0 + 5_000,
+    });
+    insertDecision({
+      id: 'dec_retry',
+      agent: 'sweep',
+      decision: 'SWEPT',
+      outputs: { cardId: 'card_D1' },
+      txIds: ['ctx_sweep'],
+      at: T0 + 6_000,
+    });
+
+    const rows = coaRows(db).filter((row) => row.event === 'sweep');
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ amountStroops: 1_150_000_000n, agentDecisionId: 'dec_retry', txHash: 'sweep_outer' });
+  });
 });
 
 describe('escapeCsvField', () => {

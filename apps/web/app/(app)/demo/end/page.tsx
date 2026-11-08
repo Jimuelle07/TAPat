@@ -18,6 +18,7 @@ function outcomeRow(outcome: CardOutcome, dashboard: Dashboard): ListRow {
   const hash = txLookup(dashboard)(outcome.sweepTxId ?? outcome.revokeTxId);
   const value = php(outcome.returnedStroops, dashboard.phpPerXlm);
   if (outcome.status !== "swept" && outcome.status !== "revoked") {
+    if (outcome.reason === "TX_UNRESOLVED") return { id: outcome.cardId, title, meta: "Waiting for the chain to confirm", chip: "Settling", tone: "danger" };
     return { id: outcome.cardId, title, meta: outcome.reason ?? "CHAIN_ERROR", chip: outcome.reason === NOT_SWEPT_YET ? "Unswept" : "Failed", tone: "danger" };
   }
   if (outcome.reason === "EMPTY_ESCROW") return { id: outcome.cardId, title, meta: "Empty escrow, no sweep", value };
