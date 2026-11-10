@@ -178,7 +178,7 @@ export default function Landing() {
       </header>
 
       <main>
-        <div className="relative h-[clamp(200px,34vw,440px)] w-full overflow-hidden border-b border-text">
+        <div className="relative h-[clamp(200px,34vw,440px)] w-full overflow-hidden border-b border-text [content-visibility:auto]">
           <CoverMotion>
             <Image src={cover} alt="A red motorized tricycle on a sunlit street" fill priority placeholder="blur" sizes="100vw" className="object-cover" style={{ objectPosition: "50% 20%" }} />
           </CoverMotion>

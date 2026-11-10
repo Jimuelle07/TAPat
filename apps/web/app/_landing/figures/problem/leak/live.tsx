@@ -6,6 +6,7 @@ import { useInView, useLoop, useReadout, useStillness } from "@/app/_landing/iso
 import { heapShown, levelPath, mouthShown } from "./frame";
 import { HOP, REST_TIME, STREAMS, fallTime, readoutOf, stateAt } from "./model";
 import { drawerShift, flightShift } from "./view";
+import { setAttr, setDisplay, setOpacity } from "../write";
 
 interface Props {
   label: string;
@@ -46,18 +47,17 @@ export function LeakLive({ label, width, height, parts }: Props) {
     const { flights, heap, mouth, level, drawers } = state.nodes;
     state.clock += dt;
     const now = stateAt(state.clock);
-    const flying = new Set(now.flights.map((f) => `${f.stream}-${f.slot}`));
+    const flying = new Map(now.flights.map((f) => [`${f.stream}-${f.slot}`, f]));
     for (const [key, node] of flights) {
-      if (!flying.has(key)) {
-        if (node.style.display !== "none") node.style.display = "none";
+      const flight = flying.get(key);
+      if (!flight) {
+        setDisplay(node, "none");
         continue;
       }
-      const flight = now.flights.find((f) => `${f.stream}-${f.slot}` === key);
-      if (!flight) continue;
-      node.style.display = "";
-      node.setAttribute("transform", flightShift(flight.stream, flight.age));
+      setDisplay(node, "");
+      setAttr(node, "transform", flightShift(flight.stream, flight.age));
       const settle = (flight.age - fallTime(STREAMS[flight.stream])) / HOP;
-      node.style.opacity = settle > 0.8 ? `${Math.max(0, (1 - settle) / 0.2)}` : "";
+      setOpacity(node, settle > 0.8 ? `${Math.max(0, (1 - settle) / 0.2)}` : "");
     }
     const rocking = [0, 0, 0];
     for (const flight of now.flights) {

@@ -40,6 +40,9 @@ interface SolidNodes {
   top: SVGPathElement | null;
   crease: SVGPathElement | null;
   edge: SVGPathElement | null;
+  /** The inputs the paths were last built from; skip the rebuild when they repeat. */
+  ka: number;
+  kb: number;
 }
 
 interface Item {
@@ -53,6 +56,11 @@ interface Dom {
   items: Item[];
   layer: SVGGElement;
   pieces: Map<string, SVGGElement[]>;
+  moved: Map<string, string>;
+  sig: number[];
+  wheelAt: number[];
+  overPrice: number;
+  overWheels: string;
   glyphs: SVGTextElement[][];
   lever: SolidNodes | null;
   latch: SolidNodes | null;
@@ -65,6 +73,10 @@ interface Dom {
   line2: SVGTextElement | null;
   plunger: Element | null;
   cord: SVGGElement | null;
+  cordParts: Array<Element | undefined>;
+  cordOpacity: string;
+  cordPlunger: number;
+  cordAsk: number;
   hint: Element | null;
 }
 
@@ -77,16 +89,29 @@ const solidNodes = (group: SVGGElement | null): SolidNodes | null =>
         top: group.querySelector(".iso-top"),
         crease: group.querySelector(".iso-crease"),
         edge: group.querySelector(".iso-edge"),
+        ka: NaN,
+        kb: NaN,
       }
     : null;
 
+const written = new WeakMap<Element, string>();
+
+/** Set `d` only when it differs from what was last written. */
+function put(node: Element | null | undefined, name: string, value: string) {
+  if (!node) return;
+  const key = name === "d" ? value : `${name}=${value}`;
+  if (written.get(node) === key) return;
+  written.set(node, key);
+  node.setAttribute(name, value);
+}
+
 function writeSolid(nodes: SolidNodes | null, paths: SolidPaths) {
   if (!nodes) return;
-  nodes.fill?.setAttribute("d", paths.fill);
-  nodes.shades.forEach((node, shade) => node?.setAttribute("d", paths.shades[shade] ?? ""));
-  nodes.top?.setAttribute("d", paths.top);
-  nodes.crease?.setAttribute("d", paths.crease);
-  nodes.edge?.setAttribute("d", paths.outline);
+  put(nodes.fill, "d", paths.fill);
+  nodes.shades.forEach((node, shade) => put(node, "d", paths.shades[shade] ?? ""));
+  put(nodes.top, "d", paths.top);
+  put(nodes.crease, "d", paths.crease);
+  put(nodes.edge, "d", paths.outline);
 }
 
 const set = (node: Element | null | undefined, name: string, value: string | null) => {
@@ -95,8 +120,15 @@ const set = (node: Element | null | undefined, name: string, value: string | nul
   else if (node.getAttribute(name) !== value) node.setAttribute(name, value);
 };
 
+const solidOf = new WeakMap<Element, Element | null>();
+
 const setLit = (node: Element | null | undefined, on: boolean) => {
-  const solid = node?.matches(".iso-solid") ? node : node?.querySelector(".iso-solid");
+  if (!node) return;
+  let solid = solidOf.get(node);
+  if (solid === undefined) {
+    solid = node.matches(".iso-solid") ? node : node.querySelector(".iso-solid");
+    solidOf.set(node, solid);
+  }
   set(solid, "data-lit", on ? "" : null);
 };
 
@@ -109,10 +141,16 @@ function collect(root: HTMLElement): Dom {
   const pieces = new Map<string, SVGGElement[]>();
   for (const item of items) if (item.piece) pieces.set(item.piece, [...(pieces.get(item.piece) ?? []), item.node]);
   const live = (name: string) => root.querySelector<SVGGElement>(`[data-live="${name}"]`);
+  const cord = root.querySelector<SVGGElement>("[data-cord]");
   return {
     items,
     layer,
     pieces,
+    moved: new Map<string, string>(),
+    sig: [NaN, NaN, NaN, NaN],
+    wheelAt: [NaN, NaN, NaN, NaN],
+    overPrice: NaN,
+    overWheels: "",
     glyphs: [0, 1, 2, 3].map((wheel) => Array.from(root.querySelectorAll<SVGTextElement>(`[data-live="wheel${wheel}"] [data-glyph]`))),
     lever: solidNodes(live("lever")?.querySelector(".iso-solid") ?? null),
     latch: solidNodes(live("latch")?.querySelector(".iso-solid") ?? null),
@@ -124,7 +162,11 @@ function collect(root: HTMLElement): Dom {
     line1: root.querySelector<SVGTextElement>('[data-live="line1"]'),
     line2: root.querySelector<SVGTextElement>('[data-live="line2"]'),
     plunger: root.querySelector('[data-id="reader.plunger"]'),
-    cord: root.querySelector<SVGGElement>("[data-cord]"),
+    cord,
+    cordParts: cord ? [cord.querySelector("path") ?? undefined, ...Array.from(cord.querySelectorAll("circle"))] : [],
+    cordOpacity: "",
+    cordPlunger: NaN,
+    cordAsk: NaN,
     hint: root.closest(".iso-plate")?.querySelector('[data-corner="hint"]') ?? null,
   };
 }
@@ -162,59 +204,74 @@ export function DispenserLive({ art, copy, label }: { art: string; copy: Copy; l
 
     // Wheels.
     m.wheel.forEach((position, wheel) => {
+      if (d.wheelAt[wheel] === position) return;
+      d.wheelAt[wheel] = position;
       d.glyphs[wheel]?.forEach((node, digit) => {
         const glyph = glyphOf(wheel, digit, position);
         set(node, "transform", glyph.transform);
         set(node, "opacity", `${Math.round(glyph.opacity * 100) / 100}`);
       });
     });
-    const over = Number(wheelText(m)) >= MARK && m.price >= MARK - 0.01;
-    setLit(d.lamp, over);
+    if (d.overPrice !== m.price || d.overWheels !== wheelText(m)) {
+      d.overPrice = m.price;
+      d.overWheels = wheelText(m);
+      setLit(d.lamp, Number(d.overWheels) >= MARK && m.price >= MARK - 0.01);
+    }
 
     // Moving parts: each piece has a share of its full travel.
     const angle = angleNow(m);
     const rideShare = clamp((angle - NOTCH_DEG[0]!) / (MAX_DEG - NOTCH_DEG[0]!), 0, 1);
-    const shares: Record<string, number> = {
-      index: priceShare(m),
-      ask: m.ask / ASK_MAX,
-      plunger: m.plunger / CAP,
-      gate: gateShare(m),
-      weight: rideShare,
-      tip: rideShare,
-      catch: rideShare,
-    };
-    const sortShares: Record<string, number> = { ...shares, gate: rideShare };
-    const moveOf = (piece: string, node: SVGGElement) => {
-      const share = shares[piece] ?? 0;
+    const shareOf = (piece: string) =>
+      piece === "index" ? priceShare(m) : piece === "ask" ? m.ask / ASK_MAX : piece === "plunger" ? m.plunger / CAP : piece === "gate" ? gateShare(m) : piece === "weight" || piece === "tip" || piece === "catch" ? rideShare : 0;
+    for (const [piece, nodes] of d.pieces) {
       let offset: [number, number];
       if (piece === "weight") {
         // The weight hangs a little behind the lever (a spring, kicked by the lever's own motion) and never quite stops swaying.
         const [dx, dy] = arcShift(NOTCH_DEG[0]!, angle, WEIGHT_U);
         const [sx, sy] = shiftOf(0, 0, m.sway.at + (r.clock > 0 ? 1.0 * Math.sin(r.clock * 3.4) : 0));
         offset = [dx + sx, dy + sy];
-      }
-      else if (piece === "tip") offset = arcShift(NOTCH_DEG[0]!, angle, LEVER_L);
+      } else if (piece === "tip") offset = arcShift(NOTCH_DEG[0]!, angle, LEVER_L);
       else if (piece === "catch") offset = arcShift(NOTCH_DEG[0]!, angle, CATCH_U);
       else {
+        const share = shareOf(piece);
         const vector = PIECES[piece]!;
         offset = shiftOf(vector[0] * share, vector[1] * share, vector[2] * share);
       }
-      set(node, "transform", translate(offset) || null);
-    };
-    for (const [piece, nodes] of d.pieces) {
-      for (const node of nodes) {
-        moveOf(piece, node);
-      }
+      const text = translate(offset);
+      if (d.moved.get(piece) === text) continue;
+      d.moved.set(piece, text);
+      for (const node of nodes) set(node, "transform", text || null);
     }
 
     set(anchor.current, "data-flowing", targets.flow ? "" : null);
 
     // Rebuilt solids: lever, latch, the levels.
-    writeSolid(d.lever, leverPaths(angle));
-    writeSolid(d.latch, latchPaths(m.latch));
     const shimmer = (phase: number, busy: number) => (r.clock > 0 ? (0.45 + 1.1 * busy) * (Math.sin(r.clock * 7.3 + phase) * 0.6 + Math.sin(r.clock * 11.9 + phase * 2.1) * 0.4) : 0);
-    m.fill.forEach((pesos, card) => writeSolid(d.liquids[card] ?? null, cardLiquid(card, pesos, CARD_PESO, shimmer(card * 2.1, clamp(Math.abs(targets.fill[card]! - pesos) / 150, 0, 1)))));
-    writeSolid(d.box, boxLiquid(m.box, FUNDED, shimmer(5, clamp(Math.abs(targets.box - m.box) / 150, 0, 1))));
+    if (d.lever && d.lever.ka !== angle) {
+      d.lever.ka = angle;
+      writeSolid(d.lever, leverPaths(angle));
+    }
+    if (d.latch && d.latch.ka !== m.latch) {
+      d.latch.ka = m.latch;
+      writeSolid(d.latch, latchPaths(m.latch));
+    }
+    m.fill.forEach((pesos, card) => {
+      const nodes = d.liquids[card];
+      if (!nodes) return;
+      const ripple = pesos > 1 ? shimmer(card * 2.1, clamp(Math.abs(targets.fill[card]! - pesos) / 150, 0, 1)) : 0;
+      if (nodes.ka === pesos && nodes.kb === ripple) return;
+      nodes.ka = pesos;
+      nodes.kb = ripple;
+      writeSolid(nodes, cardLiquid(card, pesos, CARD_PESO, ripple));
+    });
+    if (d.box) {
+      const ripple = m.box > 1 ? shimmer(5, clamp(Math.abs(targets.box - m.box) / 150, 0, 1)) : 0;
+      if (d.box.ka !== m.box || d.box.kb !== ripple) {
+        d.box.ka = m.box;
+        d.box.kb = ripple;
+        writeSolid(d.box, boxLiquid(m.box, FUNDED, ripple));
+      }
+    }
 
     // Lamps, display, tension cord.
     setLit(d.paid, m.paid > 0.5);
@@ -227,17 +284,22 @@ export function DispenserLive({ art, copy, label }: { art: string; copy: Copy; l
     const gap = (m.ask - m.plunger) * SLIDE_RATE;
     if (d.cord) {
       const alpha = clamp((gap - 0.6) / 2.4, 0, 1);
-      d.cord.style.opacity = `${Math.round(alpha * 100) / 100}`;
-      if (alpha > 0) {
+      const opacity = `${Math.round(alpha * 100) / 100}`;
+      if (d.cordOpacity !== opacity) {
+        d.cordOpacity = opacity;
+        d.cord.style.opacity = opacity;
+      }
+      if (alpha > 0 && (d.cordPlunger !== m.plunger || d.cordAsk !== m.ask)) {
+        d.cordPlunger = m.plunger;
+        d.cordAsk = m.ask;
         const head = at([askX(m.plunger), 13.4, 61]);
         const flag = at([askX(m.ask), 10.4, 53.5]);
-        const path = d.cord.querySelector("path");
-        const [a, b] = Array.from(d.cord.querySelectorAll("circle"));
-        path?.setAttribute("d", `M${head[0].toFixed(1)} ${head[1].toFixed(1)}L${flag[0].toFixed(1)} ${flag[1].toFixed(1)}`);
-        a?.setAttribute("cx", head[0].toFixed(1));
-        a?.setAttribute("cy", head[1].toFixed(1));
-        b?.setAttribute("cx", flag[0].toFixed(1));
-        b?.setAttribute("cy", flag[1].toFixed(1));
+        const [path, a, b] = d.cordParts;
+        put(path, "d", `M${head[0].toFixed(1)} ${head[1].toFixed(1)}L${flag[0].toFixed(1)} ${flag[1].toFixed(1)}`);
+        put(a, "cx", head[0].toFixed(1));
+        put(a, "cy", head[1].toFixed(1));
+        put(b, "cx", flag[0].toFixed(1));
+        put(b, "cy", flag[1].toFixed(1));
       }
     }
 
@@ -248,17 +310,28 @@ export function DispenserLive({ art, copy, label }: { art: string; copy: Copy; l
     lit(d.plunger, r.beat === 2);
     lit(d.box?.group, r.beat === 3);
 
-    // Painter's order for the parts that move: key + lift × share, re-append only when it changes.
-    const keys = d.items.map((item) => item.key + (item.piece ? item.lift * (sortShares[item.piece] ?? 0) : 0));
-    const order = d.items
-      .map((_, index) => index)
-      .sort((a, b) => keys[a]! - keys[b]! || a - b)
-      .join(",");
-    if (order !== r.order) {
-      r.order = order;
-      const fragment = document.createDocumentFragment();
-      for (const index of order.split(",")) fragment.appendChild(d.items[Number(index)]!.node);
-      d.layer.appendChild(fragment);
+    // Painter's order for the parts that move: key + lift × share, re-append only when it changes. Keys depend on four shares only.
+    const sig = d.sig;
+    const priceNow = priceShare(m);
+    const askNow = m.ask / ASK_MAX;
+    const plungerNow = m.plunger / CAP;
+    if (sig[0] !== priceNow || sig[1] !== askNow || sig[2] !== plungerNow || sig[3] !== rideShare) {
+      sig[0] = priceNow;
+      sig[1] = askNow;
+      sig[2] = plungerNow;
+      sig[3] = rideShare;
+      const sortShare = (piece: string) => (piece === "index" ? priceNow : piece === "ask" ? askNow : piece === "plunger" ? plungerNow : piece === "gate" || piece === "weight" || piece === "tip" || piece === "catch" ? rideShare : 0);
+      const keys = d.items.map((item) => item.key + (item.piece ? item.lift * sortShare(item.piece) : 0));
+      const order = d.items
+        .map((_, index) => index)
+        .sort((a, b) => keys[a]! - keys[b]! || a - b)
+        .join(",");
+      if (order !== r.order) {
+        r.order = order;
+        const fragment = document.createDocumentFragment();
+        for (const index of order.split(",")) fragment.appendChild(d.items[Number(index)]!.node);
+        d.layer.appendChild(fragment);
+      }
     }
 
     const text = readoutOf(m, r.beat, copy);

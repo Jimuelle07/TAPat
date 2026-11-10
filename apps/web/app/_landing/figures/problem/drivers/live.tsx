@@ -5,6 +5,7 @@ import { IsoFigure } from "@/app/_landing/iso/react/draw";
 import { follow, useInView, useLoop, useReadout, useStillness } from "@/app/_landing/iso/react/live";
 import { COLS, FADE_ROWS, FILLED_AT, HOLD, NO_WIPE, PEGS, REST, readoutOf, stateAt } from "./model";
 import { beamShift, dropShift, headShift, stripShift } from "./view";
+import { setAttr } from "../write";
 
 /** Where the tour starts: the finished board, with a moment left before the sweep. */
 const START = FILLED_AT + HOLD - 0.8;
@@ -134,9 +135,9 @@ export function DriversLive(props: Props) {
         }
         const spot = rows[Math.floor(flight.index / COLS)]?.children[flight.index % COLS];
         if (!spot) return;
-        slot.setAttribute("x", spot.getAttribute("x") ?? "0");
-        slot.setAttribute("y", spot.getAttribute("y") ?? "0");
-        slot.setAttribute("transform", dropShift(heightAt(state.clock - flight.at)));
+        setAttr(slot, "x", spot.getAttribute("x") ?? "0");
+        setAttr(slot, "y", spot.getAttribute("y") ?? "0");
+        setAttr(slot, "transform", dropShift(heightAt(state.clock - flight.at)));
         slot.removeAttribute("data-hidden");
       });
     }
@@ -147,9 +148,9 @@ export function DriversLive(props: Props) {
     }
 
     const shift = beamShift(now.row);
-    beam.current?.setAttribute("transform", shift);
-    shadow.current?.setAttribute("transform", shift);
-    head.current?.setAttribute("transform", headShift(now.col));
+    setAttr(beam.current, "transform", shift);
+    setAttr(shadow.current, "transform", shift);
+    setAttr(head.current, "transform", headShift(now.col));
 
     // tally counter: three geared wheels, each turning the short way round to its digit
     const targets = [now.n, Math.floor(now.n / 10), Math.floor(now.n / 100)];
@@ -157,7 +158,7 @@ export function DriversLive(props: Props) {
       const was = state.wheels[wheel];
       const next = follow(0, around(target - was), dt, wheel === 0 ? 0.06 : 0.14);
       state.wheels[wheel] = (((was + next) % 10) + 10) % 10;
-      state.strips?.[2 - wheel]?.setAttribute("transform", stripShift(state.wheels[wheel]));
+      setAttr(state.strips?.[2 - wheel], "transform", stripShift(state.wheels[wheel]));
     });
     return true;
   }, visible && !still);

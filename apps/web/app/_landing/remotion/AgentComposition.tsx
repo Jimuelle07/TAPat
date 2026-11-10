@@ -17,10 +17,13 @@ import type { AgentProps } from "./agentMeta";
  */
 function Drawing({ width, height, readout, children }: { width: number; height: number; readout: string; children: ReactNode }) {
   const ref = useRef<SVGSVGElement>(null);
+  const target = useRef<Element | null>(null);
   useLayoutEffect(() => {
-    const target = ref.current?.closest(".iso-plate")?.querySelector("[data-readout]");
-    if (target && target.textContent !== readout) target.textContent = readout;
-  });
+    // Look the readout element up once; the text only changes when the readout does.
+    target.current ??= ref.current?.closest(".iso-plate")?.querySelector("[data-readout]") ?? null;
+    const el = target.current;
+    if (el && el.textContent !== readout) el.textContent = readout;
+  }, [readout]);
   return (
     <svg ref={ref} className="iso-svg ag-svg" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true" focusable="false">
       {children}

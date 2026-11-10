@@ -6,6 +6,7 @@ import { follow, useInView, useLoop, useReadout, useStillness } from "@/app/_lan
 import { orderOf, wiltOf } from "./frame";
 import { REST_TIME, readoutOf, stateAt } from "./model";
 import { POOL, here, shift, wispAt } from "./view";
+import { setAttr, setOpacity } from "../write";
 
 interface Props {
   label: string;
@@ -70,22 +71,22 @@ export function QueueLive(props: Props) {
       // heat arrives and leaves over about a second, so a person sags and straightens gradually
       const heat = person.alpha < 1 ? person.heat : follow(state.heat[id], person.heat, dt, 0.45);
       state.heat[id] = heat;
-      node.person.setAttribute("transform", shift(person.x, person.y, person.z));
-      node.person.style.opacity = person.alpha === 1 ? "" : `${person.alpha}`;
-      node.wilt.setAttribute("transform", wiltOf(heat));
-      node.sweat.style.opacity = `${heat}`;
+      setAttr(node.person, "transform", shift(person.x, person.y, person.z));
+      setOpacity(node.person, person.alpha === 1 ? "" : `${person.alpha}`);
+      setAttr(node.wilt, "transform", wiltOf(heat));
+      setOpacity(node.sweat, `${heat}`);
     });
     // the lamp breathes: bulb, beams and the pool's rings swell and ease together
     const beat = 0.5 + 0.5 * Math.sin(state.clock * 2.1);
-    bulb?.style.setProperty("opacity", `${0.6 + 0.4 * beat}`);
-    beams?.style.setProperty("opacity", `${0.35 + 0.65 * beat}`);
-    pool?.style.setProperty("opacity", `${0.72 + 0.28 * beat}`);
-    rings?.setAttribute("transform", `translate(${POOL_SX} ${POOL_SY}) scale(${0.93 + 0.1 * beat}) translate(${-POOL_SX} ${-POOL_SY})`);
+    setOpacity(bulb, `${0.6 + 0.4 * beat}`);
+    setOpacity(beams, `${0.35 + 0.65 * beat}`);
+    setOpacity(pool, `${0.72 + 0.28 * beat}`);
+    setAttr(rings, "transform", `translate(${POOL_SX} ${POOL_SY}) scale(${0.93 + 0.1 * beat}) translate(${-POOL_SX} ${-POOL_SY})`);
     // heat shimmer: wavy wisps rising over the pool
     wisps.forEach((wisp, index) => {
       const phase = state.clock * 0.9 + index * 0.37;
-      wisp.setAttribute("d", wispAt(index, WISPS, state.clock * 2.2));
-      wisp.style.opacity = `${0.55 * Math.pow(Math.sin(Math.PI * (phase % 1)), 1.5)}`;
+      setAttr(wisp, "d", wispAt(index, WISPS, state.clock * 2.2));
+      setOpacity(wisp, `${0.55 * Math.pow(Math.sin(Math.PI * (phase % 1)), 1.5)}`);
     });
     const order = orderOf(now);
     const key = order.join(",");

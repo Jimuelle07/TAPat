@@ -208,18 +208,35 @@ export interface Draw {
 const REST_GOV = governorAt(GOV.from);
 const REST_LEVER = leverAt(SWEEP.lever.from);
 
+/* Pieces that stand still for whole stations are rebuilt only when their one input changes. */
+const memoOf = <T>(build: (x: number) => T) => {
+  let key = Number.NaN;
+  let value!: T;
+  return (x: number): T => {
+    if (x !== key) {
+      key = x;
+      value = build(x);
+    }
+    return value;
+  };
+};
+const gateMemo = memoOf(gateAt);
+const keywayMemo = memoOf(keywayAt);
+const leverMemo = memoOf(leverAt);
+const SPRINGS: Array<(x: number) => { back: string; front: string }> = [];
+
 export function drawOf(p: Pose): Draw {
   const g = governorAt(p.gov);
-  const lever = leverAt(p.lever);
+  const lever = leverMemo(p.lever);
   const lines: Record<string, string> = {
     needle: needleAt(p.price),
     cleats: cleatsAt(p.belt),
     ...g.lines,
-    keyway: keywayAt(p.plug),
+    keyway: keywayMemo(p.plug),
     lever: lever.d,
   };
   p.pins.forEach((delta, j) => {
-    const spring = springAt(j, delta);
+    const spring = (SPRINGS[j] ??= memoOf((d) => springAt(j, d)))(delta);
     lines[`sb${j}`] = spring.back;
     lines[`sf${j}`] = spring.front;
   });
@@ -238,7 +255,7 @@ export function drawOf(p: Pose): Draw {
   p.chips.forEach((chip, k) => (moves[`chip${k}`] = move(chip.x, chip.y, chip.z - CHIP_Z[k]!)));
   const flags: Record<string, boolean> = { chipBack: p.u >= 6 && (p.chips[2]?.y ?? 0) < -21, tap: p.tap, beacon: p.closed > 0.5, signal: p.closed > 0.05, gate7p: p.closed > 0.5, gate7: p.closed > 0.5 };
   for (let i = 0; i < 8; i++) flags[`plate${i}`] = i === p.step;
-  return { move: moves, lines, solids: { gate: gateAt(p.plug), radar: radarAt(p.radar) }, flags, opacity: p.opacity };
+  return { move: moves, lines, solids: { gate: gateMemo(p.plug), radar: radarAt(p.radar) }, flags, opacity: p.opacity };
 }
 
 /* The tour: how long each stretch of u takes, in seconds. */

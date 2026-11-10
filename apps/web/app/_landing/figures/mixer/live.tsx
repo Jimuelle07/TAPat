@@ -3,7 +3,7 @@
 import * as React from "react";
 import type { SolidPaths } from "../../iso/iso-kit";
 import { follow, useInView, useLoop, useReadout } from "../../iso/react/live";
-import { frameOf, type Frame } from "./frame";
+import { frameOf, type Digit, type Frame } from "./frame";
 import { WEEKS_PER_YEAR, WEEK_S, YEAR_S, describeOf, readoutOf, simulateDieselYear, stateAt, type DieselWeek } from "./model";
 import { REST_TEXT, YEAR_ONE } from "./rest";
 
@@ -11,92 +11,174 @@ const PAUSE_AFTER_TOUCH_MS = 7000;
 
 // ---------------------------------------------------------------------------------------------- the nodes the server drew, found by attribute
 
+/** A node and the last value written to it (starting at what the server drew), so an unchanged value costs a string compare, not a style invalidation. */
+interface Slot {
+  node: Element;
+  last: string;
+}
+
+const slotOf = (node: Element | undefined, attr: string): Slot | undefined => (node ? { node, last: node.getAttribute(attr) ?? "" } : undefined);
+
+function put(slot: Slot | undefined, attr: string, value: string) {
+  if (!slot || slot.last === value) return;
+  slot.last = value;
+  slot.node.setAttribute(attr, value);
+}
+
+/** Every `d` of one solid, in the order `setSolid` writes them. */
+interface SolidSlots {
+  fill?: Slot;
+  shades: (Slot | undefined)[];
+  top?: Slot;
+  crease?: Slot;
+  bevel?: Slot;
+  edge?: Slot;
+  drawn: SolidPaths | null;
+}
+
+interface Moved {
+  nodes: Slot[];
+  key: MovedKey;
+}
+
+interface DigitSlot {
+  node: SVGTextElement;
+  transform: string;
+  opacity: string;
+}
+
+interface PinSlot {
+  node: SVGCircleElement;
+  x: number;
+  y: number;
+}
+
+type MovedKey = "float" | "guide" | "carriage" | "rack" | "bead" | "follower" | "rider" | "calendar";
+const MOVED_KEYS: MovedKey[] = ["float", "guide", "carriage", "rack", "bead", "follower", "rider", "calendar"];
+const SOLIDS = ["lever", "beam", "pinion", "gearA", "gearB", "pointer", "dialWheel", "cam"] as const;
+type SolidKey = (typeof SOLIDS)[number];
+const LINES = ["leverSlots", "leverGroove", "beamGroove", "beamRings", "gearASpokes", "gearBSpokes", "dialMinor", "dialMajor", "camMinor", "camMajor"] as const;
+type LineKey = (typeof LINES)[number];
+
 interface Cache {
-  moved: Record<string, Element[]>;
-  solids: Map<string, Record<string, Element | undefined>>;
-  lines: Map<string, Element>;
-  digits: SVGTextElement[][];
-  pins: SVGCircleElement[];
+  moved: Moved[];
+  solids: Record<SolidKey, SolidSlots | undefined>;
+  lines: Record<LineKey, Slot | undefined>;
+  digits: (DigitSlot | undefined)[][];
+  pins: PinSlot[];
   bead: Element | null;
+  /** the corner readout and what it says now */
+  readout: Element | null;
+  said: string;
+  above: boolean;
+  /** what the last frame drew, to skip the parts that hold still */
+  digitsDrawn: Digit[][] | null;
 }
 
 function collect(root: Element): Cache {
-  const moved: Record<string, Element[]> = {};
+  const found: Record<string, Slot[]> = {};
   root.querySelectorAll("[data-mx]").forEach((node) => {
     const key = node.getAttribute("data-mx") ?? "";
-    (moved[key] ??= []).push(node);
+    (found[key] ??= []).push({ node, last: node.getAttribute("transform") ?? "" });
   });
-  const solids = new Map<string, Record<string, Element | undefined>>();
+  const moved = MOVED_KEYS.map((key) => ({ key, nodes: found[key] ?? [] }));
+  const solids = {} as Record<SolidKey, SolidSlots | undefined>;
   root.querySelectorAll("[data-mx-solid]").forEach((node) => {
+    const name = node.getAttribute("data-mx-solid") as SolidKey;
     const parts: Record<string, Element | undefined> = {};
     node.querySelectorAll("[data-p]").forEach((part) => {
       parts[part.getAttribute("data-p") ?? ""] = part;
     });
-    solids.set(node.getAttribute("data-mx-solid") ?? "", parts);
+    solids[name] = {
+      fill: slotOf(parts.fill, "d"),
+      shades: [0, 1, 2, 3].map((shade) => slotOf(parts[`s${shade}`], "d")),
+      top: slotOf(parts.top, "d"),
+      crease: slotOf(parts.crease, "d"),
+      bevel: slotOf(parts.bevel, "d"),
+      edge: slotOf(parts.edge, "d"),
+      drawn: null,
+    };
   });
-  const lines = new Map<string, Element>();
-  root.querySelectorAll("[data-mx-d]").forEach((node) => lines.set(node.getAttribute("data-mx-d") ?? "", node));
-  const digits: SVGTextElement[][] = [];
+  const lines = {} as Record<LineKey, Slot | undefined>;
+  root.querySelectorAll("[data-mx-d]").forEach((node) => {
+    lines[(node.getAttribute("data-mx-d") ?? "") as LineKey] = { node, last: node.getAttribute("d") ?? "" };
+  });
+  const digits: (DigitSlot | undefined)[][] = [];
   root.querySelectorAll<SVGTextElement>("[data-mx-digit]").forEach((node) => {
     const [wheel, digit] = (node.getAttribute("data-mx-digit") ?? "0-0").split("-").map(Number) as [number, number];
-    (digits[wheel] ??= [])[digit] = node;
+    (digits[wheel] ??= [])[digit] = { node, transform: node.getAttribute("transform") ?? "", opacity: node.getAttribute("opacity") ?? "" };
   });
-  const pins = Array.from(root.querySelectorAll<SVGCircleElement>("[data-mx-pin]"));
-  return { moved, solids, lines, digits, pins, bead: root.querySelector("[data-mx='bead'] .iso-solid") };
+  const pins = Array.from(root.querySelectorAll<SVGCircleElement>("[data-mx-pin]"), (node) => ({
+    node,
+    x: Number(node.getAttribute("cx")),
+    y: Number(node.getAttribute("cy")),
+  }));
+  const bead = root.querySelector("[data-mx='bead'] .iso-solid");
+  const readout = root.closest(".iso-plate")?.querySelector("[data-readout]") ?? null;
+  return { moved, solids, lines, digits, pins, bead, readout, said: readout?.textContent ?? "", above: bead?.hasAttribute("data-lit") ?? false, digitsDrawn: null };
 }
 
-function setSolid(cache: Cache, name: string, paths: SolidPaths) {
-  const parts = cache.solids.get(name);
-  if (!parts) return;
-  parts.fill?.setAttribute("d", paths.fill);
-  for (let shade = 0; shade < 4; shade++) parts[`s${shade}`]?.setAttribute("d", paths.shades[shade] ?? "");
-  parts.top?.setAttribute("d", paths.top);
-  parts.crease?.setAttribute("d", paths.crease);
-  parts.bevel?.setAttribute("d", paths.bevel ?? "");
-  parts.edge?.setAttribute("d", paths.outline);
+/** Writes only the parts that differ from what is already there: a solid built by the same call is the same object. */
+function setSolid(slots: SolidSlots | undefined, paths: SolidPaths) {
+  if (!slots || slots.drawn === paths) return;
+  slots.drawn = paths;
+  put(slots.fill, "d", paths.fill);
+  for (let shade = 0; shade < 4; shade++) put(slots.shades[shade], "d", paths.shades[shade] ?? "");
+  put(slots.top, "d", paths.top);
+  put(slots.crease, "d", paths.crease);
+  put(slots.bevel, "d", paths.bevel ?? "");
+  put(slots.edge, "d", paths.outline);
 }
 
 function apply(cache: Cache, frame: Frame) {
-  for (const key of ["float", "guide", "carriage", "rack", "bead", "follower", "rider", "calendar"] as const) {
-    for (const node of cache.moved[key] ?? []) node.setAttribute("transform", frame[key]);
+  for (const { key, nodes } of cache.moved) {
+    const transform = frame[key];
+    for (const slot of nodes) put(slot, "transform", transform);
   }
-  setSolid(cache, "lever", frame.lever);
-  setSolid(cache, "beam", frame.beam);
-  setSolid(cache, "pinion", frame.pinion);
-  setSolid(cache, "gearA", frame.gearA);
-  setSolid(cache, "gearB", frame.gearB);
-  setSolid(cache, "pointer", frame.pointer);
-  setSolid(cache, "dialWheel", frame.dialWheel);
-  setSolid(cache, "cam", frame.cam);
-  const lines: Record<string, string> = {
-    leverSlots: frame.leverSlots,
-    leverGroove: frame.leverGroove,
-    beamGroove: frame.beamGroove,
-    beamRings: frame.beamRings,
-    gearASpokes: frame.gearASpokes,
-    gearBSpokes: frame.gearBSpokes,
-    dialMinor: frame.dialMinor,
-    dialMajor: frame.dialMajor,
-    camMinor: frame.camMinor,
-    camMajor: frame.camMajor,
-  };
-  for (const [name, d] of Object.entries(lines)) cache.lines.get(name)?.setAttribute("d", d);
-  frame.beamPins.forEach(([x, y], index) => {
-    cache.pins[index]?.setAttribute("cx", `${Math.round(x * 10) / 10}`);
-    cache.pins[index]?.setAttribute("cy", `${Math.round(y * 10) / 10}`);
-  });
-  frame.digits.forEach((wheel, w) =>
-    wheel.forEach((digit, d) => {
-      const node = cache.digits[w]?.[d];
-      if (!node) return;
-      if (digit.opacity === 0) node.setAttribute("opacity", "0");
-      else {
-        node.setAttribute("transform", digit.transform);
-        node.setAttribute("opacity", `${Math.round(digit.opacity * 100) / 100}`);
-      }
-    }),
-  );
-  if (cache.bead) {
+  for (const name of SOLIDS) setSolid(cache.solids[name], frame[name]);
+  for (const name of LINES) put(cache.lines[name], "d", frame[name]);
+  const pins = frame.beamPins;
+  for (let index = 0; index < pins.length; index++) {
+    const pin = cache.pins[index];
+    if (!pin) continue;
+    const x = Math.round(pins[index]![0] * 10) / 10;
+    const y = Math.round(pins[index]![1] * 10) / 10;
+    if (pin.x !== x) {
+      pin.x = x;
+      pin.node.setAttribute("cx", `${x}`);
+    }
+    if (pin.y !== y) {
+      pin.y = y;
+      pin.node.setAttribute("cy", `${y}`);
+    }
+  }
+  if (cache.digitsDrawn !== frame.digits) {
+    cache.digitsDrawn = frame.digits;
+    frame.digits.forEach((wheel, w) =>
+      wheel.forEach((digit, d) => {
+        const slot = cache.digits[w]?.[d];
+        if (!slot) return;
+        if (digit.opacity === 0) {
+          if (slot.opacity !== "0") {
+            slot.opacity = "0";
+            slot.node.setAttribute("opacity", "0");
+          }
+          return;
+        }
+        const opacity = `${Math.round(digit.opacity * 100) / 100}`;
+        if (slot.transform !== digit.transform) {
+          slot.transform = digit.transform;
+          slot.node.setAttribute("transform", digit.transform);
+        }
+        if (slot.opacity !== opacity) {
+          slot.opacity = opacity;
+          slot.node.setAttribute("opacity", opacity);
+        }
+      }),
+    );
+  }
+  if (cache.bead && cache.above !== frame.above) {
+    cache.above = frame.above;
     if (frame.above) cache.bead.setAttribute("data-lit", "");
     else cache.bead.removeAttribute("data-lit");
   }
@@ -122,7 +204,7 @@ interface Run {
 }
 
 export function MixerLive({ children }: Props) {
-  const { anchor, say } = useReadout<HTMLDivElement>();
+  const { anchor } = useReadout<HTMLDivElement>();
   const cache = React.useRef<Cache | null>(null);
   const run = React.useRef<Run>({ seed: 1, clock: 0, target: null, hover: false, focus: false, holdUntil: 0, week: 1, amb: 0, still: true });
   const years = React.useRef(new Map<number, DieselWeek[]>([[1, YEAR_ONE]]));
@@ -150,13 +232,17 @@ export function MixerLive({ children }: Props) {
     const bob = r.still ? 0 : 1.1 * Math.sin(r.amb * 3.1) + 0.5 * Math.sin(r.amb * 5.3 + 1);
     const click = r.still || state.note !== "week" || seated < 0 ? 0 : Math.exp(-seated / 0.07) * Math.cos(seated * 55);
     apply(cache.current, frameOf(state, bob, click));
-    say(readoutOf(state, r.seed));
+    const said = readoutOf(state, r.seed);
+    if (cache.current.readout && cache.current.said !== said) {
+      cache.current.said = said;
+      cache.current.readout.textContent = said;
+    }
     if (state.week !== r.week) {
       r.week = state.week;
       node.setAttribute("aria-valuenow", `${state.week}`);
       node.setAttribute("aria-valuetext", describeOf(state, r.seed));
     }
-  }, [anchor, say, yearOf]);
+  }, [anchor, yearOf]);
 
   const tick = React.useCallback(
     (dt: number, calm: boolean) => {

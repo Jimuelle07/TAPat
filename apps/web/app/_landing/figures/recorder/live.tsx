@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { axisVector, holdStill, translateAlong, type SolidPaths } from "../../iso/iso-kit";
+import { axisVector, translateAlong, type SolidPaths } from "../../iso/iso-kit";
 import { asksForStillness, follow, spring, useInView, useLoop, useReadout, type Spring } from "../../iso/react/live";
 import { TOKEN_TRAVEL, TURN_CENTRE, WINDOW_H, tokenShift } from "./dyn";
 import { faceTurn, needleAt, paperAt, ratchetAt } from "./frame";
@@ -68,19 +68,20 @@ interface Nodes {
   wheelHoles: Element | null;
   wheelTicks: Element | null;
   pawlHole: Element | null;
-  barBack: Element | null;
-  barFront: Element | null;
-  barSegs: Array<Element | null>;
+  barParts: Element[];
   plunger: SVGGElement | null;
+  holds: Element[];
   lamp: SVGGElement | null;
   tokens: Array<SVGGElement | null>;
-  wheelGroup: Element | null;
-  pawlGroup: Element | null;
+  wheelKids: Element[];
+  pawlKids: Element[];
 }
 
 /** The server-rendered figure marks every moving part with `data-rc`; find each one once. */
 function collect(root: HTMLElement): Nodes {
   const find = <T extends Element>(name: string) => root.querySelector<T>(`[data-rc="${name}"]`);
+  const plunger = find<SVGGElement>("plunger");
+  const barParts = [find("barBack"), find("barFront"), ...[0, 1, 2].map((index) => find(`seg${index}`))].filter((node): node is Element => node !== null);
   return {
     trace: find("trace"),
     gridMinor: find("minor"),
@@ -96,27 +97,53 @@ function collect(root: HTMLElement): Nodes {
     wheelHoles: find("wheelHoles"),
     wheelTicks: find("wheelTicks"),
     pawlHole: find("pawlHole"),
-    barBack: find("barBack"),
-    barFront: find("barFront"),
-    barSegs: [0, 1, 2].map((index) => find(`seg${index}`)),
-    plunger: find<SVGGElement>("plunger"),
+    barParts,
+    plunger,
+    holds: plunger ? Array.from(plunger.querySelectorAll("[data-hold]")) : [],
     lamp: find<SVGGElement>("lamp"),
     tokens: [0, 1, 2].map((index) => find<SVGGElement>(`token${index}`)),
-    wheelGroup: find("wheel"),
-    pawlGroup: find("pawl"),
+    wheelKids: Array.from(find("wheel")?.children ?? []),
+    pawlKids: Array.from(find("pawl")?.children ?? []),
   };
 }
 
+const written = new WeakMap<Element, Map<string, string | null>>();
+
+/** setAttribute / removeAttribute only when the value differs from what this module last wrote. */
+function put(node: Element | null | undefined, name: string, value: string | null) {
+  if (!node) return;
+  let seen = written.get(node);
+  if (!seen) written.set(node, (seen = new Map()));
+  if (seen.get(name) === value) return;
+  seen.set(name, value);
+  if (value === null) node.removeAttribute(name);
+  else node.setAttribute(name, value);
+}
+
 /** Paints a solid by child index (fill, 4 shades, top, crease, bevel, edge). */
-function paintSolid(group: Element | null, paths: SolidPaths) {
-  if (!group) return;
-  const [fill, s0, s1, s2, s3, top, crease, bevel, edge] = Array.from(group.children);
-  fill?.setAttribute("d", paths.fill);
-  [s0, s1, s2, s3].forEach((node, index) => node?.setAttribute("d", paths.shades[index] ?? ""));
-  top?.setAttribute("d", paths.top);
-  crease?.setAttribute("d", paths.crease);
-  bevel?.setAttribute("d", paths.bevel ?? "");
-  edge?.setAttribute("d", paths.outline);
+function paintSolid(kids: Element[], paths: SolidPaths) {
+  const [fill, s0, s1, s2, s3, top, crease, bevel, edge] = kids;
+  put(fill, "d", paths.fill);
+  put(s0, "d", paths.shades[0] ?? "");
+  put(s1, "d", paths.shades[1] ?? "");
+  put(s2, "d", paths.shades[2] ?? "");
+  put(s3, "d", paths.shades[3] ?? "");
+  put(top, "d", paths.top);
+  put(crease, "d", paths.crease);
+  put(bevel, "d", paths.bevel ?? "");
+  put(edge, "d", paths.outline);
+}
+
+interface DrawCache {
+  scenario: LandingScenario | null;
+  d: number;
+  penY: number;
+  theta: number;
+  pawlLift: number;
+  lift: number;
+  sinceFire: number;
+  fade: number;
+  pan: number;
 }
 
 /* ------------------------------------------------------------------------------------------------ the live figure */
@@ -180,68 +207,89 @@ export function RecorderLive({ scenario, thresholdPhp, children }: Props) {
   if (sim.current === null) sim.current = startSim(1);
 
   const nodes = React.useRef<Nodes | null>(null);
+  const cache = React.useRef<DrawCache>({ scenario: null, d: NaN, penY: 0, theta: NaN, pawlLift: NaN, lift: NaN, sinceFire: NaN, fade: NaN, pan: NaN });
 
   const draw = React.useCallback(() => {
     if (!nodes.current && anchor.current) nodes.current = collect(anchor.current);
     const n = nodes.current;
     if (!n) return;
     const s = sim.current!;
+    const c = cache.current;
     const day = dayOf(scenario, s.d);
-    const paper = paperAt(scenario, s.d);
-    n.trace?.setAttribute("d", paper.trace);
-    n.gridMinor?.setAttribute("d", paper.minor);
-    n.gridMajor?.setAttribute("d", paper.major);
-    n.holes?.setAttribute("d", paper.holes);
+    // Everything below that depends only on the clock `d` (paper, reels, counter, needle) is rebuilt when `d` moves.
+    if (c.scenario !== scenario || c.d !== s.d) {
+      c.scenario = scenario;
+      c.d = s.d;
+      const paper = paperAt(scenario, s.d);
+      c.penY = paper.penY;
+      put(n.trace, "d", paper.trace);
+      put(n.gridMinor, "d", paper.minor);
+      put(n.gridMajor, "d", paper.major);
+      put(n.holes, "d", paper.holes);
+      const travel = (clamp(s.d, 1, days) - 1) * DAY_UNITS;
+      put(n.reelSpin, "transform", faceTurn(TURN_CENTRE.reel, travel / REEL.r));
+      put(n.supplySpin, "transform", faceTurn(TURN_CENTRE.supply, travel / SUPPLY.r));
+      const clock = stepped(clamp(s.d, 1, days));
+      const unitsAt = clock % 10;
+      const tensAt = Math.floor(clock / 10) + Math.max(0, unitsAt - 9);
+      put(n.units, "transform", `translate(0 ${-unitsAt * DIGIT_STEP})`);
+      put(n.tens, "transform", `translate(0 ${-tensAt * DIGIT_STEP})`);
+      put(n.needle, "d", needleAt(cpOn(scenario, day)));
+    }
     // The nib never rests on the ink: it tracks with a slight hunt, in the paper's own plane.
     const hunt = s.still ? 0 : 0.7 * (0.6 * Math.sin(s.t * 6.1) + 0.4 * Math.sin(s.t * 17.3));
-    const pen = translateAlong(P, [0, paper.penY + hunt, 0]);
-    n.carBack?.setAttribute("transform", pen);
-    n.carFront?.setAttribute("transform", pen);
-
-    const travel = (clamp(s.d, 1, days) - 1) * DAY_UNITS;
-    n.reelSpin?.setAttribute("transform", faceTurn(TURN_CENTRE.reel, travel / REEL.r));
-    n.supplySpin?.setAttribute("transform", faceTurn(TURN_CENTRE.supply, travel / SUPPLY.r));
-
-    const clock = stepped(clamp(s.d, 1, days));
-    const unitsAt = clock % 10;
-    const tensAt = Math.floor(clock / 10) + Math.max(0, unitsAt - 9);
-    n.units?.setAttribute("transform", `translate(0 ${-unitsAt * DIGIT_STEP})`);
-    n.tens?.setAttribute("transform", `translate(0 ${-tensAt * DIGIT_STEP})`);
-
-    n.needle?.setAttribute("d", needleAt(cpOn(scenario, day)));
+    const pen = translateAlong(P, [0, c.penY + hunt, 0]);
+    put(n.carBack, "transform", pen);
+    put(n.carFront, "transform", pen);
 
     // Each time the wheel lands, the pawl drops into its tooth and the wheel rocks back once: a click.
     const landedFor = s.t - (s.wheelStart + s.wheelDur);
     const rock = s.still || s.wheelStart === 0 || landedFor < 0 ? 0 : 0.1 * Math.exp(-landedFor / 0.09) * Math.sin(landedFor * 42);
-    const frame = ratchetAt((s.teeth + rock) * PITCH_RAD, s.lift);
-    paintSolid(n.wheelGroup, frame.wheel);
-    paintSolid(n.pawlGroup, frame.pawl);
-    n.wheelHoles?.setAttribute("d", frame.holes);
-    n.wheelTicks?.setAttribute("d", frame.ticks);
-    n.pawlHole?.setAttribute("d", frame.pawlHole);
+    const theta = (s.teeth + rock) * PITCH_RAD;
+    if (c.theta !== theta || c.pawlLift !== s.lift) {
+      c.theta = theta;
+      c.pawlLift = s.lift;
+      const frame = ratchetAt(theta, s.lift);
+      paintSolid(n.wheelKids, frame.wheel);
+      paintSolid(n.pawlKids, frame.pawl);
+      put(n.wheelHoles, "d", frame.holes);
+      put(n.wheelTicks, "d", frame.ticks);
+      put(n.pawlHole, "d", frame.pawlHole);
+    }
 
     const lift = clamp(s.bar.at, 0, 1.2) * BAR_LIFT;
-    const up = translateAlong(P, [0, 0, lift]);
-    for (const node of [n.barBack, n.barFront, ...n.barSegs]) node?.setAttribute("transform", up);
-    const [shiftX, shiftY] = axisVector(P, [0, 0, lift]);
-    if (n.plunger) {
-      n.plunger.setAttribute("transform", up);
-      holdStill(n.plunger, [shiftX, shiftY]);
+    if (c.lift !== lift) {
+      c.lift = lift;
+      const up = translateAlong(P, [0, 0, lift]);
+      for (const node of n.barParts) put(node, "transform", up);
+      const [shiftX, shiftY] = axisVector(P, [0, 0, lift]);
+      if (n.plunger) {
+        put(n.plunger, "transform", up);
+        // holdStill, over the nodes found once.
+        const text = shiftX || shiftY ? `translate(${-shiftX} ${-shiftY})` : null;
+        for (const node of n.holds) put(node, "transform", text);
+      }
     }
     if (n.lamp) {
-      if (s.relAt !== null) n.lamp.dataset.on = "";
-      else delete n.lamp.dataset.on;
+      if (s.relAt !== null) {
+        if (n.lamp.dataset.on !== "") n.lamp.dataset.on = "";
+      } else if (n.lamp.dataset.on !== undefined) delete n.lamp.dataset.on;
     }
 
     const sinceFire = s.relAt === null ? 0 : s.t - s.relAt;
-    n.tokens.forEach((node, index) => {
-      if (!node) return;
-      const slid = slideOf(sinceFire - (0.14 + 0.07 * index));
-      const onto = smooth01((TOKEN_S0 + slid - 58) / 10);
-      const [dx, dy] = axisVector(P, tokenShift(slid, 0.9 * onto));
-      node.setAttribute("transform", `translate(${dx} ${dy})`);
-      node.style.opacity = s.fade >= 1 ? "" : `${s.fade}`;
-    });
+    if (c.sinceFire !== sinceFire || c.fade !== s.fade) {
+      c.sinceFire = sinceFire;
+      c.fade = s.fade;
+      n.tokens.forEach((node, index) => {
+        if (!node) return;
+        const slid = slideOf(sinceFire - (0.14 + 0.07 * index));
+        const onto = smooth01((TOKEN_S0 + slid - 58) / 10);
+        const [dx, dy] = axisVector(P, tokenShift(slid, 0.9 * onto));
+        put(node, "transform", `translate(${dx} ${dy})`);
+        const opacity = s.fade >= 1 ? "" : `${s.fade}`;
+        if (node.style.opacity !== opacity) node.style.opacity = opacity;
+      });
+    }
 
     if (s.shown !== day) {
       s.shown = day;
@@ -252,7 +300,10 @@ export function RecorderLive({ scenario, thresholdPhp, children }: Props) {
         node.setAttribute("aria-valuetext", readoutOn(scenario, day));
       }
     }
-    anchor.current?.style.setProperty("--rc-pan", s.pan.toFixed(3));
+    if (c.pan !== s.pan) {
+      c.pan = s.pan;
+      anchor.current?.style.setProperty("--rc-pan", s.pan.toFixed(3));
+    }
   }, [anchor, days, say, scenario]);
 
   /** Advance every moving part by dt seconds, then paint. */

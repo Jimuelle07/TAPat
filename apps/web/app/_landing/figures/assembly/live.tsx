@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { SolidPaths } from "@/app/_landing/iso/iso-kit";
 import { asksForStillness, follow, useInView, useLoop, useReadout } from "@/app/_landing/iso/react/live";
 import { drawOf, poseAt, stationU, tourAt, tourU, TOUR_LENGTH, U_END, U_REST, type Draw } from "./frame";
 import type { Truth } from "./truth";
@@ -17,64 +18,114 @@ const DECIDED = 5.0;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-interface Nodes {
-  moves: Array<[string, SVGGElement]>;
-  lines: Array<[string, SVGPathElement]>;
-  solids: Array<[string, SVGGElement]>;
-  flags: Array<[string, Element]>;
-  vis: Array<[string, SVGGElement]>;
+/** A node plus the last value written to it, so an unchanged value costs a string compare and no DOM write. */
+interface Slot<T extends Element = Element> {
+  name: string;
+  node: T;
+  last: string;
+  lastOpacity: string;
 }
 
+interface SolidSlot {
+  name: string;
+  parts: Array<{ key: string; node: SVGPathElement; last: string }>;
+}
+
+interface Nodes {
+  moves: Array<Slot<SVGGElement>>;
+  lines: Array<Slot<SVGPathElement>>;
+  solids: SolidSlot[];
+  flags: Slot[];
+  vis: Array<Slot<SVGGElement>>;
+}
+
+const slot = <T extends Element>(name: string, node: T): Slot<T> => ({ name, node, last: "", lastOpacity: "" });
+
 const collect = (root: HTMLElement): Nodes => ({
-  moves: [...root.querySelectorAll<SVGGElement>("[data-m]")].map((node) => [node.dataset.m!, node]),
-  lines: [...root.querySelectorAll<SVGPathElement>("[data-d]")].map((node) => [node.dataset.d!, node]),
-  solids: [...root.querySelectorAll<SVGGElement>("[data-solid]")].map((node) => [node.dataset.solid!, node]),
-  flags: [...root.querySelectorAll("[data-flag]")].map((node) => [node.getAttribute("data-flag")!, node]),
-  vis: [...root.querySelectorAll<SVGGElement>("[data-vis]")].map((node) => [node.dataset.vis!, node]),
+  moves: [...root.querySelectorAll<SVGGElement>("[data-m]")].map((node) => slot(node.dataset.m!, node)),
+  lines: [...root.querySelectorAll<SVGPathElement>("[data-d]")].map((node) => slot(node.dataset.d!, node)),
+  solids: [...root.querySelectorAll<SVGGElement>("[data-solid]")].map((node) => ({
+    name: node.dataset.solid!,
+    parts: [...node.querySelectorAll<SVGPathElement>("[data-f]")].map((part) => ({ key: part.dataset.f!, node: part, last: "" })),
+  })),
+  flags: [...root.querySelectorAll("[data-flag]")].map((node) => slot(node.getAttribute("data-flag")!, node)),
+  vis: [...root.querySelectorAll<SVGGElement>("[data-vis]")].map((node) => slot(node.dataset.vis!, node)),
 });
 
-function write(nodes: Nodes, draw: Draw, seen: Map<string, string>) {
-  const put = (key: string, value: string, apply: () => void) => {
-    if (seen.get(key) === value) return;
-    seen.set(key, value);
-    apply();
-  };
-  nodes.moves.forEach(([name, node], index) => {
-    const transform = draw.move[name];
-    if (transform === undefined) return;
-    put(`m:${name}:${index}`, transform, () => node.setAttribute("transform", transform));
-    if (name.startsWith("chip")) put(`o:${name}:${index}`, `${draw.opacity}`, () => (node.style.opacity = `${draw.opacity}`));
-  });
-  for (const [name, node] of nodes.lines) {
-    const d = draw.lines[name];
-    if (d !== undefined) put(`d:${name}`, d, () => node.setAttribute("d", d));
+function pathPart(paths: SolidPaths, key: string) {
+  switch (key) {
+    case "fill":
+      return paths.fill;
+    case "outline":
+      return paths.outline;
+    case "top":
+      return paths.top;
+    case "s0":
+      return paths.shades[0] ?? "";
+    case "s1":
+      return paths.shades[1] ?? "";
+    case "s2":
+      return paths.shades[2] ?? "";
+    case "s3":
+      return paths.shades[3] ?? "";
+    default:
+      return undefined;
   }
-  for (const [name, node] of nodes.solids) {
-    const paths = draw.solids[name];
-    if (!paths) continue;
-    const values: Record<string, string> = { fill: paths.fill, outline: paths.outline, top: paths.top, s0: paths.shades[0] ?? "", s1: paths.shades[1] ?? "", s2: paths.shades[2] ?? "", s3: paths.shades[3] ?? "" };
-    for (const part of node.querySelectorAll<SVGPathElement>("[data-f]")) {
-      const key = part.dataset.f!;
-      const value = values[key];
-      if (value !== undefined) put(`s:${name}:${key}`, value, () => part.setAttribute("d", value));
+}
+
+function write(nodes: Nodes, draw: Draw) {
+  const opacity = `${draw.opacity}`;
+  for (const entry of nodes.moves) {
+    const transform = draw.move[entry.name];
+    if (transform === undefined) continue;
+    if (entry.last !== transform) {
+      entry.last = transform;
+      entry.node.setAttribute("transform", transform);
+    }
+    if (entry.name.startsWith("chip") && entry.lastOpacity !== opacity) {
+      entry.lastOpacity = opacity;
+      entry.node.style.opacity = opacity;
     }
   }
-  for (const [spec, node] of nodes.vis) {
-    const negate = spec.startsWith("!");
-    const on = draw.flags[negate ? spec.slice(1) : spec];
+  for (const entry of nodes.lines) {
+    const d = draw.lines[entry.name];
+    if (d !== undefined && entry.last !== d) {
+      entry.last = d;
+      entry.node.setAttribute("d", d);
+    }
+  }
+  for (const solid of nodes.solids) {
+    const paths = draw.solids[solid.name];
+    if (!paths) continue;
+    for (const part of solid.parts) {
+      const value = pathPart(paths, part.key);
+      if (value !== undefined && part.last !== value) {
+        part.last = value;
+        part.node.setAttribute("d", value);
+      }
+    }
+  }
+  for (const entry of nodes.vis) {
+    const negate = entry.name.startsWith("!");
+    const on = draw.flags[negate ? entry.name.slice(1) : entry.name];
     if (on === undefined) continue;
     const shown = negate ? !on : on;
-    put(`v:${spec}`, shown ? "1" : "0", () => (node.style.display = shown ? "" : "none"));
+    const text = shown ? "1" : "0";
+    if (entry.last === text) continue;
+    entry.last = text;
+    entry.node.style.display = shown ? "" : "none";
   }
-  nodes.flags.forEach(([name, node], index) => {
-    const on = draw.flags[name];
-    if (on === undefined) return;
-    put(`f:${name}:${index}`, on ? "1" : "0", () => {
-      if (node.tagName === "path") node.setAttribute("data-tone", on ? "lit" : (node.getAttribute("data-tone0") ?? "lo"));
-      else if (node.querySelector(".iso-wire")) node.querySelector(".iso-line")?.toggleAttribute("data-flow", on);
-      else node.firstElementChild?.toggleAttribute("data-lit", on);
-    });
-  });
+  for (const entry of nodes.flags) {
+    const on = draw.flags[entry.name];
+    if (on === undefined) continue;
+    const text = on ? "1" : "0";
+    if (entry.last === text) continue;
+    entry.last = text;
+    const node = entry.node;
+    if (node.tagName === "path") node.setAttribute("data-tone", on ? "lit" : (node.getAttribute("data-tone0") ?? "lo"));
+    else if (node.querySelector(".iso-wire")) node.querySelector(".iso-line")?.toggleAttribute("data-flow", on);
+    else node.firstElementChild?.toggleAttribute("data-lit", on);
+  }
 }
 
 interface Props {
@@ -87,7 +138,6 @@ interface Props {
 export function AssemblyLive({ truth, rest }: Props) {
   const { anchor: anchorRef, say } = useReadout<HTMLDivElement>();
   const nodes = React.useRef<Nodes | null>(null);
-  const seen = React.useRef(new Map<string, string>());
   const visible = useInView(anchorRef);
   const spoken = React.useRef(rest);
 
@@ -104,6 +154,8 @@ export function AssemblyLive({ truth, rest }: Props) {
     placed: false,
     latch: 0,
     stopped: false,
+    said: null as string | null,
+    shift: "",
   });
 
   const frame = React.useCallback(
@@ -132,9 +184,16 @@ export function AssemblyLive({ truth, rest }: Props) {
         }
         s.u = calm ? s.target : follow(s.u, s.target, dt, GLIDE, false);
       }
+      // Measure before writing: layout is still clean from the last frame, so these reads do not force a reflow.
+      const box = root.firstElementChild as HTMLElement | null;
+      const boxWidth = box ? box.offsetWidth : 0;
+      const rootWidth = box ? root.clientWidth : 0;
       const pose = poseAt(s.u, s.frozen, s.clock, truth);
-      write(nodes.current, drawOf(pose), seen.current);
-      say(pose.say);
+      write(nodes.current, drawOf(pose));
+      if (s.said !== pose.say) {
+        s.said = pose.say;
+        say(pose.say);
+      }
       const mark = `${pose.step}:${s.frozen}`;
       if (s.mark !== mark) {
         s.mark = mark;
@@ -145,18 +204,22 @@ export function AssemblyLive({ truth, rest }: Props) {
           root.setAttribute("aria-valuenow", `${pose.step + 1}`);
         }
       }
-      const box = root.firstElementChild as HTMLElement | null;
       if (box) {
-        const over = box.offsetWidth - root.clientWidth;
+        const over = boxWidth - rootWidth;
         if (over > 1) {
           const head = pose.chips[0] ?? { x: 0, y: 0 };
           const focus = at([head.x, head.y, 0])[0] / WIDTH;
-          const want = clamp(focus * box.offsetWidth - root.clientWidth / 2, 0, over);
+          const want = clamp(focus * boxWidth - rootWidth / 2, 0, over);
           s.pan = calm || !s.placed ? want : follow(s.pan, want, dt, 0.4, false);
           s.placed = true;
-          box.style.transform = `translateX(${-Math.round(s.pan * 10) / 10}px)`;
+          const shift = `translateX(${-Math.round(s.pan * 10) / 10}px)`;
+          if (s.shift !== shift) {
+            s.shift = shift;
+            box.style.transform = shift;
+          }
         } else if (s.pan !== 0) {
           s.pan = 0;
+          s.shift = "";
           box.style.transform = "";
         }
       }

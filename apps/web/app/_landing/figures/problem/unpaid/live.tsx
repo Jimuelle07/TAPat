@@ -6,6 +6,7 @@ import { useInView, useLoop, useReadout, useStillness } from "@/app/_landing/iso
 import { dialAt } from "./frame";
 import { REST_TIME, readoutOf, stateAt } from "./model";
 import { gateShift, plateShift, shift } from "./view";
+import { setAttr, setDisplay, setOpacity } from "../write";
 
 interface Props {
   label: string;
@@ -61,29 +62,29 @@ export function UnpaidLive(props: Props) {
     const { coins, minor, major, pointer, ribs } = state.nodes;
     state.clock += dt;
     const now = stateAt(state.clock);
-    pusher.current?.setAttribute("transform", plateShift(now.plate));
-    gate.current?.setAttribute("transform", gateShift(now.gate));
+    setAttr(pusher.current, "transform", plateShift(now.plate));
+    setAttr(gate.current, "transform", gateShift(now.gate));
     now.coins.forEach((coin, index) => {
       const pair = coins[index];
       if (!pair) return;
       const onFloor = coin.place === "floor";
       const active = onFloor ? pair.in : pair.out;
       const idle = onFloor ? pair.out : pair.in;
-      if (idle.style.display !== "none") idle.style.display = "none";
-      active.style.display = "";
+      setDisplay(idle, "none");
+      setDisplay(active, "");
       // while the dial counts, a wave runs along the idle coins: each lifts a little and glints as it passes
       const wave = onFloor && now.phase === "idle" ? Math.pow(0.5 + 0.5 * Math.sin(state.clock * 2.6 - (index % 5) * 0.9 - Math.floor(index / 5) * 2), 2) : 0;
-      active.setAttribute("transform", shift(coin.offset[0], coin.offset[1], coin.offset[2] + 1.1 * wave));
+      setAttr(active, "transform", shift(coin.offset[0], coin.offset[1], coin.offset[2] + 1.1 * wave));
       const glint = onFloor && now.phase === "idle" ? 0.6 + 0.4 * wave : coin.alpha;
-      active.style.opacity = glint === 1 ? "" : `${glint}`;
+      setOpacity(active, glint === 1 ? "" : `${glint}`);
     });
     const dial = dialAt(now.months);
-    minor?.setAttribute("d", dial.minor);
-    major?.setAttribute("d", dial.major);
-    pointer?.setAttribute("d", dial.pointer);
+    setAttr(minor, "d", dial.minor);
+    setAttr(major, "d", dial.major);
+    setAttr(pointer, "d", dial.pointer);
     dial.ribs.forEach((rib, index) => {
-      ribs[index]?.setAttribute("d", rib.d);
-      if (ribs[index]) ribs[index].style.opacity = `${rib.alpha}`;
+      setAttr(ribs[index], "d", rib.d);
+      setOpacity(ribs[index], `${rib.alpha}`);
     });
     const text = readoutOf(now);
     if (text !== state.said) {

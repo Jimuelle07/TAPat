@@ -190,6 +190,9 @@ html:has(.landing) { scroll-padding-top: 6rem; }
   .cover-kb { position: absolute; inset: 0; animation: cover-kb 24s ease-in-out infinite alternate; will-change: transform; }
 }
 @keyframes cover-kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -1%); } }
+/* Off-screen figures are skipped: no style, layout, paint or CSS animation ticks, and fewer paint chunks for every on-screen frame
+   (the figures are thousands of SVG nodes each). The 360px is only a first guess; `auto` keeps the real height once drawn. */
+.landing .iso-plate { content-visibility: auto; contain-intrinsic-block-size: auto 360px; }
 /* Matrix rows: wrong, arrow, fix. */
 .matrix-row { display: grid; gap: 4px 20px; padding: 16px 0; border-bottom: 1px solid var(--color-ring-surface); align-items: start; }
 .matrix-arrow { font-family: var(--font-mono); color: var(--color-primary); }
