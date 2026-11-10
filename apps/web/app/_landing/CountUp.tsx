@@ -1,106 +1,72 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const DURATION_MS = 1400;
 
-export function CountUp({
-  value,
-  decimals = 0,
-  prefix = "",
-  suffix = "",
-  className,
-}: {
-  value: number;
-  decimals?: number;
-  prefix?: string;
-  suffix?: string;
-  className?: string;
-}) {
-  const fmt = useCallback(
-    (n: number) =>
-      prefix +
-      n.toLocaleString("en-US", {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      }) +
-      suffix,
-    [decimals, prefix, suffix],
-  );
-  const final = fmt(value);
-  const animatedRef = useRef<HTMLSpanElement>(null);
-  const rootRef = useRef<HTMLSpanElement>(null);
+/** Splits "709.88M" into digits, decimals and the rest so every frame keeps the final figure's shape. */
+function parse(final: string) {
+  const match = /^([\d,]+)(?:\.(\d+))?(.*)$/.exec(final);
+  if (!match) return null;
+  const whole = Number(match[1].replace(/,/g, ""));
+  const decimals = match[2]?.length ?? 0;
+  const value = Number(`${whole}${decimals ? `.${match[2]}` : ""}`);
+  return { value, decimals, suffix: match[3], grouped: match[1].includes(",") };
+}
+
+/**
+ * Counts up once when scrolled into view. The final text is the server-rendered value and always stays in the
+ * layout (it sizes the box and is what assistive tech reads), so there is no layout shift. Under reduced motion
+ * nothing animates.
+ */
+export function CountUp({ final }: { final: string }) {
+  const root = useRef<HTMLSpanElement>(null);
+  const [frame, setFrame] = useState<string | null>(null);
 
   useEffect(() => {
-    const root = rootRef.current;
-    const animated = animatedRef.current;
-    if (!root || !animated) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      animated.textContent = final;
-      return;
-    }
+    const node = root.current;
+    const parts = parse(final);
+    if (!node || !parts || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let raf = 0;
-    let first = true;
-    const run = () => {
-      const start = performance.now();
-      const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / DURATION_MS);
-        const eased = 1 - Math.pow(1 - t, 3);
-        animated.textContent = fmt(value * eased);
-        if (t < 1) raf = requestAnimationFrame(tick);
-        else animated.textContent = fmt(value);
-      };
-      animated.textContent = fmt(0);
-      raf = requestAnimationFrame(tick);
+    const format = (n: number) => {
+      const text = n.toLocaleString("en-US", {
+        minimumFractionDigits: parts.decimals,
+        maximumFractionDigits: parts.decimals,
+        useGrouping: parts.grouped,
+      });
+      return `${text}${parts.suffix}`;
     };
-
     const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.some((e) => e.isIntersecting);
-        if (first) {
-          first = false;
-          if (!visible) {
-            animated.textContent = fmt(0);
-            return;
-          }
-          // In view on mount: page restored mid-scroll -> keep final, no flash.
-          if (window.scrollY > 0) {
-            observer.disconnect();
-            return;
-          }
-          observer.disconnect();
-          run();
-          return;
-        }
-        if (visible) {
-          observer.disconnect();
-          run();
-        }
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        const start = performance.now();
+        const tick = (now: number) => {
+          const t = Math.min(1, (now - start) / DURATION_MS);
+          const eased = 1 - (1 - t) ** 3;
+          setFrame(t < 1 ? format(parts.value * eased) : null);
+          if (t < 1) raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
       },
-      { threshold: 0.4 },
+      { threshold: 0.6 },
     );
-    observer.observe(root);
-
+    observer.observe(node);
     return () => {
       observer.disconnect();
       cancelAnimationFrame(raf);
-      animated.textContent = final;
     };
-  }, [value, fmt, final]);
+  }, [final]);
 
   return (
-    <span
-      ref={rootRef}
-      className={`inline-grid tabular-nums ${className ?? ""}`}
-    >
-      <span className="sr-only">{final}</span>
-      <span aria-hidden="true" className="invisible [grid-area:1/1]">
-        {final}
-      </span>
-      <span ref={animatedRef} aria-hidden="true" className="[grid-area:1/1]">
-        {final}
-      </span>
+    <span ref={root} className="inline-grid tabular-nums">
+      <span className={frame === null ? "col-start-1 row-start-1" : "col-start-1 row-start-1 invisible"}>{final}</span>
+      {frame === null ? null : (
+        <span aria-hidden="true" className="col-start-1 row-start-1">
+          {frame}
+        </span>
+      )}
     </span>
   );
 }

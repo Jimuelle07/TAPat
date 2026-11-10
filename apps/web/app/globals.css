@@ -102,126 +102,756 @@ dialog::backdrop {
   }
 }
 
-/* ---- Landing page (/) ---------------------------------------------------------------------------------------------
-   Editorial ledger, evolved: IBM Plex Sans and Plex Mono on the app's cream with paper grain, 1px ink rules, bento tiles,
-   one deep ink-green band, a kinetic headline and a giant footer wordmark. Everything is scoped to .landing.
-   Motion: CSS (headline rise, scroll reveals, button sweep), IntersectionObserver (CountUp, Reveal), Remotion film (agents), and the nav logo (NavTricycle): braking into its slot once on load, and driving off to
-   the right when "Open the app" is clicked. All of it is off or static under reduced motion. */
-html:has(.landing) { scroll-padding-top: 6rem; }
-@media (prefers-reduced-motion: no-preference) {
-  html:has(.landing) { scroll-behavior: smooth; }
+/* ---- Landing page ---- */
+html:has(.landing) {
+  scrollbar-color: var(--color-primary) var(--color-surface);
 }
-.landing {
-  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
-  font-family: var(--font-sans);
-  font-size: 17px;
-  line-height: 1.55;
-  background: var(--color-surface);
+
+/* The app's primary ring disappears on the green grounds. */
+.landing .text-surface a:focus-visible {
+  outline-color: var(--color-surface);
+}
+
+.landing ::selection {
+  background: var(--color-accent);
   color: var(--color-text);
 }
-.landing ::selection { background: var(--color-text); color: var(--color-surface); }
-.doc-h1 { font-size: clamp(34px, 4.2vw, 54px); line-height: 1.08; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
-.doc-h2 { font-size: clamp(24px, 2.4vw, 30px); line-height: 1.2; font-weight: 600; text-wrap: balance; }
-.doc-h3 { font-size: 19px; line-height: 1.3; font-weight: 600; }
-.doc-lead { font-size: clamp(18px, 1.5vw, 20px); line-height: 1.5; text-wrap: pretty; max-width: 60ch; }
-.doc-small { font-size: 14px; line-height: 1.45; }
-.doc-mono { font-family: var(--font-mono); font-size: 14px; line-height: 1.5; font-variant-numeric: tabular-nums; }
-.doc-link { color: var(--color-primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-.doc-link:hover { text-decoration-thickness: 2px; }
-.doc-btn {
-  position: relative; isolation: isolate; overflow: hidden; gap: 8px;
-  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px;
-  border-radius: 2px; background: var(--color-text); color: var(--color-surface); font-weight: 500;
+
+/* Landing type. Words get the new faces; numbers keep Outfit and Azeret. Neither of those has a peso sign, and a font
+   stack can't supply one (next/font's generated fallback claims the glyph first), so the sign gets its own span. */
+.landing {
+  --font-mono: var(--font-plex), ui-monospace, monospace;
+  --font-num: var(--font-azeret), ui-monospace, monospace;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 }
-/* Hover fill sweep: Pressed Green slides in from the left behind the label. */
-.doc-btn::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--color-pressed); transform: scaleX(0); transform-origin: left; }
-.doc-btn:hover::before, .doc-btn:focus-visible::before { transform: scaleX(1); }
-.doc-btn-arrow, .doc-nudge { display: inline-block; }
-.doc-btn:hover .doc-btn-arrow, .doc-link:hover .doc-nudge { transform: translateX(3px); }
-@media (prefers-reduced-motion: no-preference) {
-  .doc-btn::before { transition: transform 260ms var(--ease-out); }
-  .doc-btn-arrow, .doc-nudge { transition: transform 200ms var(--ease-out); }
+.num {
+  font-family: var(--font-num);
 }
-.landing-pill .doc-btn { border-radius: 9999px; }
-/* Parked behind the pill's edge until NavTricycle drives it in (the same 92px hides it at both logo sizes); the body's pivot is set per frame there. */
-@media (prefers-reduced-motion: no-preference) {
-  .nav-tricycle[data-drive="pending"], .nav-tricycle[data-drive="running"] { transform: translateX(-92px); }
+.peso {
+  font-family: var(--font-display);
 }
-/* Paper grain: tiny feTurbulence noise tiled over everything, fixed, ink-toned at ~4% so it reads as paper tooth, never as pattern. */
-.landing::before {
-  content: ""; position: fixed; inset: 0; z-index: 30; pointer-events: none; opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
+.num .peso {
+  font-family: var(--font-mono);
 }
-/* Kinetic headline: each line rises out of a mask on load (CSS only; visible without JS and under reduced motion). */
-.doc-hero-h1 { font-size: clamp(34px, 3.8vw, 56px); line-height: 1.02; font-weight: 600; letter-spacing: -0.03em; }
-.hl { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
-.hl > span { display: block; }
-@keyframes landing-rise { from { transform: translateY(105%); } to { transform: none; } }
-@media (prefers-reduced-motion: no-preference) {
-  .hl > span { animation: landing-rise 800ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 70ms + 80ms); }
+/* The clerk's annotation: the hero's "no." and the contract slips. */
+.landing-note {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
 }
-/* Scroll reveals: Reveal.tsx marks an off-screen element "pending", then "in" once seen. No attribute (no JS) means visible. */
-@media (prefers-reduced-motion: no-preference) {
-  .landing [data-reveal] { transition: opacity 600ms var(--ease-out) var(--reveal-delay, 0ms), transform 600ms var(--ease-out) var(--reveal-delay, 0ms); }
-  .landing [data-reveal="pending"] { opacity: 0; transform: translateY(12px); }
+
+.landing-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 76px);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
 }
-/* Bento tiles. The art area bleeds to the tile's edges (a film from ProblemFilm), ruled off from the text below. */
-.tile { border: 1px solid var(--color-text); background: var(--color-raised); color: var(--color-text); border-radius: 2px; padding: 24px; overflow: hidden; }
-.tile-ink { background: var(--color-text); color: var(--color-surface); container-type: inline-size; }
-.tile-art { display: block; margin: -24px -24px 8px; border-bottom: 1px solid var(--color-text); overflow: hidden; }
-.tile-ink .tile-art { border-bottom-color: rgb(251 245 227 / 0.35); }
-/* "The demo program" under the hero film: a compact ruled key/value list. */
-.glance-h { font-size: 15px; line-height: 1.3; font-weight: 600; margin-bottom: 4px; }
-.glance-row { display: grid; grid-template-columns: 6.5rem 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--color-ring-surface); align-items: baseline; }
-.glance-row .doc-mono { font-size: 13px; line-height: 1.4; }
-@media (prefers-reduced-motion: no-preference) {
-  .tile { transition: translate 160ms var(--ease-out), border-color 160ms var(--ease-out); }
-  .tile:hover { translate: 0 -2px; border-color: var(--color-primary); }
-  .landing [data-reveal] { transition: opacity 600ms var(--ease-out) var(--reveal-delay, 0ms), transform 600ms var(--ease-out) var(--reveal-delay, 0ms), translate 160ms var(--ease-out), border-color 160ms var(--ease-out); }
-  /* Matrix rows slide in from the left instead of rising. */
-  .landing .matrix-row[data-reveal="pending"] { transform: translateX(-28px); }
-  /* Section headings: a short underline draws in once the heading is seen (no JS or reduced motion: drawn). */
-  .doc-h2-draw::after { content: ""; display: block; width: 48px; height: 2px; margin: 12px auto 0; background: currentColor; transform-origin: left; transition: transform 700ms var(--ease-out) 150ms; }
-  .doc-h2-draw[data-draw="pending"]::after { transform: scaleX(0); }
-  /* Cover: Ken Burns on the image, parallax drift on its layer (--cover-y is written on scroll by CoverMotion). */
-  .cover-parallax { position: absolute; inset: -40px 0 0 0; transform: translate3d(0, var(--cover-y, 0px), 0); will-change: transform; }
-  .cover-kb { position: absolute; inset: 0; animation: cover-kb 24s ease-in-out infinite alternate; will-change: transform; }
+
+.landing-lead {
+  font-size: clamp(17px, 1.45vw, 20px);
+  line-height: 1.5;
+  text-wrap: pretty;
 }
-@keyframes cover-kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -1%); } }
-/* Matrix rows: wrong, arrow, fix. */
-.matrix-row { display: grid; gap: 4px 20px; padding: 16px 0; border-bottom: 1px solid var(--color-ring-surface); align-items: start; }
-.matrix-arrow { font-family: var(--font-mono); color: var(--color-primary); }
-@media (min-width: 768px) {
-  .matrix-row { grid-template-columns: 1fr 2rem 1fr; align-items: baseline; }
+
+/* ---- Landing: hero terminal and the printing receipt ---- */
+html:has(.landing) {
+  scroll-padding-top: 4rem;
 }
-/* The deep ink-green band: full bleed, Cream text, Ink-on-Cream cards (.band-card) inside. */
-.band { background: #16261f; color: var(--color-surface); }
-.band :where(a, button, input, select, summary):focus-visible { outline-color: var(--color-surface); }
-.band .doc-link { color: var(--color-mint); }
-.band .doc-link:hover { color: var(--color-surface); }
-.band-card { background: var(--color-surface); color: var(--color-text); border-radius: 2px; }
-.band-card :where(a, button, input, select, summary):focus-visible { outline-color: var(--color-primary); }
-.band-card .doc-link { color: var(--color-primary); }
-.band-card .doc-link:hover { color: var(--color-text); }
-.band-outline { border: 1px solid rgb(251 245 227 / 0.35); border-radius: 2px; padding: 16px; }
-/* "How it's built": cards joined by a thin line (vertical on mobile, horizontal where cards sit side by side). */
-.flow-step { position: relative; }
-.flow-step::after { content: ""; position: absolute; background: rgb(251 245 227 / 0.55); left: 50%; top: 100%; width: 1px; height: 16px; }
-.flow-step:last-child::after { display: none; }
-@media (min-width: 640px) {
-  .flow-step::after { left: 100%; top: 50%; width: 16px; height: 1px; }
-  .flow-step:nth-child(2n)::after { display: none; }
+/* Below lg the step pill floats at the bottom edge: keep anchor jumps and focus clear of it. */
+@media (max-width: 1023.98px) {
+  html:has(.landing) {
+    scroll-padding-bottom: 5rem;
+  }
+}
+
+
+.landing-display {
+  font-family: var(--font-display);
+  font-size: clamp(56px, 8vw, 128px);
+  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+@media (max-width: 639.98px) {
+  .landing-display {
+    font-size: clamp(42px, 13vw, 56px);
+  }
+}
+
+
+.landing-step {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 3.6vw, 52px);
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.landing-figure {
+  font-size: clamp(48px, 6.4vw, 92px);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* The hero's "no." gets a terracotta stroke whenever the terminal declines a tap. A clip wipes it in, so its speed
+   doesn't depend on the word's width; the negative insets leave room for the stroke's thickness and round caps. */
+.hero-no-mark {
+  clip-path: inset(-100% 105% -100% -5%);
+}
+.hero:has([data-verdict="declined"]) .hero-no-mark {
+  clip-path: inset(-100% -5% -100% -5%);
+}
+
+/* Light on the Forest hero: a lighter pool behind the terminal, a darker edge. Palette tokens only. */
+.hero {
+  background-image:
+    radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, var(--color-pressed) 140%),
+    radial-gradient(ellipse 70% 60% at 50% 78%, var(--color-primary) 0%, transparent 75%);
 }
 @media (min-width: 1024px) {
-  .flow-step:nth-child(2n)::after { display: block; }
-  .flow-step:nth-child(4n)::after { display: none; }
+  .hero {
+    background-image:
+      radial-gradient(ellipse 120% 100% at 50% 45%, transparent 55%, var(--color-pressed) 140%),
+      radial-gradient(ellipse 45% 65% at 77% 48%, var(--color-primary) 0%, transparent 75%);
+  }
 }
-/* Footer wordmark: giant, Ink at ~9%, clipped flush to the bottom edge. */
-.footer-wordmark {
-  font-family: var(--font-sans); font-weight: 600; font-size: clamp(96px, 18vw, 280px); line-height: 0.8; letter-spacing: -0.04em;
-  text-align: center; color: rgb(27 46 40 / 0.09); white-space: nowrap; user-select: none; overflow: hidden; padding-top: 0.06em; margin: 0;
+
+/* The cream header floats over the page; once scrolled its shadow deepens (CSS scroll timeline, no JS). */
+.landing-header {
+  box-shadow: var(--depth-1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .landing-header {
+      animation: header-lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 160px;
+    }
+  }
+}
+@keyframes header-lift {
+  to { box-shadow: var(--depth-2); }
+}
+
+/* Tactile CTAs: raised with a sheen, deeper on hover, pressed in on :active. The outline look stays flat. */
+.cta-raised,
+.cta-outline {
+  transition: color 200ms, background-color 200ms, box-shadow 200ms var(--ease-out), translate 200ms var(--ease-out);
+}
+.cta-raised {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .cta-raised:hover {
+    box-shadow: var(--depth-2), var(--depth-sheen);
+    translate: 0 -1px;
+  }
+  .cta-outline:hover {
+    translate: 0 -1px;
+  }
+}
+.cta-raised:active {
+  box-shadow: var(--depth-inset);
+  translate: 0 1px;
+}
+
+/* Hero terminal: the stage is recessed, the choice keys are raised and press in, the slip rests slightly proud of the card. */
+.tap-stage {
+  position: relative;
+}
+.tap-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--depth-inset);
+}
+.tap-key {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+.tap-key:active,
+.tap-key[aria-pressed="true"] {
+  box-shadow: var(--depth-inset);
+}
+.tap-key:active {
+  translate: 0 1px;
+}
+.slip-lift {
+  filter: drop-shadow(0 1px 1px rgb(27 46 40 / 0.14)) drop-shadow(0 4px 6px rgb(27 46 40 / 0.12));
+}
+
+/* The sample feed is a slot cut into the page: inner shadow top and bottom, stamps resting on the band. */
+.ticker-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  box-shadow: inset 0 6px 8px -4px rgb(0 0 0 / 0.55), inset 0 -5px 6px -4px rgb(0 0 0 / 0.45);
+}
+.ticker-copy li > span:last-child {
+  box-shadow: var(--depth-1), var(--depth-sheen);
+}
+
+/* The pinned receipt is the loop's hero object. A filter, so the shadow follows the torn edge (drop-shadow has no spread, so the blur is tighter than --depth-3). */
+.receipt-aside {
+  filter: drop-shadow(0 2px 3px rgb(27 46 40 / 0.1)) drop-shadow(0 22px 22px rgb(27 46 40 / 0.2));
+}
+.printer-slot {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--color-text) 55%, black) 0%, var(--color-text) 55%, color-mix(in oklab, var(--color-text) 85%, white) 100%);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.6), inset 0 -1px 0 rgb(255 255 255 / 0.18), 0 1px 0 rgb(255 255 255 / 0.5);
+}
+
+/* Static feed: one pass, clipped if it overflows. The motion block turns it into a marquee. */
+.ticker-track {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+.ticker-copy {
+  display: flex;
+  gap: 2.5rem;
+  padding: 0 1.5rem;
+}
+.ticker-copy[aria-hidden="true"] {
+  display: none;
+}
+
+/* The finished state: every term lit. Under motion the equation lights up in turn as it scrolls in. */
+.eq-term {
+  background-color: var(--color-raised);
+  color: var(--color-text);
+  border-color: var(--color-text);
+}
+
+/* The hero art sits behind the terminal column, clear of the headline. */
+@media (min-width: 1024px) {
+  .hero .band-arc {
+    --art: min(92vmin, 52vw, 860px);
+    right: calc(var(--art) * -0.22);
+    width: var(--art);
+  }
+}
+
+/* The closing band is Mustard: Pale Mustard arc on the right, coins in the band's shade low on the left. */
+.close-band ::selection {
+  background: var(--color-surface);
+}
+.close-arc {
+  --arc: clamp(320px, 69vw, 1000px);
+  position: absolute;
+  top: 56%;
+  right: 0;
+  width: var(--arc);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-accent-tint);
+  translate: 50% -50%;
+}
+.close-coin {
+  fill: color-mix(in srgb, var(--color-ring-accent) 35%, var(--color-accent));
+  stroke: var(--color-ring-accent);
+}
+/* This band ends the page, so the default reveal range would leave the buttons part-faded over the coins at the last scroll position. */
+.close-band .landing-reveal {
+  animation-range: entry 0% entry 100%;
+}
+
+/* The closing band's art sits low and left, in the corner behind the buttons. */
+@media (min-width: 1024px) {
+  .close-band .band-arc {
+    --art: min(70vmin, 40vw, 640px);
+    right: auto;
+    left: calc(var(--art) * -0.45);
+    top: auto;
+    bottom: calc(var(--art) * -0.5);
+    width: var(--art);
+    translate: none;
+  }
+}
+
+/* Below lg the close art would sit behind the copy: push it down and left, and soften it. Base .band-arc rules are untouched. */
+@media (max-width: 1023.98px) {
+  .close-band .band-arc {
+    right: auto;
+    left: -30vw;
+    bottom: -34vw;
+    width: min(96vw, 560px);
+    opacity: 0.35;
+  }
+}
+
+/* The hero's tap art: rings breathe out of phase, as the Remotion piece did. Desktop only, where the terminal doesn't hide them;
+   static on phones and under reduced motion. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .hero-tap-disc {
+    animation: hero-tap-breathe 6s ease-in-out infinite;
+  }
+  .hero-tap-ring {
+    animation: hero-tap-breathe 6s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * -0.8s - 0.8s);
+  }
+}
+@keyframes hero-tap-breathe {
+  50% { transform: scale(1.04); }
+}
+
+.receipt-line[data-tone="mint"] {
+  --tint: var(--color-mint);
+}
+.receipt-line[data-tone="accent"] {
+  --tint: var(--color-accent-tint);
+}
+.receipt-line[data-tone="danger"] {
+  --tint: var(--color-declined-tint);
+}
+.receipt-line[data-tone="frozen"] {
+  --tint: var(--color-frozen);
+}
+
+/* Placeholder for a receipt line that has not printed yet. Hidden by default; the scroll-timeline block shows it. */
+.receipt-slot {
+  position: relative;
+}
+.receipt-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  opacity: 0;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  font-size: 12px;
+  background: radial-gradient(circle, var(--color-ring-surface) 1px, transparent 1.5px) 0 calc(100% - 4px) / 8px 3px repeat-x;
+}
+.receipt-ghost::after {
+  content: "";
+  width: 7px;
+  height: 1em;
+  background: var(--color-text);
+  opacity: 0;
+}
+.receipt-slot:first-child .receipt-ghost::after {
+  opacity: 0.7;
+}
+.receipt-ghost-total {
+  align-items: flex-start;
+  padding-top: 8px;
+}
+
+/* `.landing-reveal` keeps its scroll-timeline rule in the block further down. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+  .hero-copy > * {
+    animation: landing-rise 1000ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+  .hero-no-mark {
+    transition: clip-path 300ms ease-in-out;
+  }
+  .hero:has([data-verdict="declined"]) .hero-no-mark {
+    transition-duration: 1000ms;
+  }
+  /* The sample feed scrolls: two copies, each sliding its own width left, so the loop is seamless. */
+  .ticker-copy {
+    flex: none;
+    animation: ticker-run 40s linear infinite;
+  }
+  .ticker-copy[aria-hidden="true"] {
+    display: flex;
+  }
+  .ticker:hover .ticker-copy,
+  .ticker:focus-within .ticker-copy {
+    animation-play-state: paused;
+  }
+  @supports (animation-timeline: view()) {
+    .landing-figure {
+      animation: figure-wipe linear both;
+      animation-timeline: view();
+      animation-range: entry 15% cover 30%;
+    }
+    .eq-term {
+      animation: term-lit linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--t) * 10%) entry calc(30% + var(--t) * 10%);
+    }
+    .eq-stamp {
+      animation: eq-stamp linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--t) * 10%) entry calc(25% + var(--t) * 10%);
+    }
+  }
+}
+
+/* From lg the receipt is pinned and prints one step's lines as that step scrolls in. Without scroll timelines,
+   below lg, or under reduced motion, the receipt shows printed in full. The `animation` shorthand resets the
+   timeline and range, so each range follows its shorthand and the per-step timelines come after. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .loop {
+      timeline-scope: --step-1, --step-2, --step-3, --step-4, --step-5, --step-6;
+    }
+    .loop-step:nth-child(1) { view-timeline-name: --step-1; }
+    .loop-step:nth-child(2) { view-timeline-name: --step-2; }
+    .loop-step:nth-child(3) { view-timeline-name: --step-3; }
+    .loop-step:nth-child(4) { view-timeline-name: --step-4; }
+    .loop-step:nth-child(5) { view-timeline-name: --step-5; }
+    .loop-step:nth-child(6) { view-timeline-name: --step-6; }
+    .receipt-line {
+      animation: receipt-print linear both, receipt-active linear both;
+      animation-range: entry 50% cover 45%, cover 30% cover 70%;
+    }
+    .receipt-line[data-step="1"] { animation-timeline: --step-1, --step-1; }
+    .receipt-line[data-step="2"] { animation-timeline: --step-2, --step-2; }
+    .receipt-line[data-step="3"] { animation-timeline: --step-3, --step-3; }
+    .receipt-line[data-step="4"] { animation-timeline: --step-4, --step-4; }
+    .receipt-line[data-step="5"] { animation-timeline: --step-5, --step-5; }
+    .receipt-line[data-step="6"] { animation-timeline: --step-6, --step-6; }
+    .receipt-total {
+      animation: receipt-print linear both;
+      animation-timeline: --step-6;
+      animation-range: entry 60% cover 40%;
+    }
+    /* Until a line prints, a faint ruled placeholder holds its place. It exists only inside this block, so the
+       static receipt never shows it. */
+    .receipt-ghost {
+      animation: ghost-wait linear both;
+      animation-range: entry 50% cover 45%;
+    }
+    .receipt-ghost[data-step="1"] { animation-timeline: --step-1; }
+    .receipt-ghost[data-step="2"] { animation-timeline: --step-2; }
+    .receipt-ghost[data-step="3"] { animation-timeline: --step-3; }
+    .receipt-ghost[data-step="4"] { animation-timeline: --step-4; }
+    .receipt-ghost[data-step="5"] { animation-timeline: --step-5; }
+    .receipt-ghost[data-step="6"] { animation-timeline: --step-6; }
+    .receipt-ghost-total {
+      animation-range: entry 60% cover 40%;
+    }
+    /* The printer head waits at the first empty line. */
+    .receipt-slot:first-child .receipt-ghost::after {
+      animation: ghost-caret 1s steps(1) infinite;
+    }
+  }
+}
+
+@keyframes ghost-wait {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes ghost-caret {
+  50% { opacity: 0; }
+}
+@keyframes figure-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+}
+@keyframes term-lit {
+  from { background-color: transparent; border-color: color-mix(in oklab, var(--color-text) 60%, transparent); box-shadow: none; }
+}
+@keyframes eq-stamp {
+  from { opacity: 0; scale: 0.6; }
+}
+@keyframes ticker-run {
+  to { translate: -100% 0; }
+}
+@keyframes receipt-print {
+  from { opacity: 0; clip-path: inset(0 0 100% 0); translate: 0 -8px; }
+}
+@keyframes receipt-active {
+  0%, 100% { background-color: transparent; }
+  20%, 80% { background-color: var(--tint); }
+}
+
+/* Fine paper grain over the whole page. Fixed, so it never repaints while scrolling. */
+.landing::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Bands stack like sheets, each sliding over the last. */
+.landing-sheet {
+  margin-top: -3rem;
+  border-radius: 3rem 3rem 0 0;
+}
+
+.phone-stage,
+.phone-inline {
+  perspective: 1100px;
+}
+
+.phone-screen dd {
+  text-wrap: balance;
+}
+
+/* The kit's large arc, sized to stay clear of the copy column. */
+.band-arc {
+  position: absolute;
+  right: -18vw;
+  bottom: -60px;
+  width: min(118vw, 680px);
+  aspect-ratio: 1;
+}
+
+/* --s sizes the phone. 447 = the frame's width at scale 1; 895 its height (phone-frame.png's proportions). */
+.landing {
+  --s: 0.72;
+}
+
+.phone {
+  position: relative;
+  flex: none;
+  width: calc(447px * var(--s));
+  height: calc(895px * var(--s));
+  margin: 0;
+  transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg);
+  transform-style: preserve-3d;
+}
+
+/* Sized for real, with no scale transform: Remotion's Player measures this box and scales the 390px screen to fit it. */
+.phone-screen {
+  position: absolute;
+  left: 6.8%;
+  right: 5.95%;
+  top: 2.12%;
+  bottom: 2.55%;
+  overflow: hidden;
+  border-radius: 11.7% / 5.3%;
+  background: var(--color-surface);
+  transform: translateZ(0.5px);
+}
+
+/* Inset to the frame's outer edge in phone-frame.png. */
+.phone-body {
+  position: absolute;
+  inset: 1% 3.2% 1.2% 3.6%;
+  border-radius: 13.5% / 6.6%;
+  background: linear-gradient(105deg, #4a524e, #161b19 35%, #2b312e 70%, #0f1312);
+  transform: translateZ(calc(var(--layer) * -1.5px));
+}
+
+/* Sits far behind the body, so it slides against the phone as it turns and the phone reads as floating. */
+.phone-shadow {
+  position: absolute;
+  inset: 8% 10% 2% 10%;
+  border-radius: 12% / 6%;
+  background: rgb(27 46 40 / 0.5);
+  filter: blur(36px);
+  transform: translateZ(-70px);
+}
+
+/* A band of light across the glass, which travels as the phone turns. */
+.phone-glare {
+  position: absolute;
+  inset: 2.12% 5.95% 2.55% 6.8%;
+  border-radius: 11.7% / 5.3%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 38%, rgb(255 255 255 / 0.24) 49%, rgb(255 255 255 / 0.06) 55%, transparent 64%) 60% 0 / 260% 100% no-repeat;
+  transform: translateZ(0.8px);
+}
+
+/* Remotion's frame drives all motion in the mockups, so the app's own CSS motion stays out of the way. */
+.phone-screen *,
+.phone-screen *::before,
+.phone-screen *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* --glide (1 away, 0 on the reader) is set per frame by the mockups' tap scene. */
+.phone-screen .tapscene[data-phase] .tapscene-card {
+  transform: translate(calc(var(--glide, 0) * -46px), calc(var(--glide, 0) * 14px)) rotate(calc(var(--glide, 0) * -7deg));
+}
+
+.phone-screen .tapscene[data-phase] .tapscene-ground {
+  transform: translate(calc(var(--glide, 0) * -46px), 0);
+}
+
+.phone-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  transform: translateZ(1px);
+  background: url(/phone-frame.png) 0 0 / 100% 100%;
+}
+
+@media (max-width: 359px) {
+  .landing {
+    --s: 0.62;
+  }
+}
+
+@media (min-width: 640px) {
+  .landing {
+    --s: 0.8;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing {
+    --s: 0.64;
+  }
+  /* Centred on the pinned phone: the same right-hand offsets as the phone stage, plus half the phone. */
+  .band-arc {
+    --art: min(100vmin, 56vw, 960px);
+    right: calc(max(0px, (100% - 1440px) / 2) + clamp(0px, 7vw, 120px) + 447px * var(--s) / 2 - var(--art) / 2);
+    bottom: auto;
+    top: 50%;
+    width: var(--art);
+    translate: 0 -50%;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 760px) {
+  .landing {
+    --s: 0.72;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 860px) {
+  .landing {
+    --s: 0.82;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 980px) {
+  .landing {
+    --s: 0.94;
+  }
+}
+
+.landing-walk {
+  view-timeline: --walk block;
+}
+
+/* Everything below follows the scroll position itself, so it runs in both directions with no JavaScript. Browsers
+   without scroll timelines get the page at rest: an upright phone and visible text. */
+@media (prefers-reduced-motion: no-preference) {
+  .landing-hero > * {
+    animation: landing-rise 1100ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+
+  @supports (animation-timeline: view()) {
+    .phone-inline .phone {
+      animation: phone-pass linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+    .phone-inline .phone-glare {
+      animation: phone-glare-pass linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+    .landing-reveal {
+      animation: landing-rise linear both;
+      animation-timeline: view();
+      animation-range: entry calc(4% + var(--i, 0) * 5%) cover 30%;
+    }
+  }
+}
+
+/* With a mouse the pinned phone faces the cursor, set from JavaScript. Touch screens have no cursor, so it follows the scroll. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .phone-stage .phone {
+    transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .phone-stage .phone-glare {
+    opacity: var(--glare-opacity, 0);
+    background-position: var(--glare-x, 60%) 0;
+    transition:
+      opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-position 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .phone-stage .phone {
+      animation: phone-walk cubic-bezier(0.45, 0, 0.55, 1) both;
+      animation-timeline: --walk;
+      animation-range: contain;
+    }
+    .phone-stage .phone-glare {
+      animation: phone-glare-walk linear both;
+      animation-timeline: --walk;
+      animation-range: contain;
+    }
+  }
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(3.5rem);
+  }
+}
+
+/* The phone moves with every bit of scroll, facing north, east, south and west in turn between bands, and nearly
+   square-on when a band fills the screen. 15 degrees keeps its screen readable at every point of the compass. */
+@keyframes phone-walk {
+  0.0% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  8.3% { transform: rotateY(0deg) rotateX(15deg) rotateZ(0deg); }
+  16.7% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  25.0% { transform: rotateY(15deg) rotateX(0deg) rotateZ(0deg); }
+  33.3% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  41.7% { transform: rotateY(0deg) rotateX(-15deg) rotateZ(0deg); }
+  50.0% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  58.3% { transform: rotateY(-15deg) rotateX(0deg) rotateZ(0deg); }
+  66.7% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  75.0% { transform: rotateY(0deg) rotateX(15deg) rotateZ(0deg); }
+  83.3% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  91.7% { transform: rotateY(15deg) rotateX(0deg) rotateZ(0deg); }
+  100.0% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+}
+
+@keyframes phone-pass {
+  from { transform: rotateY(0deg) rotateX(-15deg) rotateZ(0deg); }
+  25% { transform: rotateY(-15deg) rotateX(0deg) rotateZ(0deg); }
+  50% { transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg); }
+  75% { transform: rotateY(15deg) rotateX(0deg) rotateZ(0deg); }
+  to { transform: rotateY(0deg) rotateX(15deg) rotateZ(0deg); }
+}
+
+/* The band of light fades out as the phone squares up, so it never sits over the data being read. */
+@keyframes phone-glare-walk {
+  0.0% { opacity: 0; background-position: 100.0% 0; }
+  8.3% { opacity: 0.7; background-position: 91.7% 0; }
+  16.7% { opacity: 0; background-position: 83.3% 0; }
+  25.0% { opacity: 0.7; background-position: 75.0% 0; }
+  33.3% { opacity: 0; background-position: 66.7% 0; }
+  41.7% { opacity: 0.7; background-position: 58.3% 0; }
+  50.0% { opacity: 0; background-position: 50.0% 0; }
+  58.3% { opacity: 0.7; background-position: 41.7% 0; }
+  66.7% { opacity: 0; background-position: 33.3% 0; }
+  75.0% { opacity: 0.7; background-position: 25.0% 0; }
+  83.3% { opacity: 0; background-position: 16.7% 0; }
+  91.7% { opacity: 0.7; background-position: 8.3% 0; }
+  100.0% { opacity: 0; background-position: 0.0% 0; }
+}
+
+@keyframes phone-glare-pass {
+  from { opacity: 0.7; background-position: 100% 0; }
+  35%, 65% { opacity: 0; }
+  to { opacity: 0.7; background-position: 0% 0; }
 }
 
 @utility no-scrollbar {

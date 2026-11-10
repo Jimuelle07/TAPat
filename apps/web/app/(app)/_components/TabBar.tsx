@@ -34,8 +34,10 @@ function ActiveCurve() {
   );
 }
 
-export function TabBar() {
-  const path = usePathname();
+/** `path` lets the landing page mockups show a tab as active. */
+export function TabBar({ path: shown }: { path?: string }) {
+  const current = usePathname();
+  const path = shown ?? current;
   // -1 when no tab matches (login, signup): no orb, so no raised circle points at the wrong tab.
   const activeIndex = TABS.findIndex((tab) => tab.active(path));
   // The login and signup screens are full-bleed, with no tab bar.
