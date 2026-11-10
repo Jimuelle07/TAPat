@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { splitNumbers } from "@/lib/numbers";
 
 /*
@@ -56,52 +56,21 @@ export function TearEdge({ teeth = 30 }: { teeth?: number }) {
   );
 }
 
-/** The hero's contactless tap on the Forest ground: a disc with three rings rippling out, plus the corner ring set. Pure SVG and CSS. */
-export function HeroArt() {
-  return (
-    <>
-      {/* A quiet ground under the tap: flat arcs in the hero's own greens, anchored to the lower left. */}
-      <svg aria-hidden="true" viewBox="0 0 1280 800" preserveAspectRatio="xMinYMax slice" className="absolute inset-0 h-full w-full">
-        <circle cx="-40" cy="880" r="560" fillOpacity="0.42" className="fill-primary" />
-        <circle cx="-40" cy="880" r="360" fillOpacity="0.38" className="fill-primary" />
-        <circle cx="520" cy="-420" r="620" fillOpacity="0.26" className="fill-pressed" />
-      </svg>
-      <span aria-hidden="true" className="band-arc">
-        {/* One <svg> per ring: the browser can animate a whole <svg> off the main thread, but not a shape inside one. */}
-        <svg viewBox="0 0 1000 1000" className="hero-tap-disc absolute inset-0 h-full w-full">
-          <circle cx="500" cy="500" r="230" className="fill-primary" />
-        </svg>
-        {[300, 370, 440].map((r, i) => (
-          <svg key={r} viewBox="0 0 1000 1000" className="hero-tap-ring absolute inset-0 h-full w-full" style={{ "--i": i } as CSSProperties}>
-            <circle cx="500" cy="500" r={r} fill="none" strokeWidth={30 - i * 8} className="stroke-primary" />
-          </svg>
-        ))}
-      </span>
-      <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
-        <svg viewBox="0 0 240 240" className="block h-full w-full">
-          {Array.from({ length: 8 }, (_, i) => (
-            <circle key={i} cx="240" cy="0" r={30 * (i + 1)} fill="none" strokeWidth="1.5" className="stroke-pressed" />
-          ))}
-        </svg>
-      </span>
-    </>
-  );
-}
-
 const CTA_LOOK = {
   accent: "cta-raised bg-accent text-text hover:bg-accent-tint",
   primary: "cta-raised bg-primary text-surface hover:bg-pressed",
   outline: "cta-outline border-[1.5px] border-current hover:bg-current/10",
+  forest: "cta-raised bg-forest text-cream hover:bg-pressed",
 };
 
-const CTA_SIZE = { lg: "h-[54px] px-6", sm: "h-11 px-4" };
+const CTA_SIZE = { lg: "h-[54px] px-6 text-label", sm: "h-11 px-4 text-label", xl: "h-[54px] px-5 text-[17px] font-semibold" };
 
 export function Cta({ href, look, size = "lg", children }: { href: string; look: keyof typeof CTA_LOOK; size?: keyof typeof CTA_SIZE; children: ReactNode }) {
   return (
     <Link
       href={href}
       prefetch={false}
-      className={`group inline-flex items-center gap-2 rounded-md text-label transition-colors duration-200 ${CTA_SIZE[size]} ${CTA_LOOK[look]}`}
+      className={`group inline-flex items-center gap-2 rounded-md whitespace-nowrap transition-colors duration-200 ${CTA_SIZE[size]} ${CTA_LOOK[look]}`}
     >
       {children}
       <svg

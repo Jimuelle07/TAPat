@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
 import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
@@ -11,15 +11,19 @@ import { ContractSection, StakesSection } from "./_landing/Evidence";
 import { ScrollGauge, StepRail } from "./_landing/Navigator";
 import { LazyBandMotion } from "./_landing/Reel";
 import { LoopSteps, type LoopStep } from "./_landing/Steps";
-import { TapDemo, type TapChoice } from "./_landing/TapDemo";
-import { Cta, HeroArt, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
+import { TapStage, type StageChoice } from "./_landing/TapStage";
+import { Cta, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
 import "./_landing/depth.css";
+import "./_landing/first-screen.css";
 
 // Landing only, so the app does not load them. The two local files are cut down to what the page uses: see _landing/fonts/README.md.
 const bricolage = localFont({ src: "./_landing/fonts/bricolage-700.woff2", variable: "--font-bricolage", weight: "700", display: "swap" });
 const fraunces = localFont({ src: "./_landing/fonts/fraunces-italic-500.woff2", variable: "--font-fraunces", weight: "500", style: "italic", display: "swap" });
 // The peso sign lives in latin-ext.
 const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
+// The first screen's faces: Fraunces with its SOFT axis for display, Inter for text.
+const serif = Fraunces({ variable: "--font-serif", subsets: ["latin", "latin-ext"], style: ["normal", "italic"], axes: ["SOFT"], display: "swap" });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "TAPat: fuel aid that can say no",
@@ -31,16 +35,19 @@ const PAGE_WIDTH = "mx-auto w-full max-w-[1440px] px-[clamp(20px,5vw,72px)]";
 /** Sample pesos as "₱1,234.00", through the same stroop formatter as the dashboard. */
 const money = (pesos: number) => php(phpToStroops(pesos), DEFAULT_PHP_PER_XLM).replace("PHP ", "₱");
 
-const TAP_CHOICES: TapChoice[] = [
+const TAP_CHOICES: StageChoice[] = [
   {
     id: "ok",
     button: money(300),
     amount: money(300),
     card: "Ana V. …A1B2",
     last4: "A1B2",
-    verdict: "approved",
-    reason: null,
+    approved: true,
+    short: "within cap",
+    reason: "within the per-tap cap",
+    tx: "Submitted (sample)",
     note: "Authorized by the Noir contract.",
+    note2: "Salamat po. Drive safe.",
   },
   {
     id: "over",
@@ -48,9 +55,12 @@ const TAP_CHOICES: TapChoice[] = [
     amount: money(800),
     card: "Juan D. …9C7E",
     last4: "9C7E",
-    verdict: "declined",
+    approved: false,
+    short: "over cap",
     reason: TAP_REASON_LABELS.OVER_CAP,
-    note: "Rejected by the Noir contract. No tx submitted.",
+    tx: "None submitted",
+    note: "Rejected by the Noir contract.",
+    note2: "No tx submitted.",
   },
   {
     id: "expired",
@@ -58,9 +68,12 @@ const TAP_CHOICES: TapChoice[] = [
     amount: money(200),
     card: "Pedro R. …3A54",
     last4: "3A54",
-    verdict: "declined",
+    approved: false,
+    short: "card expired",
     reason: TAP_REASON_LABELS.EXPIRED,
-    note: "Rejected by the Noir contract. No tx submitted.",
+    tx: "None submitted",
+    note: "Rejected by the Noir contract.",
+    note2: "No tx submitted.",
   },
 ];
 
@@ -207,11 +220,10 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
   return (
     <ul aria-hidden={hidden || undefined} className="ticker-copy">
       {TICKER.map((e) => (
-        <li key={e.text} className="flex items-center gap-3 py-3 font-mono text-mono whitespace-nowrap">
-          <span>
-            <Nums>{e.text}</Nums>
-          </span>
-          <Stamp tone={e.stamp[0]}>{e.stamp[1]}</Stamp>
+        <li key={e.text} className="flex items-center gap-2.5 py-[18px] text-[15px] whitespace-nowrap">
+          <span>{e.text}</span>
+          {/* Declines get the cream stamp, so a refusal stands out in the feed. */}
+          <span className={`feed-stamp ${e.stamp[1] === "DECLINED" ? "feed-stamp-no" : ""}`}>{e.stamp[1]}</span>
         </li>
       ))}
     </ul>
@@ -220,24 +232,28 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 
 export default function Landing() {
   return (
-    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable}`}>
-      <header className="landing-header sticky top-0 z-40 border-b-[1.5px] border-text bg-surface">
-        <div className={`${PAGE_WIDTH} flex h-16 items-center justify-between gap-6`}>
-          <Link href="/" prefetch={false} aria-label="TAPat" className="block">
+    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
+      <header className="landing-header first-screen sticky top-0 z-40">
+        <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2`}>
+          <Link href="/" prefetch={false} aria-label="TAPat home" className="flex items-center gap-2.5">
             <Logo priority />
+            {/* The logo already spells TAPat, so narrow phones drop the wordmark to keep the button on one line. */}
+            <span aria-hidden="true" className="font-serif-soft hidden text-[40px] leading-none font-extrabold tracking-[-0.02em] italic min-[440px]:inline">
+              TAPat
+            </span>
           </Link>
-          <nav aria-label="Sections" className="hidden items-center gap-6 md:flex">
-            <a href="#loop" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
+          <nav aria-label="Sections" className="hidden items-center gap-9 md:flex">
+            <a href="#loop" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
               How it works
             </a>
-            <a href="#stakes" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
+            <a href="#stakes" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
               Why
             </a>
-            <a href="#contract" className="inline-flex min-h-11 items-center text-label underline-offset-4 hover:underline">
+            <a href="#contract" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
               Contract
             </a>
           </nav>
-          <Cta href="/login" look="primary" size="sm">
+          <Cta href="/login" look="forest" size="sm">
             Open the app
           </Cta>
         </div>
@@ -245,50 +261,59 @@ export default function Landing() {
       </header>
 
       <main>
-        <section id="top" className="hero relative overflow-clip bg-primary-deep text-surface">
-          <HeroArt />
-          <div className={`${PAGE_WIDTH} relative grid items-center gap-12 py-16 lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-12 lg:py-20`}>
-            {/* Centred in the row's minimum height, not its actual height, so a tall receipt can't push the words down. */}
-            <div className="hero-copy flex flex-col gap-7 lg:col-span-7 lg:min-h-[calc(100dvh-14rem)] lg:justify-center lg:self-start">
-              <h1 className="landing-display" style={stagger(1)}>
+        <section id="top" className="first-screen relative z-[2]">
+          {/* From lg the hero fills the window below the 84px header, so the feed band starts just past the fold. The content
+              stays pinned to the top padding; any extra height goes underneath it. */}
+          <div className={`${PAGE_WIDTH} flex flex-wrap content-start items-center gap-10 pt-12 pb-12 lg:min-h-[max(660px,calc(100svh-84px))] lg:pt-24`}>
+            {/* 420 + 40 + 660 fits a 1280 window with a scrollbar on one row; on wider screens both columns grow. */}
+            <div className="hero-copy flex min-w-0 flex-[1_1_420px] flex-col gap-[clamp(16px,2.6vh,26px)]">
+              <p className="text-[13px] font-bold tracking-[0.2em] uppercase" style={stagger(0)}>
+                Tricycle fuel aid · On-chain limits
+              </p>
+              <h1
+                className="font-serif-soft text-[clamp(44px,min(6.6vw,11vh),104px)] leading-[0.92] font-bold tracking-[-0.025em] text-balance"
+                style={stagger(1)}
+              >
                 Fuel aid that can say{" "}
-                <span className="landing-note relative inline-block">
-                  no.
+                <span className="relative inline-block">
+                  <em className="font-bold">no.</em>
                   <svg
                     aria-hidden="true"
-                    className="hero-no-mark absolute bottom-[0.02em] left-0 h-[0.14em] w-full overflow-visible"
                     viewBox="0 0 100 12"
                     preserveAspectRatio="none"
+                    className="absolute bottom-[-0.04em] left-0 h-[0.16em] w-full overflow-visible"
                   >
-                    <path
-                      d="M2 8 C 30 2, 62 12, 98 4"
-                      fill="none"
-                      className="stroke-declined"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      vectorEffect="non-scaling-stroke"
-                    />
+                    <path className="no-line" pathLength={1} d="M2 8 C 30 2, 62 12, 98 4" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
                   </svg>
                 </span>
               </h1>
-              <p className="landing-lead max-w-[46ch]" style={stagger(2)}>
+              <p className="max-w-[34ch] text-[19px] leading-normal" style={stagger(2)}>
                 An AI agent funds, caps, and returns fuel aid for tricycle drivers. The limits are enforced on-chain.
               </p>
-              <div style={stagger(3)}>
-                <Actions />
+              <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:justify-center" style={stagger(3)}>
+                <Cta href="/login" look="forest" size="xl">
+                  Open the app
+                </Cta>
+                <Cta href="/demo" look="outline" size="xl">
+                  Run the agent demo
+                </Cta>
               </div>
-              <p className="text-small" style={stagger(4)}>
+              <p className="text-[15px] text-forest/80" style={stagger(4)}>
                 Log in or create an officer account to try it.
               </p>
             </div>
-            <div className="lg:col-span-5">
-              <TapDemo choices={TAP_CHOICES} autoplay="over" />
+            <div className="hero-copy min-w-0 max-w-[800px] flex-[1_1_660px]">
+              <div style={stagger(2)}>
+                <TapStage choices={TAP_CHOICES} autoplay="over" cap={money(500)} />
+              </div>
             </div>
           </div>
         </section>
 
-        <section aria-label="Sample feed" className="ticker ticker-slot relative z-10 flex border-y-[1.5px] border-text bg-text text-surface">
-          <p className="z-10 flex shrink-0 items-center border-r-[1.5px] border-surface/40 bg-text px-4 text-label whitespace-nowrap sm:px-6">SAMPLE FEED</p>
+        <section aria-label="Sample feed" className="ticker ticker-slot relative z-10 flex bg-forest text-cream">
+          <p className="z-10 flex shrink-0 items-center border-r-[1.5px] border-cream/40 bg-forest pr-[clamp(16px,2vw,24px)] pl-[clamp(20px,5vw,72px)] text-[12px] font-bold tracking-[0.16em] whitespace-nowrap uppercase">
+            Sample feed
+          </p>
           <div className="ticker-track">
             <TickerCopy />
             <TickerCopy hidden />
