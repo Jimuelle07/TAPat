@@ -1,1 +1,0 @@
-Vendored from https://github.com/wheresryan22/anatomy (MIT), commit 1482e8469b0a9e0d8cc18ea2740a01423d29ae80. Do not edit locally; re-vendor from upstream instead. Figures live in `app/_landing/figures/`.

@@ -1,409 +1,450 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
-import { Fragment, type CSSProperties } from "react";
-import { DEFAULT_PHP_PER_XLM, phpToStroops } from "@tapat/shared";
+import type { CSSProperties } from "react";
+import { DEFAULT_PHP_PER_XLM, phpToStroops, TAP_REASON_LABELS } from "@tapat/shared";
 import { php } from "@/lib/format";
-import { Agents } from "./_landing/Agents";
-import { CountUp } from "./_landing/CountUp";
-import { DieselSim } from "./_landing/DieselSim";
-import { NavTricycle } from "./_landing/NavTricycle";
-import { ScenarioPlayer } from "./_landing/ScenarioPlayer";
-import cover from "./_landing/cover-tricycle-negros.jpg";
-import logo from "./_landing/logo-tricycle.png";
-import { HeroFilm } from "./_landing/HeroFilm";
-import { ProblemFilm } from "./_landing/ProblemFilm";
-import { BuildFlowFilm } from "./_landing/BuildFlowFilm";
-import { CoverMotion, Reveal } from "./_landing/Reveal";
-import { ButtonLink, SectionHeading } from "./_landing/kit";
+import type { IconName } from "./(app)/_components/Icon";
+import { ContractSection, StakesSection } from "./_landing/Evidence";
+import { ScrollGauge, StepRail } from "./_landing/Navigator";
+import { LazyBandMotion } from "./_landing/Reel";
+import { LoopSteps, type LoopStep } from "./_landing/Steps";
+import { TapStage, type StageChoice } from "./_landing/TapStage";
+import { Cta, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
+import "./_landing/depth.css";
+import "./_landing/first-screen.css";
 
-const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin", "latin-ext"], weight: ["400", "500", "600"], display: "swap" });
-// The peso sign (U+20B1) is in both families' latin-ext range.
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin", "latin-ext"], weight: ["400", "500"], display: "swap" });
+// Landing only, so the app does not load them. The two local files are cut down to what the page uses: see _landing/fonts/README.md.
+const bricolage = localFont({ src: "./_landing/fonts/bricolage-700.woff2", variable: "--font-bricolage", weight: "700", display: "swap" });
+const fraunces = localFont({ src: "./_landing/fonts/fraunces-italic-500.woff2", variable: "--font-fraunces", weight: "500", style: "italic", display: "swap" });
+// The peso sign lives in latin-ext.
+const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
+// The first screen's faces: Fraunces with its SOFT axis for display, Inter for text.
+const serif = Fraunces({ variable: "--font-serif", subsets: ["latin", "latin-ext"], style: ["normal", "italic"], axes: ["SOFT"], display: "swap" });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "TAPat",
-  description: "TAPat releases, caps and returns fuel aid for tricycle drivers. A Noir contract on Stellar enforces every per-tap limit.",
+  title: "TAPat: fuel aid that can say no",
+  description: "An AI agent funds, caps, and returns fuel aid for tricycle drivers, with the limits enforced on-chain.",
 };
 
-const PAGE = "mx-auto w-full max-w-[1200px] px-[clamp(20px,4vw,48px)]";
+const PAGE_WIDTH = "mx-auto w-full max-w-[1440px] px-[clamp(20px,5vw,72px)]";
 
 /** Sample pesos as "₱1,234.00", through the same stroop formatter as the dashboard. */
 const money = (pesos: number) => php(phpToStroops(pesos), DEFAULT_PHP_PER_XLM).replace("PHP ", "₱");
 
-const CONTENTS = [
-  { id: "problem", title: "The problem" },
-  { id: "how", title: "How it works" },
-  { id: "simulation", title: "Diesel simulation" },
-];
-
-// Cited figures from docs/PRD.md §1; these are cited text, not computed.
-const METRICS = [
-  { figure: <CountUp value={723000} />, what: "tricycle drivers slated for the ₱5,000 fuel subsidy", source: "PNA" },
-  { figure: <CountUp prefix="₱" value={2.7} decimals={1} suffix="B" />, what: "nearly lost to ghost and duplicate beneficiaries", source: "DSWD, via Daily Tribune" },
-  { figure: <CountUp prefix="₱" value={709.88} decimals={2} suffix="M" />, what: "in DOTr subsidies unpaid or expired, returned to the treasury after two years", source: "COA, via Astig.ph and NET25" },
-  { figure: "In person", what: "payouts kept face to face to stop ghosts, and drivers fainted in heat-exposed queues", source: "As cited in the TAPat build plan" },
-];
-
-const MATRIX: Array<[string, string]> = [
-  ["Lump sum with no rules", "Each card carries an on-chain spending policy (cap, expiry)."],
-  ["Can't be recovered until an audit", "Unspent aid returns to the LGU wallet the day the program ends."],
-  ["Manual verification", "Ghosts and duplicates are screened before enrollment."],
-  ["Aid arrives late", "The Tranche Agent releases on the price shock itself."],
-];
-
-type Source = { label: string; href?: string };
-// The Tranche and Freeze agents are illustrated in <Agents />; these are the other two parts of the system.
-const OTHER_PARTS: Array<{ name: string; decides: string; method: string; research: Source[]; settings: string }> = [
+const TAP_CHOICES: StageChoice[] = [
   {
-    name: "Masterlist check",
-    decides: "Screens ghosts and duplicates before enrollment.",
-    method: "Jaro-Winkler name matching and Conformal Risk Control",
-    research: [
-      { label: "Winkler (1990)" },
-      { label: "Angelopoulos et al., \u201CConformal Risk Control\u201D, ICLR 2024", href: "https://arxiv.org/abs/2208.02814" },
+    id: "ok",
+    button: money(300),
+    amount: money(300),
+    card: "Ana V. …A1B2",
+    last4: "A1B2",
+    approved: true,
+    short: "within cap",
+    reason: "within the per-tap cap",
+    tx: "Submitted (sample)",
+    note: "Authorized by the Noir contract.",
+    note2: "Salamat po. Drive safe.",
+  },
+  {
+    id: "over",
+    button: money(800),
+    amount: money(800),
+    card: "Juan D. …9C7E",
+    last4: "9C7E",
+    approved: false,
+    short: "over cap",
+    reason: TAP_REASON_LABELS.OVER_CAP,
+    tx: "None submitted",
+    note: "Rejected by the Noir contract.",
+    note2: "No tx submitted.",
+  },
+  {
+    id: "expired",
+    button: "Expired card",
+    amount: money(200),
+    card: "Pedro R. …3A54",
+    last4: "3A54",
+    approved: false,
+    short: "card expired",
+    reason: TAP_REASON_LABELS.EXPIRED,
+    tx: "None submitted",
+    note: "Rejected by the Noir contract.",
+    note2: "No tx submitted.",
+  },
+];
+
+/** The sample program the receipt follows. */
+const LEDGER = { funded: 4500, spent: 350, held: 960, pending: 0, escrow: 0, returned: 3190 };
+const balanced = LEDGER.spent + LEDGER.held + LEDGER.pending + LEDGER.escrow + LEDGER.returned === LEDGER.funded;
+
+const STEPS = [
+  {
+    id: "list",
+    chip: ["outline", "CLEANED"],
+    title: "A clean list goes in.",
+    body: "Ghost and duplicate drivers come off the masterlist. Only the uncertain ones get one Telegram message asking for evidence.",
+    facts: [
+      ["5%", "max wrongful denials"],
+      ["2%", "max ghost admissions"],
     ],
-    settings: "At most 5% wrongful denials and at most 2% ghost admissions.",
   },
   {
-    name: "Noir payment contract",
-    decides: "Has the last word on every payment.",
-    method: "`payment_escrow` on Stellar Testnet, called through `@noirx402/agent-sdk`",
-    research: [],
-    settings: "`fund_escrow()`, `authorize()` (cap, expiry, nonce), `claim()` and `sweep_on_revoke()`. A refused tap writes no transaction.",
+    id: "enroll",
+    chip: ["outline", "ENROLLED"],
+    title: "Enrolled in a minute.",
+    body: "A TODA officer taps one NFC card and its spending policy goes on-chain. The driver needs no app and no data plan.",
+    facts: [
+      ["1 card", "is all a driver carries"],
+      ["Telegram", "delivers the receipts"],
+    ],
   },
+  {
+    id: "fund",
+    chip: ["mint", "FUNDED"],
+    title: "Fund, when the shift is real.",
+    body: "The agent releases aid only when the diesel price stays above the threshold, inside a budget Velo has verified. A one-day spike releases nothing.",
+    facts: [
+      ["₱65", "per litre threshold"],
+      ["₱1,500", "per card"],
+    ],
+  },
+  {
+    id: "refuse",
+    chip: ["danger", "DECLINED"],
+    title: "Refuse, before money moves.",
+    body: "Over the cap or past its expiry, a tap gets a no from the contract. A refused tap writes nothing to the chain.",
+    facts: [
+      ["₱500", "per-tap cap"],
+      ["0 tx", "on a refusal"],
+    ],
+  },
+  {
+    id: "freeze",
+    chip: ["frozen", "FROZEN"],
+    title: "Freeze the station, not the program.",
+    body: "When a tap pattern looks wrong, only that station stops. New taps are refused and its settlement is held until the LGU unfreezes it.",
+    facts: [
+      ["MIDAS-F", "scores every tap"],
+      ["1 station", "paused, the rest keep pumping"],
+    ],
+  },
+  {
+    id: "return",
+    chip: ["accent", "RETURNED"],
+    title: "Return what's left, the same day.",
+    body: "When the program ends, every card is revoked and its unspent aid goes back to the LGU wallet.",
+    facts: [
+      ["Same day", "not a year later at audit"],
+      ["1 CSV", "with a tx hash for the COA"],
+    ],
+  },
+] satisfies LoopStep[];
+
+/** Short step names for the navigator, taken from the step titles. */
+const RAIL_LABELS = ["Clean list", "Enroll", "Fund", "Refuse", "Freeze", "Return"];
+const RAIL = STEPS.map((step, i) => ({ id: step.id, num: `0${i + 1}`, label: RAIL_LABELS[i] }));
+
+const STAKES = [
+  { figure: "2.7B", peso: true, what: "nearly lost to ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
+  { figure: "709.88M", peso: true, what: "in subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns the same day." },
+  { figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
 ];
 
-const FLOW = [
-  "Diesel price (simulated)",
-  "Tranche Agent decides",
-  "`fund_escrow()` puts aid into each card's escrow",
-  "A driver taps a card at a station",
-  "`authorize()` checks cap, expiry and nonce",
-  "Freeze Agent watches every tap",
-  "`claim()` settles to the station, or it is held if frozen",
-  "`sweep_on_revoke()` returns what is left to the LGU",
+const ENFORCEMENT: Array<[string, string, IconName]> = [
+  ["Fund", "payment_escrow.fund_escrow()", "wallet"],
+  ["Refuse", "payment_escrow.authorize()", "close"],
+  ["Freeze", "API skips payment_escrow.claim()", "pause"],
+  ["Return", "payment_escrow.sweep_on_revoke()", "refresh"],
 ];
 
-const LAYERS = [
-  "Agents are TypeScript: pure functions, no network.",
-  "Contract calls go through `@noirx402/agent-sdk`.",
-  "Velo verifies the budget checkout and sponsors every Noir call's network fee. It does not verify individual taps.",
-  "Receipts arrive by Telegram.",
+/** One line per event in the sample program; `step` ties the line to the loop step that prints it. */
+const RECEIPT_LINES: Array<{ step: 1 | 2 | 3 | 4 | 5 | 6; code: string; what: string; amount: string; stamp?: [ChipTone, string] }> = [
+  { step: 1, code: "01 INTAKE", what: "12 rows checked · 2 ghosts out", amount: "—" },
+  { step: 2, code: "02 ENROLL", what: "Ana V. …A1B2 · policy on-chain", amount: "—" },
+  { step: 3, code: "03 FUND", what: `3 cards × ${money(1500)}`, amount: `+${money(4500)}`, stamp: ["mint", "FUNDED"] },
+  { step: 4, code: "04 TAP", what: "Station A · Ana V. …A1B2", amount: `−${money(350)}`, stamp: ["accent", "PAID"] },
+  { step: 4, code: "04 TAP", what: "Station A · Juan D. …9C7E · over cap · 0 tx", amount: money(800), stamp: ["danger", "DECLINED"] },
+  { step: 5, code: "05 FREEZE", what: "Rotonda Fuels · MIDAS 2.31 ≥ 1.78", amount: money(960), stamp: ["frozen", "HELD"] },
+  { step: 6, code: "06 RETURN", what: "3 cards revoked · swept to LGU", amount: money(3190), stamp: ["accent", "RETURNED"] },
 ];
 
-const NOTES = [
-  `Stellar Testnet only; no real pesos move. Amounts use a demo rate of ${money(DEFAULT_PHP_PER_XLM)} per XLM.`,
-  "The scenarios and the diesel year are simulated.",
-  "The scenario release decisions are precomputed by the real Tranche Agent code.",
-  "In the app, OCR results are precomputed, and the price feed and the suspicious-tap burst are simulated.",
-  "Velo verifies the budget checkout and sponsors network fees. It does not verify individual taps.",
-  "The cover is a stock photo.",
+const TOTALS: Array<[string, number]> = [
+  ["Funded", LEDGER.funded],
+  ["Spent", LEDGER.spent],
+  ["Held", LEDGER.held],
+  ["Pending", LEDGER.pending],
+  ["Escrow", LEDGER.escrow],
+  ["Returned", LEDGER.returned],
 ];
 
-const ACTIONS = (
-  <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-    <ButtonLink href="/login" arrow>
-      Open the app
-    </ButtonLink>
-    <Link href="/demo" prefetch={false} className="doc-link inline-flex min-h-11 items-center gap-1.5">
-      Run the agent demo
-      <span aria-hidden="true" className="doc-nudge">
-        →
-      </span>
-    </Link>
-  </div>
-);
+const EQUATION = ["Funded", "=", "spent", "+", "held", "+", "pending", "+", "escrow", "+", "returned"];
 
-// The h1's exact text, one rising line per phrase (joined by spaces, so it still reads as one sentence).
-const HERO_LINES = ["Fuel aid for tricycle", "drivers, paid by card", "and held to limits", "on-chain."];
-
-// Bento placement of the four figure tiles: 723,000 leads and spans two rows, "In person" spans two columns.
-const TILE_SHAPE = ["tile-ink lg:row-span-2", "", "", "lg:col-span-2"];
-// The film in each tile's art area, in the order of METRICS.
-const TILE_FILM = ["drivers", "leak", "unpaid", "queue"] as const;
-
-// "The demo program" under the hero film: the demo defaults from docs/PRD.md §3.
-const GLANCE: Array<[string, string]> = [
-  ["Diesel trigger", `${money(65)}/L, held 4+ days`],
-  ["Aid per card", money(1500)],
-  ["Per-tap cap", money(500)],
-  ["Unspent aid", "Returned to the LGU when the program ends"],
-  ["Network", `Stellar Testnet · demo rate ${money(DEFAULT_PHP_PER_XLM)}/XLM`],
-];
-
-const SECTION = "border-t border-text py-16 lg:py-20";
-const FOOTER_LINK = "doc-link inline-flex min-h-11 items-center";
-
-const heading = (id: string) => {
-  const c = CONTENTS.find((item) => item.id === id)!;
-  return <SectionHeading id={c.id} title={c.title} />;
-};
-
-/** Text with `code` spans set in Plex Mono. */
-function Rich({ text }: { text: string }) {
+function Logo({ priority = false }: { priority?: boolean }) {
   return (
-    <>
-      {text.split("`").map((part, i) =>
-        i % 2 ? (
-          <code key={i} className="doc-mono">
-            {part}
-          </code>
-        ) : (
-          part
-        ),
-      )}
-    </>
+    <span className="block h-11 w-[88px] shrink-0 overflow-hidden">
+      {/* The icon file is square with wide margins; this slot shows its middle band, as in the app's top bar. */}
+      <Image src="/tapat-app-icon-1024.png" alt="" width={88} height={88} className="-mt-[22px] max-w-none mix-blend-darken" priority={priority} />
+    </span>
+  );
+}
+
+function Actions({ main = "accent" }: { main?: "accent" | "primary" }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:w-full sm:[&>a]:w-auto">
+      <Cta href="/login" look={main}>
+        Open the app
+      </Cta>
+      <Cta href="/demo" look="outline">
+        Run the agent demo
+      </Cta>
+    </div>
+  );
+}
+
+const stagger = (i: number) => ({ "--i": i }) as CSSProperties;
+
+const TICKER: Array<{ text: string; stamp: [ChipTone, string] }> = [
+  { text: `Station A · Ana V. …A1B2 · ${money(300)}`, stamp: ["accent", "PAID"] },
+  { text: `Station A · Juan D. …9C7E · ${money(800)} · 0 tx`, stamp: ["danger", "DECLINED"] },
+  { text: "Station A · Pedro R. …3A54 · card expired", stamp: ["danger", "DECLINED"] },
+  { text: `Rotonda Fuels · ${money(960)}`, stamp: ["frozen", "HELD"] },
+  { text: `LGU wallet · ${money(3190)}`, stamp: ["accent", "RETURNED"] },
+];
+
+/** One pass of the sample feed. The marquee shows two; the second is hidden from assistive tech. */
+function TickerCopy({ hidden = false }: { hidden?: boolean }) {
+  return (
+    <ul aria-hidden={hidden || undefined} className="ticker-copy">
+      {TICKER.map((e) => (
+        <li key={e.text} className="flex items-center gap-2.5 py-[18px] text-[15px] whitespace-nowrap">
+          <span>{e.text}</span>
+          {/* Declines get the cream stamp, so a refusal stands out in the feed. */}
+          <span className={`feed-stamp ${e.stamp[1] === "DECLINED" ? "feed-stamp-no" : ""}`}>{e.stamp[1]}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 export default function Landing() {
   return (
-    <div className={`landing ${plexSans.variable} ${plexMono.variable}`}>
-      {/* Floating pill nav, detached from the page edge: one row at every size. It clips to its rounded outline so the logo tricycle drives in from behind its edge, and (NavTricycle) out past it when "Open the app" is clicked. */}
-      <header className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center px-3">
-        <nav aria-label="Main" className="landing-pill pointer-events-auto isolate flex h-14 items-center gap-2 overflow-clip rounded-full border border-text bg-surface py-1.5 pr-1.5 pl-3 sm:gap-4 lg:gap-3">
-          <NavTricycle />
-          {CONTENTS.map((c) => (
-            <a key={c.id} href={`#${c.id}`} className="hidden min-h-11 items-center px-2 text-text underline-offset-4 hover:underline lg:inline-flex">
-              {c.title}
-            </a>
-          ))}
-          <Link href="/demo" prefetch={false} className="doc-link hidden min-h-11 items-center px-2 sm:inline-flex">
-            Agent demo
+    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
+      <header className="landing-header first-screen sticky top-0 z-40">
+        <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2`}>
+          <Link href="/" prefetch={false} aria-label="TAPat home" className="flex items-center gap-2.5">
+            <Logo priority />
+            {/* The logo already spells TAPat, so narrow phones drop the wordmark to keep the button on one line. */}
+            <span aria-hidden="true" className="font-serif-soft hidden text-[40px] leading-none font-extrabold tracking-[-0.02em] italic min-[440px]:inline">
+              TAPat
+            </span>
           </Link>
-          <ButtonLink href="/login">Open the app</ButtonLink>
-        </nav>
+          <nav aria-label="Sections" className="hidden items-center gap-9 md:flex">
+            <a href="#loop" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
+              How it works
+            </a>
+            <a href="#stakes" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
+              Why
+            </a>
+            <a href="#contract" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
+              Contract
+            </a>
+          </nav>
+          <Cta href="/login" look="forest" size="sm">
+            Open the app
+          </Cta>
+        </div>
+        <ScrollGauge />
       </header>
 
       <main>
-        <div className="relative h-[clamp(200px,34vw,440px)] w-full overflow-hidden border-b border-text">
-          <CoverMotion>
-            <Image src={cover} alt="A red motorized tricycle on a sunlit street" fill priority placeholder="blur" sizes="100vw" className="object-cover" style={{ objectPosition: "50% 20%" }} />
-          </CoverMotion>
-        </div>
-
-        <div className={`${PAGE} grid gap-10 pb-16 lg:grid-cols-12 lg:gap-x-8`}>
-          <div className="relative z-10 flex flex-col gap-7 self-start border border-text bg-raised p-6 sm:p-10 lg:col-span-7 lg:-mt-72">
-            <h1 className="doc-h1 doc-hero-h1">
-              {HERO_LINES.map((line, i) => (
-                <Fragment key={line}>
-                  <span className="hl">
-                    <span style={{ "--i": i } as CSSProperties}>{line}</span>
-                  </span>{" "}
-                </Fragment>
-              ))}
-            </h1>
-            <p className="doc-lead">Released when diesel really moves. Capped per tap by a Noir contract on Stellar. Returned to the LGU when the program ends.</p>
-            {ACTIONS}
+        <section id="top" className="first-screen relative z-[2]">
+          {/* From lg the hero fills the window below the 84px header, so the feed band starts just past the fold. The content
+              stays pinned to the top padding; any extra height goes underneath it. */}
+          <div className={`${PAGE_WIDTH} flex flex-wrap content-start items-center gap-10 pt-12 pb-12 lg:min-h-[max(660px,calc(100svh-84px))] lg:pt-24`}>
+            {/* 420 + 40 + 660 fits a 1280 window with a scrollbar on one row; on wider screens both columns grow. */}
+            <div className="hero-copy flex min-w-0 flex-[1_1_420px] flex-col gap-[clamp(16px,2.6vh,26px)]">
+              <p className="text-[13px] font-bold tracking-[0.2em] uppercase" style={stagger(0)}>
+                Tricycle fuel aid · On-chain limits
+              </p>
+              <h1
+                className="font-serif-soft text-[clamp(44px,min(6.6vw,11vh),104px)] leading-[0.92] font-bold tracking-[-0.025em] text-balance"
+                style={stagger(1)}
+              >
+                Fuel aid that can say{" "}
+                <span className="relative inline-block">
+                  <em className="font-bold">no.</em>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 100 12"
+                    preserveAspectRatio="none"
+                    className="absolute bottom-[-0.04em] left-0 h-[0.16em] w-full overflow-visible"
+                  >
+                    <path className="no-line" pathLength={1} d="M2 8 C 30 2, 62 12, 98 4" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                  </svg>
+                </span>
+              </h1>
+              <p className="max-w-[34ch] text-[19px] leading-normal" style={stagger(2)}>
+                An AI agent funds, caps, and returns fuel aid for tricycle drivers. The limits are enforced on-chain.
+              </p>
+              <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:justify-center" style={stagger(3)}>
+                <Cta href="/login" look="forest" size="xl">
+                  Open the app
+                </Cta>
+                <Cta href="/demo" look="outline" size="xl">
+                  Run the agent demo
+                </Cta>
+              </div>
+              <p className="text-[15px] text-forest/80" style={stagger(4)}>
+                Log in or create an officer account to try it.
+              </p>
+            </div>
+            <div className="hero-copy min-w-0 max-w-[800px] flex-[1_1_660px]">
+              <div style={stagger(2)}>
+                <TapStage choices={TAP_CHOICES} autoplay="over" cap={money(500)} />
+              </div>
+            </div>
           </div>
-          <div className="relative z-10 flex min-w-0 flex-col gap-5 self-start lg:col-span-5 lg:-mt-72">
-            <HeroFilm />
-            <Reveal as="section" className="glance">
-              <h3 className="glance-h">The demo program</h3>
-              <dl className="glance-list">
-                {GLANCE.map(([label, value]) => (
-                  <div key={label} className="glance-row">
-                    <dt className="doc-small">{label}</dt>
-                    <dd className="doc-mono">{value}</dd>
+        </section>
+
+        <section aria-label="Sample feed" className="ticker ticker-slot relative z-10 flex bg-forest text-cream">
+          <p className="z-10 flex shrink-0 items-center border-r-[1.5px] border-cream/40 bg-forest pr-[clamp(16px,2vw,24px)] pl-[clamp(20px,5vw,72px)] text-[12px] font-bold tracking-[0.16em] whitespace-nowrap uppercase">
+            Sample feed
+          </p>
+          <div className="ticker-track">
+            <TickerCopy />
+            <TickerCopy hidden />
+          </div>
+        </section>
+
+        <StepRail steps={RAIL} />
+        <section id="loop" className="loop relative border-t-[1.5px] border-text bg-sunken max-lg:pb-24">
+          <span aria-hidden="true" className="absolute top-0 right-0 size-30 lg:size-60">
+            <svg viewBox="0 0 240 240" className="block h-full w-full">
+              {Array.from({ length: 8 }, (_, i) => (
+                <circle key={i} cx="240" cy="0" r={30 * (i + 1)} fill="none" strokeWidth="1.5" className="stroke-ring-surface" />
+              ))}
+            </svg>
+          </span>
+          <div className="loop-intro landing-reveal relative flex flex-col gap-5">
+            <h2 className="landing-h2">Six steps. One receipt.</h2>
+            <p className="landing-lead">Follow one sample program from the masterlist to the money coming back. The receipt on the right has to balance.</p>
+          </div>
+
+          <LoopSteps steps={STEPS} />
+
+          <div className="loop-receipt">
+            <aside aria-label="Sample program receipt" className="receipt-aside lg:sticky lg:top-24">
+              <div aria-hidden="true" className="printer-slot mx-[-12px] h-3 rounded-full" />
+              <div className="flex flex-col gap-3 border-[1.5px] border-t-0 border-b-0 border-text bg-raised p-4 font-mono text-mono">
+                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
+                  <Logo />
+                  <div className="flex flex-col gap-1 min-[480px]:items-end min-[480px]:text-right">
+                    <p className="flex items-center gap-2">
+                      RECEIPT
+                      <Stamp tone="outline">SAMPLE DATA</Stamp>
+                    </p>
+                    <p>TODA Fuel Aid — San Roque</p>
                   </div>
-                ))}
-              </dl>
-            </Reveal>
-          </div>
-        </div>
-
-        <section aria-labelledby="problem" className={SECTION}>
-          <div className={`${PAGE} flex flex-col gap-10`}>
-            <div className="text-center">{heading("problem")}</div>
-            <p className="doc-lead mx-auto text-center">Fuel aid moves as one lump sum with no rules attached, and nobody can recover it until an audit a year later.</p>
-            <dl className="grid gap-4 lg:grid-cols-[1.25fr_1fr_1fr]">
-              {METRICS.map((m, i) => (
-                <Reveal key={m.source} delay={i * 70} className={`tile flex flex-col gap-3 ${TILE_SHAPE[i]}`}>
-                  <dt className="flex flex-col gap-3">
-                    <span className="tile-art">
-                      <ProblemFilm kind={TILE_FILM[i]} />
-                    </span>
-                    <span className={`font-mono leading-[1.05] font-medium tabular-nums ${i === 0 ? "text-[clamp(40px,22cqw,108px)]" : "text-[clamp(32px,3.2vw,44px)]"}`}>{m.figure}</span>
-                  </dt>
-                  <dd className={i === 0 ? "doc-lead" : undefined}>{m.what}</dd>
-                  <dd className="doc-small mt-auto">Source: {m.source}</dd>
-                </Reveal>
-              ))}
-            </dl>
-            <div className="mx-auto w-full max-w-[960px]">
-              <div aria-hidden="true" className="matrix-row hidden border-b border-text text-[14px] font-semibold md:grid">
-                <span>What goes wrong</span>
-                <span />
-                <span>What TAPat does</span>
-              </div>
-              <ul aria-label="What goes wrong, and what TAPat does">
-                {MATRIX.map(([wrong, fix], i) => (
-                  <Reveal as="li" key={wrong} delay={i * 70} className="matrix-row">
-                    <span>
-                      <span className="doc-small block font-semibold md:hidden">What goes wrong</span>
-                      {wrong}
-                    </span>
-                    <span aria-hidden="true" className="matrix-arrow">
-                      →
-                    </span>
-                    <span>
-                      <span className="doc-small block font-semibold md:hidden">What TAPat does</span>
-                      {fix}
-                    </span>
-                  </Reveal>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <section aria-labelledby="how" className="band py-16 lg:py-24">
-          <div className={`${PAGE} flex flex-col gap-14`}>
-            <div className="flex flex-col items-center gap-4 text-center">
-              {heading("how")}
-              <p className="doc-lead">Watch the Tranche Agent decide. Each visit plays one of five diesel scenarios.</p>
-            </div>
-
-            <Reveal as="div">
-              <figure className="band-card p-3 sm:p-6">
-                <ScenarioPlayer />
-              </figure>
-            </Reveal>
-
-            <div className="flex flex-col gap-8">
-              <h3 className="doc-h3 text-center">The agents</h3>
-              <Reveal>
-                <div className="band-card p-4 sm:p-6">
-                  <Agents />
                 </div>
-              </Reveal>
-              <div className="grid gap-4 md:grid-cols-2">
-                {OTHER_PARTS.map((a, i) => (
-                  <Reveal as="article" key={a.name} delay={i * 80} className="band-card flex min-w-0 flex-col gap-2 p-6">
-                    <h4 className="doc-h3">{a.name}</h4>
-                    <p>{a.decides}</p>
-                    <dl className="doc-small grid gap-x-4 gap-y-1 sm:grid-cols-[6rem_1fr]">
-                      <dt className="font-semibold">Method</dt>
-                      <dd>
-                        <Rich text={a.method} />
-                      </dd>
-                      {a.research.length ? (
-                        <>
-                          <dt className="font-semibold">Research</dt>
-                          <dd className="flex flex-col gap-1">
-                            {a.research.map((r) =>
-                              r.href ? (
-                                <a key={r.label} className="doc-link" href={r.href}>
-                                  {r.label}
-                                </a>
-                              ) : (
-                                <span key={r.label}>{r.label}</span>
-                              ),
-                            )}
+                <hr className="border-t-[1.5px] border-dashed border-text" />
+                <ol className="flex flex-col">
+                  {RECEIPT_LINES.map((line) => (
+                    <li key={`${line.code}-${line.what}`} className="receipt-slot">
+                      <span aria-hidden="true" data-step={line.step} className="receipt-ghost">
+                        <Nums>{`waiting for step 0${line.step}…`}</Nums>
+                      </span>
+                      <div
+                        data-step={line.step}
+                        data-tone={line.stamp?.[0] ?? "mint"}
+                        className="receipt-line grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1 border-b border-ring-surface px-2 py-1.5 max-sm:grid-cols-[1fr_auto]"
+                      >
+                        <span className="font-medium max-sm:col-start-1 max-sm:row-start-1">
+                          <Nums>{line.code}</Nums>
+                        </span>
+                        <span className="row-span-2 row-start-1 col-start-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-2">
+                          <Nums>{line.what}</Nums>
+                        </span>
+                        <span className="col-start-3 row-start-1 text-right tabular-nums max-sm:col-start-2">
+                          <Nums>{line.amount}</Nums>
+                        </span>
+                        {line.stamp === undefined ? null : (
+                          <span className="col-start-3 row-start-2 justify-self-end max-sm:col-span-2 max-sm:col-start-1 max-sm:row-start-3 max-sm:justify-self-start">
+                            <Stamp tone={line.stamp[0]}>{line.stamp[1]}</Stamp>
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <hr className="border-t-[1.5px] border-dashed border-text" />
+                <div className="relative">
+                  <div aria-hidden="true" data-step="6" className="receipt-ghost receipt-ghost-total">
+                    <Nums>waiting for step 06…</Nums>
+                  </div>
+                  <div className="receipt-total flex flex-col">
+                    <dl className="flex flex-col">
+                      {TOTALS.map(([label, pesos]) => (
+                        <div key={label} className="flex justify-between py-0.5">
+                          <dt>{label}</dt>
+                          <dd className="tabular-nums">
+                            <Nums>{money(pesos)}</Nums>
                           </dd>
-                        </>
-                      ) : null}
-                      <dt className="font-semibold">Settings</dt>
-                      <dd>
-                        <Rich text={a.settings} />
-                      </dd>
+                        </div>
+                      ))}
                     </dl>
-                  </Reveal>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-6">
-              <h3 className="doc-h3 text-center">How it&apos;s built</h3>
-              <Reveal as="div">
-                <div className="band-card overflow-hidden">
-                  <BuildFlowFilm />
+                    <div className="mt-2 flex items-center justify-between gap-4">
+                      <span>Funded = spent + held + pending + escrow + returned</span>
+                      <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
+                    </div>
+                  </div>
                 </div>
-              </Reveal>
-              <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {FLOW.map((step, i) => (
-                  <Reveal as="li" key={step} delay={(i % 4) * 70} className="flow-step band-card flex flex-col gap-2 p-4">
-                    <span className="doc-mono font-medium">{String(i + 1).padStart(2, "0")}</span>
-                    <span className="doc-small">
-                      <Rich text={step} />
-                    </span>
-                  </Reveal>
-                ))}
-              </ol>
-              <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {LAYERS.map((l, i) => (
-                  <Reveal as="li" key={l} delay={i * 70} className="band-outline doc-small">
-                    <Rich text={l} />
-                  </Reveal>
-                ))}
-              </ul>
-            </div>
+              </div>
+              <TearEdge />
+            </aside>
           </div>
         </section>
 
-        <section aria-labelledby="simulation" className="py-16 lg:py-24">
-          <div className={`${PAGE} flex flex-col gap-10`}>
-            <div className="flex flex-col items-center gap-4 text-center">
-              {heading("simulation")}
-              <p className="doc-lead">A simulated year of Philippine diesel, looping: crude oil, the peso, excise tax and VAT feed the price that moves every Tuesday.</p>
-            </div>
-            <Reveal as="div">
-              <figure>
-                <DieselSim />
-              </figure>
-            </Reveal>
-          </div>
-        </section>
+        <StakesSection rows={STAKES} />
 
-        <section aria-labelledby="notes" className={SECTION}>
-          <div className={`${PAGE} flex flex-col gap-8`}>
-            <h2 id="notes" className="doc-h3">
-              Prototype notes
-            </h2>
-            <ul className="doc-small grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {NOTES.map((n, i) => (
-                <Reveal as="li" key={n} delay={(i % 3) * 70} className={`tile ${i === 0 ? "lg:col-span-2" : ""}`}>
-                  {n}
-                </Reveal>
-              ))}
-            </ul>
+        <ContractSection rows={ENFORCEMENT} />
+
+        <section className="close-band relative overflow-clip border-t-[1.5px] border-text bg-accent text-text">
+          <span aria-hidden="true" className="close-arc" />
+          <LazyBandMotion art="close" motif="text-ring-accent" />
+          <div className={`${PAGE_WIDTH} relative flex flex-col gap-8 py-24 lg:py-32`}>
+            <h2 className="landing-h2 landing-reveal max-w-4xl">Every peso has somewhere it has to be.</h2>
+            <p className="landing-reveal flex flex-wrap items-center gap-2 font-mono text-[clamp(16px,1.8vw,24px)]">
+              {EQUATION.map((term, i) =>
+                term === "=" || term === "+" ? (
+                  <span key={i}>{term}</span>
+                ) : (
+                  <span key={i} className="eq-term depth-1 rounded-sm border-[1.5px] px-2 py-1" style={{ "--t": i / 2 } as CSSProperties}>
+                    {term}
+                  </span>
+                ),
+              )}
+              <span className="eq-stamp" style={{ "--t": EQUATION.length / 2 } as CSSProperties}>
+                <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
+              </span>
+            </p>
+            <p className="landing-lead landing-reveal max-w-[52ch]">
+              Run the whole loop yourself on a laptop or a phone. No NFC card needed: Simulate card stands in for the tap.
+            </p>
+            <div className="landing-reveal">
+              <Actions main="primary" />
+            </div>
           </div>
         </section>
       </main>
 
-      <footer id="footer" className="overflow-hidden border-t border-text pt-12">
-        <div className={`${PAGE} flex flex-col gap-10`}>
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex flex-col gap-3">
-              <Image src={logo} alt="TAPat" height={44} className="h-11 w-auto self-start" />
-              <p className="doc-small max-w-[28ch]">Fuel aid for tricycle drivers, held to limits on-chain.</p>
-            </div>
-            <nav aria-label="On this page" className="flex flex-col">
-              <p className="font-semibold">On this page</p>
-              <a className={FOOTER_LINK} href="#problem">The problem</a>
-              <a className={FOOTER_LINK} href="#how">How it works</a>
-              <a className={FOOTER_LINK} href="#simulation">Diesel simulation</a>
-              <a className={FOOTER_LINK} href="#notes">Prototype notes</a>
-            </nav>
-            <nav aria-label="App" className="flex flex-col">
-              <p className="font-semibold">App</p>
-              <Link className={FOOTER_LINK} href="/login" prefetch={false}>Open the app</Link>
-              <Link className={FOOTER_LINK} href="/demo" prefetch={false}>Agent demo</Link>
-            </nav>
-            <div className="flex flex-col">
-              <p className="font-semibold">Credits</p>
-              <a className={FOOTER_LINK} href="https://www.pexels.com/photo/old-tricycle-on-street-in-philippines-4330929/">
-                Cover photo: Denniz Futalan / Pexels
-              </a>
-              <p className="doc-small min-h-11 py-2.5">Velo × Noir Agentic Payment Hackathon 2026</p>
-            </div>
-          </div>
-          <p className="doc-small border-t border-ring-surface pt-6">© 2026 TAPat · Prototype on Stellar Testnet</p>
-        </div>
-        <p aria-hidden="true" className="footer-wordmark mt-6">
-          TAPat
+      <footer className="bg-text py-8 text-surface">
+        <p className={`${PAGE_WIDTH} text-caption`}>
+          Prototype on Stellar Testnet at a demo rate. Limits shown are the demo program&apos;s. The tap terminal and receipt use sample data; price and MIDAS-F
+          series are simulated; intake results are precomputed. Motion rendered with Remotion from sample data.
         </p>
       </footer>
     </div>
