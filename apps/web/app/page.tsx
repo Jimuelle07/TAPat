@@ -149,9 +149,9 @@ const RAIL_LABELS = ["Clean list", "Enroll", "Fund", "Refuse", "Freeze", "Return
 const RAIL = STEPS.map((step, i) => ({ id: step.id, num: `0${i + 1}`, label: RAIL_LABELS[i] }));
 
 const STAKES = [
-  { figure: "2.7B", peso: true, what: "nearly lost to ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
-  { figure: "709.88M", peso: true, what: "in subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns the same day." },
-  { figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
+  { label: "Ghost beneficiaries", figure: "2.7B", peso: true, what: "nearly lost to duplicate and ghost beneficiaries", source: "DSWD, via Daily Tribune", answer: "Ghosts come off before anyone enrolls." },
+  { label: "Unpaid subsidies", figure: "709.88M", peso: true, what: "in DOTr subsidies unpaid or expired", source: "COA, via Astig.ph and NET25", answer: "Unspent aid returns the same day." },
+  { label: "Drivers slated", figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
 ];
 
 const ENFORCEMENT: Array<[string, string, IconName]> = [
