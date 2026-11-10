@@ -103,9 +103,11 @@ dialog::backdrop {
 }
 
 /* ---- Landing page (/) ---------------------------------------------------------------------------------------------
-   Civic ledger: IBM Plex Sans and Plex Mono on the app's cream, 1px ink rules, colour only for status.
-   Everything is scoped to .landing; the only motion is the sample tap's result fade (TapDemo). */
-html:has(.landing) { scroll-padding-top: 4.5rem; }
+   Editorial ledger, evolved: IBM Plex Sans and Plex Mono on the app's cream with paper grain, 1px ink rules, bento tiles,
+   one deep ink-green band, a kinetic headline and a giant footer wordmark. Everything is scoped to .landing.
+   Motion: CSS (headline rise, scroll reveals, button sweep), IntersectionObserver (CountUp, Reveal), Remotion film (agents), and the nav logo (NavTricycle): braking into its slot once on load, and driving off to
+   the right when "Open the app" is clicked. All of it is off or static under reduced motion. */
+html:has(.landing) { scroll-padding-top: 6rem; }
 @media (prefers-reduced-motion: no-preference) {
   html:has(.landing) { scroll-behavior: smooth; }
 }
@@ -128,18 +130,98 @@ html:has(.landing) { scroll-padding-top: 4.5rem; }
 .doc-link { color: var(--color-primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .doc-link:hover { text-decoration-thickness: 2px; }
 .doc-btn {
+  position: relative; isolation: isolate; overflow: hidden; gap: 8px;
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px;
   border-radius: 2px; background: var(--color-text); color: var(--color-surface); font-weight: 500;
-  transition: background-color 120ms var(--ease-out);
 }
-.doc-btn:hover { background: var(--color-pressed); }
-.doc-table { width: 100%; border-collapse: collapse; }
-.doc-table th { text-align: left; font-size: 14px; font-weight: 600; padding: 0 16px 10px 0; border-bottom: 1px solid var(--color-text); vertical-align: bottom; }
-.doc-table td { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--color-ring-surface); vertical-align: top; }
-.doc-table th:last-child, .doc-table td:last-child { padding-right: 0; }
-@keyframes doc-fade { from { opacity: 0; transform: translateY(4px); } }
+/* Hover fill sweep: Pressed Green slides in from the left behind the label. */
+.doc-btn::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--color-pressed); transform: scaleX(0); transform-origin: left; }
+.doc-btn:hover::before, .doc-btn:focus-visible::before { transform: scaleX(1); }
+.doc-btn-arrow, .doc-nudge { display: inline-block; }
+.doc-btn:hover .doc-btn-arrow, .doc-link:hover .doc-nudge { transform: translateX(3px); }
 @media (prefers-reduced-motion: no-preference) {
-  .tap-result { animation: doc-fade 180ms var(--ease-out) both; }
+  .doc-btn::before { transition: transform 260ms var(--ease-out); }
+  .doc-btn-arrow, .doc-nudge { transition: transform 200ms var(--ease-out); }
+}
+.landing-pill .doc-btn { border-radius: 9999px; }
+/* Parked behind the pill's edge until NavTricycle drives it in (the same 92px hides it at both logo sizes); the body's pivot is set per frame there. */
+@media (prefers-reduced-motion: no-preference) {
+  .nav-tricycle[data-drive="pending"], .nav-tricycle[data-drive="running"] { transform: translateX(-92px); }
+}
+/* Paper grain: tiny feTurbulence noise tiled over everything, fixed, ink-toned at ~4% so it reads as paper tooth, never as pattern. */
+.landing::before {
+  content: ""; position: fixed; inset: 0; z-index: 30; pointer-events: none; opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+/* Kinetic headline: each line rises out of a mask on load (CSS only; visible without JS and under reduced motion). */
+.doc-hero-h1 { font-size: clamp(34px, 3.8vw, 56px); line-height: 1.02; font-weight: 600; letter-spacing: -0.03em; }
+.hl { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.hl > span { display: block; }
+@keyframes landing-rise { from { transform: translateY(105%); } to { transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hl > span { animation: landing-rise 800ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 70ms + 80ms); }
+}
+/* Scroll reveals: Reveal.tsx marks an off-screen element "pending", then "in" once seen. No attribute (no JS) means visible. */
+@media (prefers-reduced-motion: no-preference) {
+  .landing [data-reveal] { transition: opacity 600ms var(--ease-out) var(--reveal-delay, 0ms), transform 600ms var(--ease-out) var(--reveal-delay, 0ms); }
+  .landing [data-reveal="pending"] { opacity: 0; transform: translateY(12px); }
+}
+/* Bento tiles. The art area bleeds to the tile's edges (a film from ProblemFilm), ruled off from the text below. */
+.tile { border: 1px solid var(--color-text); background: var(--color-raised); color: var(--color-text); border-radius: 2px; padding: 24px; overflow: hidden; }
+.tile-ink { background: var(--color-text); color: var(--color-surface); container-type: inline-size; }
+.tile-art { display: block; margin: -24px -24px 8px; border-bottom: 1px solid var(--color-text); overflow: hidden; }
+.tile-ink .tile-art { border-bottom-color: rgb(251 245 227 / 0.35); }
+/* "The demo program" under the hero film: a compact ruled key/value list. */
+.glance-h { font-size: 15px; line-height: 1.3; font-weight: 600; margin-bottom: 4px; }
+.glance-row { display: grid; grid-template-columns: 6.5rem 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--color-ring-surface); align-items: baseline; }
+.glance-row .doc-mono { font-size: 13px; line-height: 1.4; }
+@media (prefers-reduced-motion: no-preference) {
+  .tile { transition: translate 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .tile:hover { translate: 0 -2px; border-color: var(--color-primary); }
+  .landing [data-reveal] { transition: opacity 600ms var(--ease-out) var(--reveal-delay, 0ms), transform 600ms var(--ease-out) var(--reveal-delay, 0ms), translate 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  /* Matrix rows slide in from the left instead of rising. */
+  .landing .matrix-row[data-reveal="pending"] { transform: translateX(-28px); }
+  /* Section headings: a short underline draws in once the heading is seen (no JS or reduced motion: drawn). */
+  .doc-h2-draw::after { content: ""; display: block; width: 48px; height: 2px; margin: 12px auto 0; background: currentColor; transform-origin: left; transition: transform 700ms var(--ease-out) 150ms; }
+  .doc-h2-draw[data-draw="pending"]::after { transform: scaleX(0); }
+  /* Cover: Ken Burns on the image, parallax drift on its layer (--cover-y is written on scroll by CoverMotion). */
+  .cover-parallax { position: absolute; inset: -40px 0 0 0; transform: translate3d(0, var(--cover-y, 0px), 0); will-change: transform; }
+  .cover-kb { position: absolute; inset: 0; animation: cover-kb 24s ease-in-out infinite alternate; will-change: transform; }
+}
+@keyframes cover-kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -1%); } }
+/* Matrix rows: wrong, arrow, fix. */
+.matrix-row { display: grid; gap: 4px 20px; padding: 16px 0; border-bottom: 1px solid var(--color-ring-surface); align-items: start; }
+.matrix-arrow { font-family: var(--font-mono); color: var(--color-primary); }
+@media (min-width: 768px) {
+  .matrix-row { grid-template-columns: 1fr 2rem 1fr; align-items: baseline; }
+}
+/* The deep ink-green band: full bleed, Cream text, Ink-on-Cream cards (.band-card) inside. */
+.band { background: #16261f; color: var(--color-surface); }
+.band :where(a, button, input, select, summary):focus-visible { outline-color: var(--color-surface); }
+.band .doc-link { color: var(--color-mint); }
+.band .doc-link:hover { color: var(--color-surface); }
+.band-card { background: var(--color-surface); color: var(--color-text); border-radius: 2px; }
+.band-card :where(a, button, input, select, summary):focus-visible { outline-color: var(--color-primary); }
+.band-card .doc-link { color: var(--color-primary); }
+.band-card .doc-link:hover { color: var(--color-text); }
+.band-outline { border: 1px solid rgb(251 245 227 / 0.35); border-radius: 2px; padding: 16px; }
+/* "How it's built": cards joined by a thin line (vertical on mobile, horizontal where cards sit side by side). */
+.flow-step { position: relative; }
+.flow-step::after { content: ""; position: absolute; background: rgb(251 245 227 / 0.55); left: 50%; top: 100%; width: 1px; height: 16px; }
+.flow-step:last-child::after { display: none; }
+@media (min-width: 640px) {
+  .flow-step::after { left: 100%; top: 50%; width: 16px; height: 1px; }
+  .flow-step:nth-child(2n)::after { display: none; }
+}
+@media (min-width: 1024px) {
+  .flow-step:nth-child(2n)::after { display: block; }
+  .flow-step:nth-child(4n)::after { display: none; }
+}
+/* Footer wordmark: giant, Ink at ~9%, clipped flush to the bottom edge. */
+.footer-wordmark {
+  font-family: var(--font-sans); font-weight: 600; font-size: clamp(96px, 18vw, 280px); line-height: 0.8; letter-spacing: -0.04em;
+  text-align: center; color: rgb(27 46 40 / 0.09); white-space: nowrap; user-select: none; overflow: hidden; padding-top: 0.06em; margin: 0;
 }
 
 @utility no-scrollbar {

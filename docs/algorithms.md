@@ -753,7 +753,7 @@ MIDAS-F is one of three triggers; the other two are the LGU's plain-English rule
 
 ## 9. Fixture generators
 
-All three scripts live in `apps/server/scripts/`, import `lib/rng.ts`, and write into `fixtures/`. Run them with `pnpm --filter server tsx scripts/<name>.ts`; every generated fixture records its `source` (always `"simulated"`) and its seed so a reviewer can reproduce it.
+All four scripts live in `apps/server/scripts/`, import `lib/rng.ts`, and write into `fixtures/` (§9.4 writes into the web app instead). Run them with `pnpm --filter server tsx scripts/<name>.ts`; every generated fixture records its `source` (always `"simulated"`) and its seed so a reviewer can reproduce it.
 
 ### 9.1 `gen-prices.ts`
 
@@ -890,6 +890,26 @@ Output shapes — exactly the fixture shapes in [api-and-data.md](./api-and-data
 ```
 
 The loader converts `amount_php` to stroops with `BigInt(Math.round(amount_php * 1e6)).toString()` at read time; nothing money-shaped is stored twice. Every edge is `simulated`; the value is mirrored into `taps.simulated`, and a burst edge becomes a `taps` row with `status='refused'`, `reason_code='SIMULATED_EDGE'`, `card_id=NULL`, `card_ref=<card_ref>`, and `tick = freezeStartTick + tick_offset`. The Freeze Agent then feeds `card_ref` into `EdgeEvent.cardId`, so the MIDAS key is still `<cardRef>|<stationId>`.
+
+### 9.4 `gen-landing-scenarios.ts`
+
+```
+pnpm --filter server tsx scripts/gen-landing-scenarios.ts
+```
+
+Writes `apps/web/app/_landing/scenarios.json` (no flags), the data behind the landing page's scenario player. Five scenarios, 45 daily points each, threshold ₱65, tranche ₱1,500, 3 cards; the `crude-rally` series is `generatePrices(3)` verbatim (§9.1), the other four use their own `mulberry32` seeds:
+
+| id | Shape |
+|---|---|
+| `crude-rally` | ~₱58.50, one-day ₱66 spike on day 15, sustained ~₱71 from day 31 |
+| `staircase` | Tuesday-style steps 58.5 → 61.5 → 63.5 → 67.5; only the last step is above ₱65 |
+| `volatile` | noisier ~₱60 base, two one-day spikes above ₱65 (days 12, 22), sustained ~₱70 from day 33 |
+| `peso-slide` | ~₱59, then a ~2-week gradual climb to a ~₱68.50 plateau |
+| `supply-shock` | sudden jump to ~₱77 on day 25 that eases to ~₱72 (still above threshold) |
+
+The prices are **simulated**. The per-day `cpRecent`, `mapR`, `fireIdx` and `reason` are **precomputed** by running the real `bocpdRun` and `trancheShouldFire` (§6) from `@tapat/agent` over each series; nothing is hand-set, so a series is tuned until the real algorithm fires 3–10 days after `shiftIdx`. `fireIdx` is `at + 1` (1-based day). The narration `events` mark each ignored one-day spike and exactly one `release` at `fireIdx`.
+
+Drift guard: `scripts/lib/landing-scenarios.test.ts` regenerates the data and requires it to equal the committed `scenarios.json` byte for byte, and re-checks every `fireIdx` against the live algorithm. Regenerate the file after any change to the agent or the scenario parameters.
 
 ---
 

@@ -1,0 +1,22 @@
+/* Fig 4, the assembly bench. Plain, figure-prefixed rules; the kit's tokens do the colour. */
+.as-root .iso-figure { margin: 0; }
+.as-root .iso-plate { box-shadow: none; }
+.as-live { position: relative; overflow: hidden; touch-action: pan-y; }
+.as-live:focus-visible { outline: 1px solid var(--anatomy-muted); outline-offset: -6px; }
+.as-pan { width: 100%; will-change: transform; }
+.as-stage { width: 100%; }
+.as-live .iso-line.as-rod { stroke-width: 1.7; }
+.as-live .iso-line.as-lever { stroke-width: 2.1; }
+.as-live .iso-line.as-coil { stroke-width: 0.85; }
+.as-live .iso-line.as-key { stroke-width: 0.9; }
+.as-live .iso-line.as-needle { stroke-width: 1.2; }
+.as-live [data-flag] .iso-line[data-flow] { stroke-dasharray: 3 5; }
+@media (max-width: 760px) {
+  .as-pan { width: 240%; }
+  .as-live { -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+}
+@media (max-width: 560px) {
+  .as-root .iso-plate { padding-bottom: 104px; }
+  .as-root .iso-plate-corner[data-corner="hint"] { bottom: 44px; }
+  .as-root .iso-plate-corner[data-corner="readout"] { left: 0; right: 0; white-space: normal; text-align: right; line-height: 1.45; }
+}

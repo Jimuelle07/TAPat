@@ -1,0 +1,1509 @@
+{
+  "source": "simulated",
+  "agent": "precomputed",
+  "thresholdPhp": 65,
+  "tranchePhp": 1500,
+  "cards": 3,
+  "scenarios": [
+    {
+      "id": "crude-rally",
+      "title": "Global crude rally",
+      "story": "Crude oil rallied: diesel jumped for a day, fell back, then settled about ₱12 higher.",
+      "seed": 3,
+      "points": [
+        {
+          "idx": 1,
+          "pricePhp": 58.81,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 2,
+          "pricePhp": 58.95,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 3,
+          "pricePhp": 58.21,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 4,
+          "pricePhp": 58.75,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 5,
+          "pricePhp": 57.88,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 6,
+          "pricePhp": 59.13,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 7,
+          "pricePhp": 58.18,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 8,
+          "pricePhp": 58.7,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 9,
+          "pricePhp": 58.28,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 10,
+          "pricePhp": 58.2,
+          "cpRecent": 0.1393,
+          "mapR": 10
+        },
+        {
+          "idx": 11,
+          "pricePhp": 58.72,
+          "cpRecent": 0.1157,
+          "mapR": 11
+        },
+        {
+          "idx": 12,
+          "pricePhp": 58.94,
+          "cpRecent": 0.1073,
+          "mapR": 12
+        },
+        {
+          "idx": 13,
+          "pricePhp": 58.42,
+          "cpRecent": 0.0982,
+          "mapR": 13
+        },
+        {
+          "idx": 14,
+          "pricePhp": 58.52,
+          "cpRecent": 0.0943,
+          "mapR": 14
+        },
+        {
+          "idx": 15,
+          "pricePhp": 66,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 16,
+          "pricePhp": 57.98,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 17,
+          "pricePhp": 58.82,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 18,
+          "pricePhp": 57.27,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 19,
+          "pricePhp": 58.33,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 20,
+          "pricePhp": 58.58,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 21,
+          "pricePhp": 58.14,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 22,
+          "pricePhp": 57.86,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 23,
+          "pricePhp": 58.74,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 24,
+          "pricePhp": 57.98,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 25,
+          "pricePhp": 58.07,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 26,
+          "pricePhp": 58.68,
+          "cpRecent": 0.1048,
+          "mapR": 10
+        },
+        {
+          "idx": 27,
+          "pricePhp": 58.25,
+          "cpRecent": 0.1038,
+          "mapR": 11
+        },
+        {
+          "idx": 28,
+          "pricePhp": 58.39,
+          "cpRecent": 0.1155,
+          "mapR": 12
+        },
+        {
+          "idx": 29,
+          "pricePhp": 58.99,
+          "cpRecent": 0.1725,
+          "mapR": 13
+        },
+        {
+          "idx": 30,
+          "pricePhp": 58.45,
+          "cpRecent": 0.1649,
+          "mapR": 14
+        },
+        {
+          "idx": 31,
+          "pricePhp": 71.42,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 32,
+          "pricePhp": 71.34,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 33,
+          "pricePhp": 69.87,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 34,
+          "pricePhp": 70.85,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 35,
+          "pricePhp": 70.86,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 36,
+          "pricePhp": 70.41,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 37,
+          "pricePhp": 70.59,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 38,
+          "pricePhp": 71.17,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 39,
+          "pricePhp": 70.9,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 40,
+          "pricePhp": 71.05,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 41,
+          "pricePhp": 69.99,
+          "cpRecent": 0.157,
+          "mapR": 10
+        },
+        {
+          "idx": 42,
+          "pricePhp": 70.65,
+          "cpRecent": 0.1029,
+          "mapR": 11
+        },
+        {
+          "idx": 43,
+          "pricePhp": 70.74,
+          "cpRecent": 0.0967,
+          "mapR": 12
+        },
+        {
+          "idx": 44,
+          "pricePhp": 71.08,
+          "cpRecent": 0.0762,
+          "mapR": 13
+        },
+        {
+          "idx": 45,
+          "pricePhp": 70.91,
+          "cpRecent": 0.0755,
+          "mapR": 14
+        }
+      ],
+      "shiftIdx": 31,
+      "fireIdx": 34,
+      "reason": "changepoint 4 points ago; segment mean 70.87 >= 65.00",
+      "events": [
+        {
+          "idx": 15,
+          "kind": "spike-ignored",
+          "label": "One-day spike to ₱66.00 — ignored"
+        },
+        {
+          "idx": 31,
+          "kind": "hike",
+          "label": "Pump prices settle about ₱12.50 higher"
+        },
+        {
+          "idx": 34,
+          "kind": "release",
+          "label": "Funds released to 3 cards"
+        }
+      ]
+    },
+    {
+      "id": "staircase",
+      "title": "Weekly hikes in steps",
+      "story": "Diesel climbed in four Tuesday-style steps; only the last one pushed it above the ₱65 line.",
+      "seed": 21,
+      "points": [
+        {
+          "idx": 1,
+          "pricePhp": 58.13,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 2,
+          "pricePhp": 58.15,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 3,
+          "pricePhp": 58.78,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 4,
+          "pricePhp": 58.41,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 5,
+          "pricePhp": 58.56,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 6,
+          "pricePhp": 58.21,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 7,
+          "pricePhp": 58.34,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 8,
+          "pricePhp": 59.06,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 9,
+          "pricePhp": 58,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 10,
+          "pricePhp": 58.68,
+          "cpRecent": 0.1278,
+          "mapR": 10
+        },
+        {
+          "idx": 11,
+          "pricePhp": 61.54,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 12,
+          "pricePhp": 61.18,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 13,
+          "pricePhp": 61.18,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 14,
+          "pricePhp": 61.66,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 15,
+          "pricePhp": 61.26,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 16,
+          "pricePhp": 61.23,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 17,
+          "pricePhp": 61.34,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 18,
+          "pricePhp": 63.25,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 19,
+          "pricePhp": 63.87,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 20,
+          "pricePhp": 63.51,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 21,
+          "pricePhp": 63.8,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 22,
+          "pricePhp": 63.53,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 23,
+          "pricePhp": 63.7,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 24,
+          "pricePhp": 63.84,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 25,
+          "pricePhp": 67.4,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 26,
+          "pricePhp": 67.59,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 27,
+          "pricePhp": 67.61,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 28,
+          "pricePhp": 67.65,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 29,
+          "pricePhp": 68.27,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 30,
+          "pricePhp": 67.65,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 31,
+          "pricePhp": 67.5,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 32,
+          "pricePhp": 67.98,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 33,
+          "pricePhp": 67.93,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 34,
+          "pricePhp": 67.5,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 35,
+          "pricePhp": 68,
+          "cpRecent": 0.1323,
+          "mapR": 10
+        },
+        {
+          "idx": 36,
+          "pricePhp": 67.54,
+          "cpRecent": 0.117,
+          "mapR": 11
+        },
+        {
+          "idx": 37,
+          "pricePhp": 67.47,
+          "cpRecent": 0.1118,
+          "mapR": 12
+        },
+        {
+          "idx": 38,
+          "pricePhp": 67.34,
+          "cpRecent": 0.1281,
+          "mapR": 13
+        },
+        {
+          "idx": 39,
+          "pricePhp": 66.99,
+          "cpRecent": 0.3047,
+          "mapR": 14
+        },
+        {
+          "idx": 40,
+          "pricePhp": 67.5,
+          "cpRecent": 0.2441,
+          "mapR": 15
+        },
+        {
+          "idx": 41,
+          "pricePhp": 67.72,
+          "cpRecent": 0.1668,
+          "mapR": 16
+        },
+        {
+          "idx": 42,
+          "pricePhp": 67.24,
+          "cpRecent": 0.2269,
+          "mapR": 17
+        },
+        {
+          "idx": 43,
+          "pricePhp": 66.82,
+          "cpRecent": 0.5279,
+          "mapR": 18
+        },
+        {
+          "idx": 44,
+          "pricePhp": 67.42,
+          "cpRecent": 0.4615,
+          "mapR": 19
+        },
+        {
+          "idx": 45,
+          "pricePhp": 67.46,
+          "cpRecent": 0.3773,
+          "mapR": 20
+        }
+      ],
+      "shiftIdx": 25,
+      "fireIdx": 28,
+      "reason": "changepoint 4 points ago; segment mean 67.56 >= 65.00",
+      "events": [
+        {
+          "idx": 11,
+          "kind": "hike",
+          "label": "Tuesday hike +₱3.00 — still under ₱65"
+        },
+        {
+          "idx": 18,
+          "kind": "hike",
+          "label": "Tuesday hike +₱2.00 — still under ₱65"
+        },
+        {
+          "idx": 25,
+          "kind": "hike",
+          "label": "Tuesday hike +₱4.00 — now above ₱65"
+        },
+        {
+          "idx": 28,
+          "kind": "release",
+          "label": "Funds released to 3 cards"
+        }
+      ]
+    },
+    {
+      "id": "volatile",
+      "title": "Volatile market, two false alarms",
+      "story": "A jumpy market spiked above ₱65 twice for a single day each; only the later sustained climb counted.",
+      "seed": 34,
+      "points": [
+        {
+          "idx": 1,
+          "pricePhp": 60.31,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 2,
+          "pricePhp": 58.99,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 3,
+          "pricePhp": 60.17,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 4,
+          "pricePhp": 60.02,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 5,
+          "pricePhp": 59.53,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 6,
+          "pricePhp": 59.96,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 7,
+          "pricePhp": 61.28,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 8,
+          "pricePhp": 58,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 9,
+          "pricePhp": 59.76,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 10,
+          "pricePhp": 60.42,
+          "cpRecent": 0.1202,
+          "mapR": 10
+        },
+        {
+          "idx": 11,
+          "pricePhp": 60.88,
+          "cpRecent": 0.1283,
+          "mapR": 11
+        },
+        {
+          "idx": 12,
+          "pricePhp": 66.4,
+          "cpRecent": 0.9999,
+          "mapR": 1
+        },
+        {
+          "idx": 13,
+          "pricePhp": 59.27,
+          "cpRecent": 0.9613,
+          "mapR": 2
+        },
+        {
+          "idx": 14,
+          "pricePhp": 58.88,
+          "cpRecent": 0.7183,
+          "mapR": 1
+        },
+        {
+          "idx": 15,
+          "pricePhp": 59.63,
+          "cpRecent": 0.6504,
+          "mapR": 2
+        },
+        {
+          "idx": 16,
+          "pricePhp": 60.15,
+          "cpRecent": 0.5493,
+          "mapR": 16
+        },
+        {
+          "idx": 17,
+          "pricePhp": 60.94,
+          "cpRecent": 0.4431,
+          "mapR": 17
+        },
+        {
+          "idx": 18,
+          "pricePhp": 59.27,
+          "cpRecent": 0.4541,
+          "mapR": 18
+        },
+        {
+          "idx": 19,
+          "pricePhp": 60.11,
+          "cpRecent": 0.4027,
+          "mapR": 19
+        },
+        {
+          "idx": 20,
+          "pricePhp": 60.79,
+          "cpRecent": 0.3039,
+          "mapR": 20
+        },
+        {
+          "idx": 21,
+          "pricePhp": 59.85,
+          "cpRecent": 0.2999,
+          "mapR": 21
+        },
+        {
+          "idx": 22,
+          "pricePhp": 67.1,
+          "cpRecent": 0.9959,
+          "mapR": 1
+        },
+        {
+          "idx": 23,
+          "pricePhp": 59.91,
+          "cpRecent": 0.8411,
+          "mapR": 2
+        },
+        {
+          "idx": 24,
+          "pricePhp": 60.43,
+          "cpRecent": 0.641,
+          "mapR": 3
+        },
+        {
+          "idx": 25,
+          "pricePhp": 60.08,
+          "cpRecent": 0.4514,
+          "mapR": 25
+        },
+        {
+          "idx": 26,
+          "pricePhp": 59.4,
+          "cpRecent": 0.3742,
+          "mapR": 26
+        },
+        {
+          "idx": 27,
+          "pricePhp": 59.6,
+          "cpRecent": 0.4165,
+          "mapR": 27
+        },
+        {
+          "idx": 28,
+          "pricePhp": 60.65,
+          "cpRecent": 0.342,
+          "mapR": 28
+        },
+        {
+          "idx": 29,
+          "pricePhp": 61.02,
+          "cpRecent": 0.265,
+          "mapR": 29
+        },
+        {
+          "idx": 30,
+          "pricePhp": 59.59,
+          "cpRecent": 0.2934,
+          "mapR": 30
+        },
+        {
+          "idx": 31,
+          "pricePhp": 60.61,
+          "cpRecent": 0.2543,
+          "mapR": 31
+        },
+        {
+          "idx": 32,
+          "pricePhp": 60.31,
+          "cpRecent": 0.2603,
+          "mapR": 32
+        },
+        {
+          "idx": 33,
+          "pricePhp": 70.03,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 34,
+          "pricePhp": 69.89,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 35,
+          "pricePhp": 68.9,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 36,
+          "pricePhp": 69.49,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 37,
+          "pricePhp": 70.3,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 38,
+          "pricePhp": 69.13,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 39,
+          "pricePhp": 69.39,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 40,
+          "pricePhp": 71.02,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 41,
+          "pricePhp": 70.05,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 42,
+          "pricePhp": 69.53,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 43,
+          "pricePhp": 69.56,
+          "cpRecent": 0.0623,
+          "mapR": 10
+        },
+        {
+          "idx": 44,
+          "pricePhp": 69.51,
+          "cpRecent": 0.0591,
+          "mapR": 11
+        },
+        {
+          "idx": 45,
+          "pricePhp": 70.87,
+          "cpRecent": 0.0511,
+          "mapR": 12
+        }
+      ],
+      "shiftIdx": 33,
+      "fireIdx": 36,
+      "reason": "changepoint 4 points ago; segment mean 69.58 >= 65.00",
+      "events": [
+        {
+          "idx": 12,
+          "kind": "spike-ignored",
+          "label": "One-day spike to ₱66.40 — ignored"
+        },
+        {
+          "idx": 22,
+          "kind": "spike-ignored",
+          "label": "One-day spike to ₱67.10 — ignored"
+        },
+        {
+          "idx": 33,
+          "kind": "hike",
+          "label": "Sustained climb to about ₱70"
+        },
+        {
+          "idx": 36,
+          "kind": "release",
+          "label": "Funds released to 3 cards"
+        }
+      ]
+    },
+    {
+      "id": "peso-slide",
+      "title": "Weak peso, slow climb",
+      "story": "A sliding peso pushed diesel up gradually over two weeks to a plateau near ₱68.",
+      "seed": 47,
+      "points": [
+        {
+          "idx": 1,
+          "pricePhp": 59.28,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 2,
+          "pricePhp": 58.59,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 3,
+          "pricePhp": 58.77,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 4,
+          "pricePhp": 58.75,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 5,
+          "pricePhp": 58.13,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 6,
+          "pricePhp": 59.63,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 7,
+          "pricePhp": 59.1,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 8,
+          "pricePhp": 58.62,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 9,
+          "pricePhp": 58.97,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 10,
+          "pricePhp": 58.82,
+          "cpRecent": 0.1163,
+          "mapR": 10
+        },
+        {
+          "idx": 11,
+          "pricePhp": 59.19,
+          "cpRecent": 0.11,
+          "mapR": 11
+        },
+        {
+          "idx": 12,
+          "pricePhp": 59.27,
+          "cpRecent": 0.1224,
+          "mapR": 12
+        },
+        {
+          "idx": 13,
+          "pricePhp": 58.84,
+          "cpRecent": 0.1081,
+          "mapR": 13
+        },
+        {
+          "idx": 14,
+          "pricePhp": 59.3,
+          "cpRecent": 0.122,
+          "mapR": 14
+        },
+        {
+          "idx": 15,
+          "pricePhp": 59.23,
+          "cpRecent": 0.1421,
+          "mapR": 15
+        },
+        {
+          "idx": 16,
+          "pricePhp": 59.59,
+          "cpRecent": 0.2221,
+          "mapR": 16
+        },
+        {
+          "idx": 17,
+          "pricePhp": 59.32,
+          "cpRecent": 0.2489,
+          "mapR": 17
+        },
+        {
+          "idx": 18,
+          "pricePhp": 58.53,
+          "cpRecent": 0.1498,
+          "mapR": 18
+        },
+        {
+          "idx": 19,
+          "pricePhp": 59.78,
+          "cpRecent": 0.2123,
+          "mapR": 19
+        },
+        {
+          "idx": 20,
+          "pricePhp": 59.88,
+          "cpRecent": 0.3853,
+          "mapR": 20
+        },
+        {
+          "idx": 21,
+          "pricePhp": 60.72,
+          "cpRecent": 0.964,
+          "mapR": 2
+        },
+        {
+          "idx": 22,
+          "pricePhp": 61.64,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 23,
+          "pricePhp": 62.89,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 24,
+          "pricePhp": 63.07,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 25,
+          "pricePhp": 63.5,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 26,
+          "pricePhp": 64.61,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 27,
+          "pricePhp": 64.79,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 28,
+          "pricePhp": 65.23,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 29,
+          "pricePhp": 66.62,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 30,
+          "pricePhp": 67.31,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 31,
+          "pricePhp": 68.42,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 32,
+          "pricePhp": 69.14,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 33,
+          "pricePhp": 68.22,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 34,
+          "pricePhp": 69.15,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 35,
+          "pricePhp": 68.56,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 36,
+          "pricePhp": 68.45,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 37,
+          "pricePhp": 68.23,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 38,
+          "pricePhp": 68.13,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 39,
+          "pricePhp": 67.46,
+          "cpRecent": 0.9895,
+          "mapR": 9
+        },
+        {
+          "idx": 40,
+          "pricePhp": 68.33,
+          "cpRecent": 0.5216,
+          "mapR": 10
+        },
+        {
+          "idx": 41,
+          "pricePhp": 68.52,
+          "cpRecent": 0.1599,
+          "mapR": 11
+        },
+        {
+          "idx": 42,
+          "pricePhp": 68.41,
+          "cpRecent": 0.139,
+          "mapR": 12
+        },
+        {
+          "idx": 43,
+          "pricePhp": 69.22,
+          "cpRecent": 0.108,
+          "mapR": 12
+        },
+        {
+          "idx": 44,
+          "pricePhp": 68.59,
+          "cpRecent": 0.106,
+          "mapR": 13
+        },
+        {
+          "idx": 45,
+          "pricePhp": 68.02,
+          "cpRecent": 0.1001,
+          "mapR": 14
+        }
+      ],
+      "shiftIdx": 28,
+      "fireIdx": 33,
+      "reason": "changepoint 4 points ago; segment mean 68.27 >= 65.00",
+      "events": [
+        {
+          "idx": 19,
+          "kind": "hike",
+          "label": "Price starts creeping up"
+        },
+        {
+          "idx": 28,
+          "kind": "hike",
+          "label": "Crosses ₱65 and keeps rising"
+        },
+        {
+          "idx": 33,
+          "kind": "release",
+          "label": "Funds released to 3 cards"
+        }
+      ]
+    },
+    {
+      "id": "supply-shock",
+      "title": "Refinery outage",
+      "story": "A refinery outage sent diesel to about ₱77 overnight, then it eased to about ₱72 — still above the line.",
+      "seed": 58,
+      "points": [
+        {
+          "idx": 1,
+          "pricePhp": 57.65,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 2,
+          "pricePhp": 58.41,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 3,
+          "pricePhp": 57.73,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 4,
+          "pricePhp": 58.51,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 5,
+          "pricePhp": 57.69,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 6,
+          "pricePhp": 57.96,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 7,
+          "pricePhp": 58.57,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 8,
+          "pricePhp": 57.64,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 9,
+          "pricePhp": 58.54,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 10,
+          "pricePhp": 57.05,
+          "cpRecent": 0.1219,
+          "mapR": 10
+        },
+        {
+          "idx": 11,
+          "pricePhp": 57.84,
+          "cpRecent": 0.109,
+          "mapR": 11
+        },
+        {
+          "idx": 12,
+          "pricePhp": 58.53,
+          "cpRecent": 0.1006,
+          "mapR": 12
+        },
+        {
+          "idx": 13,
+          "pricePhp": 58.07,
+          "cpRecent": 0.0968,
+          "mapR": 13
+        },
+        {
+          "idx": 14,
+          "pricePhp": 58.03,
+          "cpRecent": 0.0978,
+          "mapR": 14
+        },
+        {
+          "idx": 15,
+          "pricePhp": 57.47,
+          "cpRecent": 0.1021,
+          "mapR": 15
+        },
+        {
+          "idx": 16,
+          "pricePhp": 58.63,
+          "cpRecent": 0.0917,
+          "mapR": 16
+        },
+        {
+          "idx": 17,
+          "pricePhp": 57.76,
+          "cpRecent": 0.0887,
+          "mapR": 17
+        },
+        {
+          "idx": 18,
+          "pricePhp": 57.62,
+          "cpRecent": 0.0952,
+          "mapR": 18
+        },
+        {
+          "idx": 19,
+          "pricePhp": 58.5,
+          "cpRecent": 0.0899,
+          "mapR": 19
+        },
+        {
+          "idx": 20,
+          "pricePhp": 57.82,
+          "cpRecent": 0.0927,
+          "mapR": 20
+        },
+        {
+          "idx": 21,
+          "pricePhp": 57.4,
+          "cpRecent": 0.1061,
+          "mapR": 21
+        },
+        {
+          "idx": 22,
+          "pricePhp": 58.03,
+          "cpRecent": 0.0995,
+          "mapR": 22
+        },
+        {
+          "idx": 23,
+          "pricePhp": 57.57,
+          "cpRecent": 0.1113,
+          "mapR": 23
+        },
+        {
+          "idx": 24,
+          "pricePhp": 58.25,
+          "cpRecent": 0.0951,
+          "mapR": 24
+        },
+        {
+          "idx": 25,
+          "pricePhp": 77.18,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 26,
+          "pricePhp": 76.53,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 27,
+          "pricePhp": 77.7,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 28,
+          "pricePhp": 77.09,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 29,
+          "pricePhp": 76.32,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 30,
+          "pricePhp": 76.87,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 31,
+          "pricePhp": 76.53,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 32,
+          "pricePhp": 77.76,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 33,
+          "pricePhp": 76.24,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 34,
+          "pricePhp": 76.81,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 35,
+          "pricePhp": 72.69,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 36,
+          "pricePhp": 72.18,
+          "cpRecent": 1,
+          "mapR": 1
+        },
+        {
+          "idx": 37,
+          "pricePhp": 72.2,
+          "cpRecent": 1,
+          "mapR": 2
+        },
+        {
+          "idx": 38,
+          "pricePhp": 71.41,
+          "cpRecent": 1,
+          "mapR": 3
+        },
+        {
+          "idx": 39,
+          "pricePhp": 72.75,
+          "cpRecent": 1,
+          "mapR": 4
+        },
+        {
+          "idx": 40,
+          "pricePhp": 71.85,
+          "cpRecent": 1,
+          "mapR": 5
+        },
+        {
+          "idx": 41,
+          "pricePhp": 71.26,
+          "cpRecent": 1,
+          "mapR": 6
+        },
+        {
+          "idx": 42,
+          "pricePhp": 71.83,
+          "cpRecent": 1,
+          "mapR": 7
+        },
+        {
+          "idx": 43,
+          "pricePhp": 71.85,
+          "cpRecent": 1,
+          "mapR": 8
+        },
+        {
+          "idx": 44,
+          "pricePhp": 72.94,
+          "cpRecent": 1,
+          "mapR": 9
+        },
+        {
+          "idx": 45,
+          "pricePhp": 71.25,
+          "cpRecent": 0.0838,
+          "mapR": 10
+        }
+      ],
+      "shiftIdx": 25,
+      "fireIdx": 28,
+      "reason": "changepoint 4 points ago; segment mean 77.13 >= 65.00",
+      "events": [
+        {
+          "idx": 25,
+          "kind": "hike",
+          "label": "Refinery outage: jump of about ₱19"
+        },
+        {
+          "idx": 28,
+          "kind": "release",
+          "label": "Funds released to 3 cards"
+        },
+        {
+          "idx": 35,
+          "kind": "drop",
+          "label": "Eases to about ₱72 — still above ₱65"
+        }
+      ]
+    }
+  ]
+}

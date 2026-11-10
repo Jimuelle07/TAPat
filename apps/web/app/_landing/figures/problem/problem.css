@@ -1,0 +1,126 @@
+/* Problem tiles: four small Anatomy instruments sitting in the bento tiles' art areas. */
+.pf {
+  --anatomy-mono: var(--font-mono, ui-monospace, monospace);
+  display: block;
+  line-height: 0;
+}
+.pf .iso-figure { margin: 0; line-height: normal; }
+.pf .iso-plate {
+  padding: 0;
+  box-shadow: none;
+  background: var(--anatomy-card);
+}
+.pf .iso-plate-corners { inset: 9px 12px; }
+.pf .iso-plate-corner { font-size: 10px; }
+.pf .iso-stage { display: block; }
+.pf .iso-svg { overflow: hidden; }
+
+/* Dark tile: deep green ink with the kit's dark ramp tinted to match. */
+.pf[data-theme="dark"] {
+  --anatomy-card: #16261f;
+  --anatomy-paper: #16261f;
+  --anatomy-face: #1d3128;
+  --anatomy-top: #223a2f;
+  --anatomy-shade-0: #112018;
+  --anatomy-shade-1: #14251d;
+  --anatomy-shade-2: #182a21;
+  --anatomy-shade-3: #1c3026;
+  --anatomy-lit-top: #2c4a3c;
+  --anatomy-lit-shade: #1f382d;
+  --anatomy-hi: #dbe8de;
+  --anatomy-mid: #70907f;
+  --anatomy-lo: #405d4f;
+  --anatomy-faint: #2a443a;
+  --anatomy-lit: #ffffff;
+  --anatomy-halo: #07110c;
+  --anatomy-halo-opacity: 0.9;
+  --anatomy-dot: #e4efe7;
+  --anatomy-text: #b9cbbf;
+  --anatomy-muted: #7d9788;
+}
+
+/* Cream tile: paper matches the tile, ink matches the site's text green. */
+.pf[data-theme="light"] {
+  --anatomy-card: #fdfaf0;
+  --anatomy-paper: #fdfaf0;
+  --anatomy-face: #ffffff;
+  --anatomy-top: #fffdf6;
+  --anatomy-shade-0: #ddd6c0;
+  --anatomy-shade-1: #e6e0cc;
+  --anatomy-shade-2: #eee9d8;
+  --anatomy-shade-3: #f5f1e3;
+  --anatomy-lit-top: #ffffff;
+  --anatomy-lit-shade: #efead8;
+  --anatomy-hi: #1b2e28;
+  --anatomy-mid: #84948b;
+  --anatomy-lo: #b9bfae;
+  --anatomy-faint: #dcd6c0;
+  --anatomy-lit: #000000;
+  --anatomy-halo: #8f8a72;
+  --anatomy-halo-opacity: 0.34;
+  --anatomy-dot: #34463f;
+  --anatomy-text: #3d4d46;
+  --anatomy-muted: #6d7b73;
+}
+
+.pf-live { outline: none; }
+.pf-live:focus-visible { outline: 1px solid var(--anatomy-muted); outline-offset: -4px; }
+
+/* Pegboard holes: dark pits ringed by a thin edge. */
+.pf-hole { fill: var(--anatomy-shade-0); stroke: var(--anatomy-lo); stroke-width: 0.4; }
+.pf-hole { vector-effect: none; }
+.pf-glass { fill: var(--anatomy-top); fill-opacity: 0.5; stroke: none; }
+.pf-coin-fill { fill: var(--anatomy-face); }
+.pf-pool { fill: var(--anatomy-lit-top); stroke: none; }
+.pf-text { fill: var(--anatomy-hi); font-family: var(--anatomy-mono); }
+.pf [data-hidden] { display: none; }
+.pf [data-mouth] { transition: opacity 600ms ease; }
+
+/* Ghost beneficiaries: the same solids with the volume taken out and a dashed edge. */
+.pf[data-theme="light"] { --pf-ghost-edge: #8f9d94; --pf-ghost-line: #c3c8b8; --pf-ghost-fill: #f6f2e4; }
+.pf[data-theme="dark"] { --pf-ghost-edge: #5b7d6b; --pf-ghost-line: #35544a; --pf-ghost-fill: #1a2d24; }
+.pf-ghost {
+  --anatomy-shade-0: var(--pf-ghost-fill);
+  --anatomy-shade-1: var(--pf-ghost-fill);
+  --anatomy-shade-2: var(--pf-ghost-fill);
+  --anatomy-shade-3: var(--pf-ghost-fill);
+  --anatomy-top: var(--pf-ghost-fill);
+  --anatomy-hi: var(--pf-ghost-edge);
+  --anatomy-mid: var(--pf-ghost-edge);
+  --anatomy-lo: var(--pf-ghost-line);
+}
+.pf-ghost .iso-edge { stroke-dasharray: 3 2.2; }
+.pf-gauge-fill { fill: var(--anatomy-hi); stroke: none; }
+.pf-mouth-coin { transition: opacity 400ms var(--anatomy-ease); }
+/* The peg loader: a row shows its first data-n pegs (set by drivers/live.tsx); the rest stand hidden. */
+.pf-row[data-n="0"] > use:nth-child(n+1) { display: none; }
+.pf-row[data-n="1"] > use:nth-child(n+2) { display: none; }
+.pf-row[data-n="2"] > use:nth-child(n+3) { display: none; }
+.pf-row[data-n="3"] > use:nth-child(n+4) { display: none; }
+.pf-row[data-n="4"] > use:nth-child(n+5) { display: none; }
+.pf-row[data-n="5"] > use:nth-child(n+6) { display: none; }
+.pf-row[data-n="6"] > use:nth-child(n+7) { display: none; }
+.pf-row[data-n="7"] > use:nth-child(n+8) { display: none; }
+.pf-row[data-n="8"] > use:nth-child(n+9) { display: none; }
+.pf-row[data-n="9"] > use:nth-child(n+10) { display: none; }
+.pf-row[data-n="10"] > use:nth-child(n+11) { display: none; }
+.pf-row[data-n="11"] > use:nth-child(n+12) { display: none; }
+.pf-row[data-n="12"] > use:nth-child(n+13) { display: none; }
+.pf-row[data-n="13"] > use:nth-child(n+14) { display: none; }
+.pf-row[data-n="14"] > use:nth-child(n+15) { display: none; }
+.pf-row[data-n="15"] > use:nth-child(n+16) { display: none; }
+.pf-row[data-n="16"] > use:nth-child(n+17) { display: none; }
+.pf-row[data-n="17"] > use:nth-child(n+18) { display: none; }
+.pf-row[data-n="18"] > use:nth-child(n+19) { display: none; }
+.pf-row[data-n="19"] > use:nth-child(n+20) { display: none; }
+.pf-row[data-n="20"] > use:nth-child(n+21) { display: none; }
+.pf-row[data-n="21"] > use:nth-child(n+22) { display: none; }
+.pf-row[data-n="22"] > use:nth-child(n+23) { display: none; }
+.pf-row[data-n="23"] > use:nth-child(n+24) { display: none; }
+.pf-row[data-n="24"] > use:nth-child(n+25) { display: none; }
+.pf-row[data-n="25"] > use:nth-child(n+26) { display: none; }
+.pf-row[data-n="26"] > use:nth-child(n+27) { display: none; }
+.pf-row[data-n="27"] > use:nth-child(n+28) { display: none; }
+.pf-row[data-n="28"] > use:nth-child(n+29) { display: none; }
+.pf-row[data-n="29"] > use:nth-child(n+30) { display: none; }
+.pf-row[data-n="30"] > use:nth-child(n+31) { display: none; }
