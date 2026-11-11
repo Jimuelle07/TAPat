@@ -248,7 +248,7 @@ Desktop officer dashboard on Stellar Testnet. Amounts use the fixed demo rate.
 
 ### Landing and sign-in
 
-![Landing page](docs/assets/screenshots/landing.png)
+![Landing page](docs/assets/screenshots/landing.webp)
 
 | Log in | Sign up |
 |---|---|
