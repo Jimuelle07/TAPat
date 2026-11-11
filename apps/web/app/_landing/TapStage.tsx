@@ -86,13 +86,18 @@ export function TapStage({ choices, autoplay, cap }: { choices: StageChoice[]; a
           };
           const first = toScene(lastTap.current?.choice ?? choices.find((c) => c.id === autoplay) ?? choices[0]);
           made = createPumpScene(el, first, fonts, reducedNow());
-          if (made === null) return;
+          if (made === null) {
+            el.hidden = true; // No WebGL: drop the empty canvas so the keys don't sit under a blank gap.
+            return;
+          }
           scene.current = made;
           el.dataset.ready = "true";
           const tap = lastTap.current;
           if (tap !== null) made.tap(toScene(tap.choice), tap.instant, tap.at);
         })
-        .catch(() => undefined); // The keys and receipt still work without the 3D panel.
+        .catch(() => {
+          el.hidden = true; // The keys and receipt still work without the 3D panel.
+        });
     };
     // Safari has no requestIdleCallback.
     const hasIdle = typeof window.requestIdleCallback === "function";

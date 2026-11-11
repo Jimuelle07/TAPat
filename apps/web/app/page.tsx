@@ -15,9 +15,8 @@ import { Cta, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
 import "./_landing/depth.css";
 import "./_landing/first-screen.css";
 
-// Landing only, so the app does not load them. The two local files are cut down to what the page uses: see _landing/fonts/README.md.
+// Landing only, so the app does not load them. The local file is cut down to what the page uses: see _landing/fonts/README.md.
 const bricolage = localFont({ src: "./_landing/fonts/bricolage-700.woff2", variable: "--font-bricolage", weight: "700", display: "swap" });
-const fraunces = localFont({ src: "./_landing/fonts/fraunces-italic-500.woff2", variable: "--font-fraunces", weight: "500", style: "italic", display: "swap" });
 // The peso sign lives in latin-ext.
 const plex = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin", "latin-ext"], weight: ["400", "500"] });
 // The first screen's faces: Fraunces with its SOFT axis for display, Inter for text.
@@ -278,8 +277,8 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 
 export default function Landing() {
   return (
-    <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
-      <header className="landing-header first-screen sticky top-0 z-40 -mb-[84px]">
+    <div className={`landing ${bricolage.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
+      <header className="landing-header first-screen relative z-40 -mb-[84px]">
         <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2 md:grid md:grid-cols-[1fr_auto_1fr] [&>:last-child]:justify-self-end`}>
           {/* Equal side columns pin the nav to the centre while the wordmark tucks away. */}
           <a href="#top" aria-label="TAPat home" className="-ml-[clamp(10px,2.5vw,36px)] flex items-center justify-self-start">
