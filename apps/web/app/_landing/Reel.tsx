@@ -1,37 +1,8 @@
 "use client";
 
-// Lazy motion for the landing page. Remotion is reachable only through the dynamic imports below.
-import dynamic from "next/dynamic";
+// Lazy motion for the step cards. Remotion is reachable only through the dynamic import of ./ReelPlayer below.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { ArtId } from "./art";
 import type { SpecimenId } from "./Specimens";
-
-const BandMotion = dynamic(() => import("./Motion").then((m) => m.BandMotion), { ssr: false, loading: () => null });
-
-/** Mounts Remotion's band art only once its placeholder is near the viewport; never under reduced motion. */
-export function LazyBandMotion({ art, motif }: { art: ArtId; motif: string }) {
-  const box = useRef<HTMLSpanElement>(null);
-  const [near, setNear] = useState(false);
-
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return;
-        observer.disconnect();
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        setNear(true);
-      },
-      { rootMargin: "300px 0px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  if (near) return <BandMotion art={art} motif={motif} />;
-  return <span ref={box} aria-hidden="true" className="band-arc" />;
-}
 
 /**
  * Fetches the player's code on the visitor's first scroll. Waiting until a card is close means that on a first visit,

@@ -45,6 +45,7 @@ export function LedgerSection({
   const [tracking, setTracking] = useState(false);
   const played = useRef(false);
   const settle = useRef(0);
+  const countRun = useRef(0);
 
   const play = useCallback(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -56,10 +57,13 @@ export function LedgerSection({
     // entrance delays never slow down hovering afterwards.
     settle.current = window.setTimeout(() => setPhase("done"), 3600);
     const values = [funded, ...parts.map((p) => p.pesos)];
+    // A Replay mid-count (or unmount) bumps the run, so the older loops stop instead of fighting over the same figures.
+    const runId = ++countRun.current;
     figures.current.forEach((el, i) => {
       if (el === null) return;
       const to = values[i], ms = i === 0 ? 1400 : 1200 + i * 220, t0 = performance.now();
       requestAnimationFrame(function tick(now) {
+        if (runId !== countRun.current) return;
         const t = Math.min(1, (now - t0) / ms), eased = 1 - Math.pow(1 - t, 4);
         el.textContent = pesoDigits(Math.round(to * eased * 100) / 100);
         if (t < 1) requestAnimationFrame(tick);
@@ -69,6 +73,7 @@ export function LedgerSection({
 
   useEffect(() => {
     const el = book.current;
+    const runs = countRun;
     if (el === null) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -83,6 +88,7 @@ export function LedgerSection({
     return () => {
       observer.disconnect();
       window.clearTimeout(settle.current);
+      runs.current++;
     };
   }, [play]);
 
