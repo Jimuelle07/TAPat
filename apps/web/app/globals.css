@@ -203,21 +203,55 @@ html:has(.landing) {
   letter-spacing: -0.03em;
 }
 
-/* The cream header floats over the page; once scrolled its shadow deepens (CSS scroll timeline, no JS). */
-.landing-header {
-  box-shadow: var(--depth-1);
+/* The header strip is clear: logo, links and button sit straight on the page. */
+.landing-header.first-screen {
+  background: transparent;
+}
+/* Section links are plain ink. A thin rule draws in under the hovered link and stays under the current section's link. */
+.ledger-nav a {
+  position: relative;
+  color: var(--color-forest);
+}
+.ledger-nav a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 6px 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ledger-nav a::after {
+    transition: transform 260ms var(--ease-out);
+  }
+}
+.ledger-nav a:hover::after,
+.ledger-nav a[aria-current="location"]::after {
+  transform: scaleX(1);
+}
+.ledger-nav a:focus-visible {
+  outline: 2.5px solid var(--color-forest);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Past the hero the wordmark tucks into the logo, leaving the mark alone (CSS scroll timeline, no JS). */
+.logo-word {
+  max-width: 3.5em;
+  margin-left: 10px;
+  overflow: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: scroll()) {
-    .landing-header {
-      animation: header-lift linear both;
+    .logo-word {
+      animation: word-tuck linear both;
       animation-timeline: scroll(root);
       animation-range: 0 160px;
     }
   }
 }
-@keyframes header-lift {
-  to { box-shadow: var(--depth-2); }
+@keyframes word-tuck {
+  to { max-width: 0; margin-left: 0; opacity: 0; translate: -12px 0; }
 }
 
 /* Tactile CTAs: raised with a sheen, deeper on hover, pressed in on :active. The outline look stays flat. */

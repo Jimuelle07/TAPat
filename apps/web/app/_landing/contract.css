@@ -1,0 +1,398 @@
+/* "The agent decides. The contract has the last word." (Contract.tsx). Cream ground, forest ink, Fraunces SOFT display,
+   Inter text, Plex Mono only for the contract calls. Global CSS (next.config routes it through the Tailwind loader), so
+   every class is ctr- prefixed. */
+.ctr {
+  --ctr-night: #14231d;
+  --ctr-line: rgb(29 58 47 / 0.14);
+  --ctr-line-dark: rgb(245 233 214 / 0.12);
+  --ctr-muted: #5c6b65;
+  background: var(--color-cream);
+  color: var(--color-forest);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  border-top: 1px solid var(--ctr-line);
+}
+.ctr-h {
+  margin: 0;
+  font-weight: 500;
+  font-size: clamp(40px, 5.4vw, 80px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.ctr-h em {
+  font-style: italic;
+  color: var(--color-primary);
+}
+.ctr-lead {
+  margin: 0;
+  max-width: 40ch;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ctr-muted);
+}
+
+/* The four decisions. */
+.ctr-list {
+  border-top: 1px solid var(--ctr-line);
+}
+.ctr-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 4px 16px;
+  align-items: baseline;
+  width: 100%;
+  padding: 22px 8px 24px 0;
+  border: 0;
+  border-bottom: 1px solid var(--ctr-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ctr-row:focus-visible {
+  outline: 2.5px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.ctr-num {
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ctr-muted);
+  transition: color 300ms;
+}
+.ctr-name {
+  font-size: clamp(28px, 2.6vw, 38px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: rgb(29 58 47 / 0.55);
+  transition:
+    color 400ms var(--ease-out),
+    translate 400ms var(--ease-out);
+}
+.ctr-arrow {
+  font-size: 22px;
+  opacity: 0;
+  translate: -8px 0;
+  transition:
+    opacity 300ms,
+    translate 400ms var(--ease-out);
+}
+.ctr-gist {
+  grid-column: 2 / 4;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ctr-muted);
+  transition:
+    max-height 500ms var(--ease-out),
+    opacity 400ms,
+    margin 500ms var(--ease-out);
+}
+.ctr-row:hover .ctr-name {
+  color: rgb(29 58 47 / 0.75);
+}
+.ctr-row[aria-selected="true"] .ctr-name {
+  color: var(--color-forest);
+  translate: 6px 0;
+}
+.ctr-row[aria-selected="true"] .ctr-num {
+  color: var(--color-primary);
+}
+.ctr-row[aria-selected="true"] .ctr-arrow {
+  opacity: 1;
+  translate: 0 0;
+}
+.ctr-row[aria-selected="true"] .ctr-gist {
+  max-height: 90px;
+  opacity: 1;
+  margin-top: 6px;
+}
+.ctr-prog {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--color-forest);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.ctr-list[data-auto] .ctr-row[aria-selected="true"] .ctr-prog {
+  animation: ctr-prog var(--cycle, 6s) linear both paused;
+}
+.ctr-list[data-auto][data-running] .ctr-row[aria-selected="true"] .ctr-prog {
+  animation-play-state: running;
+}
+.ctr-list:not([data-auto]) .ctr-row[aria-selected="true"] .ctr-prog {
+  transform: scaleX(1);
+  background: var(--color-primary);
+}
+.ctr-note {
+  margin: 18px 0 0;
+  font-size: 14px;
+  color: var(--ctr-muted);
+}
+
+/* The console. */
+.ctr-console {
+  position: relative;
+  min-height: 520px;
+  padding: 22px;
+  border-radius: 22px;
+  overflow: hidden;
+  color: var(--color-cream);
+  background: var(--ctr-night);
+  box-shadow: inset 0 0 0 1px var(--ctr-line-dark);
+}
+.ctr-console:focus-visible {
+  outline: 2.5px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.ctr-console[data-tone="mint"] {
+  --ctr-tone: #9fd3b6;
+}
+.ctr-console[data-tone="declined"] {
+  --ctr-tone: #f3a283;
+}
+.ctr-console[data-tone="frozen"] {
+  --ctr-tone: var(--color-frozen);
+}
+.ctr-console[data-tone="accent"] {
+  --ctr-tone: var(--color-accent-tint);
+}
+.ctr-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ctr-line-dark);
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgb(245 233 214 / 0.68);
+}
+.ctr-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ctr-live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+.ctr-lane {
+  margin: 26px 0 12px;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(245 233 214 / 0.62);
+}
+.ctr-slip {
+  padding: 20px 22px;
+  border-radius: 12px;
+  background: #fbf5e3;
+  color: var(--color-forest);
+}
+.ctr-who {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ctr-muted);
+}
+.ctr-what {
+  margin: 10px 0 0;
+  font-size: clamp(20px, 1.8vw, 24px);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.ctr-amount {
+  margin: 12px 0 0;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 500;
+}
+.ctr-wire {
+  position: relative;
+  height: 54px;
+  margin-left: 30px;
+  border-left: 1px dashed rgb(245 233 214 / 0.25);
+}
+.ctr-wire i {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0;
+}
+.ctr-wire span {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  translate: 0 -50%;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(245 233 214 / 0.62);
+}
+.ctr-term {
+  min-height: 128px;
+  padding: 20px 22px 24px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.22);
+  box-shadow: inset 0 0 0 1px var(--ctr-line-dark);
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 15px;
+  line-height: 1.7;
+}
+@media (min-width: 641px) {
+  .ctr-term {
+    padding-right: clamp(130px, 12vw, 160px);
+  }
+}
+.ctr-call {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ctr-call > span {
+  color: var(--color-accent);
+}
+.ctr-caret {
+  display: inline-block;
+  width: 8px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -3px;
+  background: var(--color-accent);
+}
+.ctr-result {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 0;
+  color: var(--ctr-tone);
+}
+.ctr-tx {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgb(245 233 214 / 0.62);
+}
+.ctr-seal {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  width: clamp(112px, 11vw, 140px);
+  color: var(--ctr-tone);
+  rotate: -8deg;
+}
+.ctr-seal text {
+  fill: currentColor;
+  font-family: var(--font-plex), ui-monospace, monospace;
+}
+.ctr-ring {
+  transform-box: view-box;
+  transform-origin: 60px 60px;
+}
+@media (max-width: 640px) {
+  .ctr-seal {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    display: block;
+    margin: 16px 0 0 auto;
+  }
+}
+
+/* The play: slip drops in, a pulse runs down to the contract, the call types (Contract.tsx), result and seal land. */
+@media (prefers-reduced-motion: no-preference) {
+  .ctr-run .ctr-slip {
+    animation: ctr-slip 700ms var(--ease-out) both;
+  }
+  .ctr-run .ctr-wire i {
+    animation: ctr-travel 650ms 450ms var(--ease-out) both;
+  }
+  .ctr-run .ctr-result,
+  .ctr-run .ctr-tx {
+    animation: ctr-fade 450ms 2000ms var(--ease-out) both;
+  }
+  .ctr-run .ctr-tx {
+    animation-delay: 2150ms;
+  }
+  .ctr-run .ctr-seal {
+    animation: ctr-stamp 600ms 2350ms var(--ease-spring) both;
+  }
+  .ctr-ring {
+    animation: ctr-spin 18s linear infinite;
+  }
+  .ctr-caret {
+    animation: ctr-caret 1s steps(1) infinite;
+  }
+}
+@keyframes ctr-prog {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes ctr-slip {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+    rotate: -1.2deg;
+  }
+}
+@keyframes ctr-travel {
+  0% {
+    opacity: 0;
+    top: 0;
+  }
+  20%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    top: 100%;
+  }
+}
+@keyframes ctr-fade {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes ctr-stamp {
+  from {
+    opacity: 0;
+    scale: 1.7;
+    rotate: -18deg;
+  }
+}
+@keyframes ctr-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes ctr-caret {
+  50% {
+    opacity: 0;
+  }
+}

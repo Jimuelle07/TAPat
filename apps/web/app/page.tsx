@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
 import localFont from "next/font/local";
 import Image from "next/image";
-import Link from "next/link";
 import type { CSSProperties } from "react";
 import { DEFAULT_PHP_PER_XLM, phpToStroops, TAP_REASON_LABELS } from "@tapat/shared";
 import { php } from "@/lib/format";
-import type { IconName } from "./(app)/_components/Icon";
-import { ContractSection, StakesSection } from "./_landing/Evidence";
-import { ScrollGauge, StepRail } from "./_landing/Navigator";
+import { ContractSection, type Decision } from "./_landing/Contract";
+import { StakesSection } from "./_landing/Evidence";
+import { SectionNav, StepRail } from "./_landing/Navigator";
 import { LazyBandMotion } from "./_landing/Reel";
 import { LoopSteps, type LoopStep } from "./_landing/Steps";
 import { TapStage, type StageChoice } from "./_landing/TapStage";
@@ -154,11 +153,64 @@ const STAKES = [
   { label: "Drivers slated", figure: "723,000", peso: false, what: "tricycle drivers slated for aid", source: "PNA", answer: "One minute to enroll, then a tap at the pump." },
 ];
 
-const ENFORCEMENT: Array<[string, string, IconName]> = [
-  ["Fund", "payment_escrow.fund_escrow()", "wallet"],
-  ["Refuse", "payment_escrow.authorize()", "close"],
-  ["Freeze", "API skips payment_escrow.claim()", "pause"],
-  ["Return", "payment_escrow.sweep_on_revoke()", "refresh"],
+/** The four decisions as the demo program plays them (docs/PRD.md §3, F3–F6; the runbook's tap matrix). */
+const DECISIONS: Decision[] = [
+  {
+    name: "Fund",
+    gist: `Release ${money(1500)} per card only when a diesel price shift is real and inside a Velo-verified budget.`,
+    tone: "mint",
+    verdict: "ENFORCED",
+    who: "Tranche Agent",
+    where: "simulated price feed",
+    what: `The price shift is real: a sustained run above ${money(65)}/L, not a one-day spike. The budget is Velo-verified.`,
+    amount: `3 cards × ${money(1500)} = ${money(4500)}`,
+    call: `payment_escrow.fund_escrow(XLM, program_wallet, device_hash, ${money(1500)})`,
+    mark: "✓",
+    result: "3 escrows funded · signed by the Program Wallet",
+    note: "fees sponsored by the Velo Gas Station",
+  },
+  {
+    name: "Refuse",
+    gist: "Reject a tap that is over the cap, expired or outside the card's policy.",
+    tone: "declined",
+    verdict: "DECLINED",
+    who: "Card agent · Juan D. …AL01",
+    where: "Station A",
+    what: `${money(800)} of diesel in one tap. The card's policy caps a tap at ${money(500)}.`,
+    amount: `${money(800)} requested`,
+    call: `payment_escrow.authorize(agent, device_hash, station_a, XLM, ${money(800)}, nonce)`,
+    mark: "✕",
+    result: `OVER_CAP · ${money(800)} is over the ${money(500)} per-tap cap`,
+    note: "refused in simulation · no tx submitted",
+  },
+  {
+    name: "Freeze",
+    gist: "Pause a station whose tap pattern is anomalous: new taps refused, settlement held.",
+    tone: "frozen",
+    verdict: "HELD",
+    who: "Freeze Agent",
+    where: "Station B",
+    what: "A burst of taps at Station B crosses the MIDAS-F threshold. Freeze the station.",
+    amount: `${money(960)} pending at Station B`,
+    call: "API skips payment_escrow.claim()",
+    mark: "‖",
+    result: `HELD ${money(960)} · station frozen`,
+    note: "new taps refused · released only if the LGU unfreezes it",
+  },
+  {
+    name: "Return",
+    gist: "At program end, sweep unspent escrow back to the LGU wallet the same day.",
+    tone: "accent",
+    verdict: "ENFORCED",
+    who: "Sweep runner",
+    where: "program end",
+    what: "The program has ended. Revoke each card's policy and sweep what is left in its escrow.",
+    amount: `${money(3190)} unspent`,
+    call: "agent_registry.revoke_agent() → payment_escrow.sweep_on_revoke()",
+    mark: "↺",
+    result: `${money(3190)} returned to the LGU wallet`,
+    note: "one tx hash per card in the COA CSV",
+  },
 ];
 
 /** One line per event in the sample program; `step` ties the line to the loop step that prints it. */
@@ -233,35 +285,25 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 export default function Landing() {
   return (
     <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
-      <header className="landing-header first-screen sticky top-0 z-40">
-        <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2`}>
-          <Link href="/" prefetch={false} aria-label="TAPat home" className="flex items-center gap-2.5">
-            <Logo priority />
+      <header className="landing-header first-screen sticky top-0 z-40 -mb-[84px]">
+        <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2 md:grid md:grid-cols-[1fr_auto_1fr] [&>:last-child]:justify-self-end`}>
+          {/* Equal side columns pin the nav to the centre while the wordmark tucks away. */}
+          <a href="#top" aria-label="TAPat home" className="-ml-[clamp(10px,2.5vw,36px)] flex items-center justify-self-start">
+            <Image src="/tapat-logo.png" alt="" width={74} height={44} className="h-11 w-auto" priority />
             {/* The logo already spells TAPat, so narrow phones drop the wordmark to keep the button on one line. */}
-            <span aria-hidden="true" className="font-serif-soft hidden text-[40px] leading-none font-extrabold tracking-[-0.02em] italic min-[440px]:inline">
+            <span aria-hidden="true" className="logo-word font-serif-soft hidden text-[32px] leading-none font-extrabold tracking-[-0.02em] whitespace-nowrap italic min-[440px]:inline-block">
               TAPat
             </span>
-          </Link>
-          <nav aria-label="Sections" className="hidden items-center gap-9 md:flex">
-            <a href="#loop" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
-              How it works
-            </a>
-            <a href="#stakes" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
-              Why
-            </a>
-            <a href="#contract" className="inline-flex min-h-11 items-center text-[17px] font-medium underline-offset-4 hover:underline">
-              Contract
-            </a>
-          </nav>
+          </a>
+          <SectionNav />
           <Cta href="/login" look="forest" size="sm">
             Open the app
           </Cta>
         </div>
-        <ScrollGauge />
       </header>
 
       <main>
-        <section id="top" className="first-screen relative z-[2]">
+        <section id="top" className="first-screen relative z-[2] pt-[84px]">
           {/* From lg the hero fills the window below the 84px header, so the feed band starts just past the fold. The content
               stays pinned to the top padding; any extra height goes underneath it. */}
           <div className={`${PAGE_WIDTH} flex flex-wrap content-start items-center gap-10 pt-12 pb-12 lg:min-h-[max(660px,calc(100svh-84px))] lg:pt-24`}>
@@ -410,7 +452,7 @@ export default function Landing() {
 
         <StakesSection rows={STAKES} />
 
-        <ContractSection rows={ENFORCEMENT} />
+        <ContractSection decisions={DECISIONS} />
 
         <section className="close-band relative overflow-clip border-t-[1.5px] border-text bg-accent text-text">
           <span aria-hidden="true" className="close-arc" />
