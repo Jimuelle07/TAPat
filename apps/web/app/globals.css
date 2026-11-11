@@ -203,21 +203,55 @@ html:has(.landing) {
   letter-spacing: -0.03em;
 }
 
-/* The cream header floats over the page; once scrolled its shadow deepens (CSS scroll timeline, no JS). */
-.landing-header {
-  box-shadow: var(--depth-1);
+/* The header strip is clear: logo, links and button sit straight on the page. */
+.landing-header.first-screen {
+  background: transparent;
+}
+/* Section links are plain ink. A thin rule draws in under the hovered link and stays under the current section's link. */
+.ledger-nav a {
+  position: relative;
+  color: var(--color-forest);
+}
+.ledger-nav a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 6px 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ledger-nav a::after {
+    transition: transform 260ms var(--ease-out);
+  }
+}
+.ledger-nav a:hover::after,
+.ledger-nav a[aria-current="location"]::after {
+  transform: scaleX(1);
+}
+.ledger-nav a:focus-visible {
+  outline: 2.5px solid var(--color-forest);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Past the hero the wordmark tucks into the logo, leaving the mark alone (CSS scroll timeline, no JS). */
+.logo-word {
+  max-width: 3.5em;
+  margin-left: 10px;
+  overflow: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: scroll()) {
-    .landing-header {
-      animation: header-lift linear both;
+    .logo-word {
+      animation: word-tuck linear both;
       animation-timeline: scroll(root);
       animation-range: 0 160px;
     }
   }
 }
-@keyframes header-lift {
-  to { box-shadow: var(--depth-2); }
+@keyframes word-tuck {
+  to { max-width: 0; margin-left: 0; opacity: 0; translate: -12px 0; }
 }
 
 /* Tactile CTAs: raised with a sheen, deeper on hover, pressed in on :active. The outline look stays flat. */
@@ -278,61 +312,10 @@ html:has(.landing) {
   display: none;
 }
 
-/* The finished state: every term lit. Under motion the equation lights up in turn as it scrolls in. */
-.eq-term {
-  background-color: var(--color-raised);
-  color: var(--color-text);
-  border-color: var(--color-text);
-}
-
-/* The closing band is Mustard: Pale Mustard arc on the right, coins in the band's shade low on the left. */
-.close-band ::selection {
-  background: var(--color-surface);
-}
-.close-arc {
-  --arc: clamp(320px, 69vw, 1000px);
-  position: absolute;
-  top: 56%;
-  right: 0;
-  width: var(--arc);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--color-accent-tint);
-  translate: 50% -50%;
-}
 .close-coin {
   fill: color-mix(in srgb, var(--color-ring-accent) 35%, var(--color-accent));
   stroke: var(--color-ring-accent);
 }
-/* This band ends the page, so the default reveal range would leave the buttons part-faded over the coins at the last scroll position. */
-.close-band .landing-reveal {
-  animation-range: entry 0% entry 100%;
-}
-
-/* The closing band's art sits low and left, in the corner behind the buttons. */
-@media (min-width: 1024px) {
-  .close-band .band-arc {
-    --art: min(70vmin, 40vw, 640px);
-    right: auto;
-    left: calc(var(--art) * -0.45);
-    top: auto;
-    bottom: calc(var(--art) * -0.5);
-    width: var(--art);
-    translate: none;
-  }
-}
-
-/* Below lg the close art would sit behind the copy: push it down and left, and soften it. Base .band-arc rules are untouched. */
-@media (max-width: 1023.98px) {
-  .close-band .band-arc {
-    right: auto;
-    left: -30vw;
-    bottom: -34vw;
-    width: min(96vw, 560px);
-    opacity: 0.35;
-  }
-}
-
 .receipt-line[data-tone="mint"] {
   --tint: var(--color-mint);
 }
@@ -405,16 +388,6 @@ html:has(.landing) {
       animation-timeline: view();
       animation-range: entry 15% cover 30%;
     }
-    .eq-term {
-      animation: term-lit linear both;
-      animation-timeline: view();
-      animation-range: entry calc(var(--t) * 10%) entry calc(30% + var(--t) * 10%);
-    }
-    .eq-stamp {
-      animation: eq-stamp linear both;
-      animation-timeline: view();
-      animation-range: entry calc(var(--t) * 10%) entry calc(25% + var(--t) * 10%);
-    }
   }
 }
 
@@ -478,12 +451,6 @@ html:has(.landing) {
 }
 @keyframes figure-wipe {
   from { clip-path: inset(0 100% 0 0); }
-}
-@keyframes term-lit {
-  from { background-color: transparent; border-color: color-mix(in oklab, var(--color-text) 60%, transparent); box-shadow: none; }
-}
-@keyframes eq-stamp {
-  from { opacity: 0; scale: 0.6; }
 }
 @keyframes ticker-run {
   to { translate: -100% 0; }
