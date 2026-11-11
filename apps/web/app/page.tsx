@@ -279,7 +279,7 @@ function TickerCopy({ hidden = false }: { hidden?: boolean }) {
 export default function Landing() {
   return (
     <div className={`landing ${bricolage.variable} ${fraunces.variable} ${plex.variable} ${serif.variable} ${inter.variable}`}>
-      <header className="landing-header first-screen sticky top-0 z-40 -mb-[84px]">
+      <header className="landing-header first-screen relative z-40 -mb-[84px]">
         <div className={`${PAGE_WIDTH} flex min-h-[84px] items-center justify-between gap-x-8 gap-y-2 md:grid md:grid-cols-[1fr_auto_1fr] [&>:last-child]:justify-self-end`}>
           {/* Equal side columns pin the nav to the centre while the wordmark tucks away. */}
           <a href="#top" aria-label="TAPat home" className="-ml-[clamp(10px,2.5vw,36px)] flex items-center justify-self-start">

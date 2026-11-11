@@ -203,9 +203,19 @@ html:has(.landing) {
   letter-spacing: -0.03em;
 }
 
-/* The header strip is clear: logo, links and button sit straight on the page. */
+/* The header belongs to the first screen and scrolls away with it. The divider underneath is the old gauge's
+   track: one unbroken recessed groove, with no fill (decoration only, not a progress bar). */
 .landing-header.first-screen {
   background: transparent;
+}
+.landing-header.first-screen::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 4px;
+  background: var(--color-ring-surface);
+  box-shadow: var(--depth-inset);
+  pointer-events: none;
 }
 /* Section links are plain ink. A thin rule draws in under the hovered link and stays under the current section's link. */
 .ledger-nav a {
