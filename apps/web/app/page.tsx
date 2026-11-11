@@ -8,7 +8,7 @@ import { php } from "@/lib/format";
 import { ContractSection, type Decision } from "./_landing/Contract";
 import { StakesSection } from "./_landing/Evidence";
 import { SectionNav, StepRail } from "./_landing/Navigator";
-import { LazyBandMotion } from "./_landing/Reel";
+import { LedgerSection, type LedgerPart } from "./_landing/Ledger";
 import { LoopSteps, type LoopStep } from "./_landing/Steps";
 import { TapStage, type StageChoice } from "./_landing/TapStage";
 import { Cta, Nums, Stamp, TearEdge, type ChipTone } from "./_landing/kit";
@@ -233,7 +233,14 @@ const TOTALS: Array<[string, number]> = [
   ["Returned", LEDGER.returned],
 ];
 
-const EQUATION = ["Funded", "=", "spent", "+", "held", "+", "pending", "+", "escrow", "+", "returned"];
+/** Where the funded pesos are at the end of the demo program (docs/PRD.md §7), for the closing ledger. */
+const LEDGER_PARTS: LedgerPart[] = [
+  { name: "Spent", pesos: LEDGER.spent, label: money(LEDGER.spent), why: "Authorized and claimed at Station A.", color: "#fbf5e3" },
+  { name: "Held", pesos: LEDGER.held, label: money(LEDGER.held), why: "Pending at frozen Station B, not claimed.", color: "#bfe6f7" },
+  { name: "Pending", pesos: LEDGER.pending, label: money(LEDGER.pending), why: "Authorized at an active station, awaiting settlement.", color: "#d8e7df" },
+  { name: "Escrow", pesos: LEDGER.escrow, label: money(LEDGER.escrow), why: "Still in a card's escrow. Swept at program end.", color: "#9fd3b6" },
+  { name: "Returned", pesos: LEDGER.returned, label: money(LEDGER.returned), why: "Swept back to the LGU wallet at program end.", color: "#f7b93e" },
+];
 
 function Logo({ priority = false }: { priority?: boolean }) {
   return (
@@ -241,19 +248,6 @@ function Logo({ priority = false }: { priority?: boolean }) {
       {/* The icon file is square with wide margins; this slot shows its middle band, as in the app's top bar. */}
       <Image src="/tapat-app-icon-1024.png" alt="" width={88} height={88} className="-mt-[22px] max-w-none mix-blend-darken" priority={priority} />
     </span>
-  );
-}
-
-function Actions({ main = "accent" }: { main?: "accent" | "primary" }) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>a]:w-full sm:[&>a]:w-auto">
-      <Cta href="/login" look={main}>
-        Open the app
-      </Cta>
-      <Cta href="/demo" look="outline">
-        Run the agent demo
-      </Cta>
-    </div>
   );
 }
 
@@ -454,33 +448,7 @@ export default function Landing() {
 
         <ContractSection decisions={DECISIONS} />
 
-        <section className="close-band relative overflow-clip border-t-[1.5px] border-text bg-accent text-text">
-          <span aria-hidden="true" className="close-arc" />
-          <LazyBandMotion art="close" motif="text-ring-accent" />
-          <div className={`${PAGE_WIDTH} relative flex flex-col gap-8 py-24 lg:py-32`}>
-            <h2 className="landing-h2 landing-reveal max-w-4xl">Every peso has somewhere it has to be.</h2>
-            <p className="landing-reveal flex flex-wrap items-center gap-2 font-mono text-[clamp(16px,1.8vw,24px)]">
-              {EQUATION.map((term, i) =>
-                term === "=" || term === "+" ? (
-                  <span key={i}>{term}</span>
-                ) : (
-                  <span key={i} className="eq-term depth-1 rounded-sm border-[1.5px] px-2 py-1" style={{ "--t": i / 2 } as CSSProperties}>
-                    {term}
-                  </span>
-                ),
-              )}
-              <span className="eq-stamp" style={{ "--t": EQUATION.length / 2 } as CSSProperties}>
-                <Stamp tone={balanced ? "mint" : "danger"}>{balanced ? "BALANCED" : "MISMATCH"}</Stamp>
-              </span>
-            </p>
-            <p className="landing-lead landing-reveal max-w-[52ch]">
-              Run the whole loop yourself on a laptop or a phone. No NFC card needed: Simulate card stands in for the tap.
-            </p>
-            <div className="landing-reveal">
-              <Actions main="primary" />
-            </div>
-          </div>
-        </section>
+        <LedgerSection funded={LEDGER.funded} fundedLabel={money(LEDGER.funded)} caption={`Demo program funded, 3 cards × ${money(1500)}`} parts={LEDGER_PARTS} />
       </main>
 
       <footer className="bg-text py-8 text-surface">
