@@ -1,7 +1,8 @@
 "use client";
 
-// The shared shell of /login and /signup (Quiet Livery): a deep-forest brand panel with the moving logo, and the form
-// in a raised paper card. One layout for phone and laptop; a container query splits it side by side when there is room.
+// The shared shell of /login and /signup ("The Officer Pass"): the moving logo drives along a ruled line above an open
+// passbook. The form is the left page; the right page is the officer pass, which fills in as the officer types. On a
+// phone the pass folds to a strip above the form; a container query opens the book when there is room.
 import { Suspense, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -75,8 +76,8 @@ function Wheel({ side }: { side: "rear" | "front" }) {
 
 /**
  * The README banner's moving logo: it drives in, then keeps rolling with spinning wheels, a light bob and pitch, speed
- * lines, dust and a moving road. Every move is a transform or opacity, so it runs on the compositor; reduced motion
- * leaves the logo still.
+ * lines and dust, over the road strip that `AuthScreen` lays the width of the book. Every move is a transform or
+ * opacity, so it runs on the compositor; reduced motion leaves the logo still.
  */
 function MovingLogo() {
   return (
@@ -96,53 +97,74 @@ function MovingLogo() {
         <Wheel side="rear" />
         <Wheel side="front" />
       </div>
-      <span className="trike-road" aria-hidden="true">
-        <span />
-      </span>
     </div>
   );
 }
 
-/** A fuel card and the receipt for a tap it was refused, as on the landing page. Sample data, labelled as such. */
-function AuthArt() {
+/** What the officer has typed so far, mirrored onto the pass. */
+export interface PassFill {
+  email: string;
+  /** Sign up only. */
+  name?: string;
+  busy?: boolean;
+}
+
+/** "Maria Santos" -> "Maria S.": the privacy-scoped display form the product uses for people. */
+function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+}
+
+const PASS_CAN = ["Upload the masterlist", "Enroll drivers", "Take payments at stations"];
+
+/** The right page of the book. It repeats what the form already holds, so screen readers skip it. */
+function OfficerPass({ signup, fill }: { signup: boolean; fill: PassFill }) {
+  const name = signup ? shortName(fill.name ?? "") : "";
+  const session = fill.busy ? "Opening" : signup ? "New account" : "Not logged in";
   return (
-    <div className="ql-auth-art" aria-hidden="true">
-      <div className="ql-art-card">
-        <span className="ql-art-arc" />
-        <span className="ql-art-livery" />
-        <p className="ql-art-k">TODA FUEL AID</p>
-        <div className="ql-art-mid">
-          <p className="ql-art-l">Fuel credit left</p>
-          <p className="ql-art-v">PHP 1,500.00</p>
-        </div>
-        <p className="ql-art-f">
-          <span>Juan D.</span>
-          <span>…9C7E</span>
+    <div className="ql-pass" aria-hidden="true">
+      <div className="ql-pass-top">
+        <span className="ql-pass-k">OFFICER PASS</span>
+        <span className="ql-pass-chip">Testnet</span>
+      </div>
+      <div className="ql-pass-who">
+        <p className="ql-pass-label">{signup ? "Officer" : "Returning officer"}</p>
+        <p className="ql-pass-name" data-empty={name === "" || undefined}>
+          {signup ? name || "Your name" : "Your pass"}
+        </p>
+        <p className="ql-pass-line" data-empty={fill.email === "" || undefined}>
+          {fill.email || "name@lgu.gov.ph"} · Officer
         </p>
       </div>
-      <div className="ql-art-receipt">
-        <div className="ql-art-paper">
-          <p className="ql-art-hd">RECEIPT · STATION A</p>
-          <hr />
-          <p className="ql-art-row">
-            <span>Card</span>
-            <span>…9C7E</span>
-          </p>
-          <p className="ql-art-row">
-            <span>Amount</span>
-            <span>PHP 800.00</span>
-          </p>
-          <p className="ql-art-row">
-            <span>Cap per tap</span>
-            <span>PHP 500.00</span>
-          </p>
-          <hr />
-          <span className="ql-art-stamp">DECLINED</span>
-          <p className="ql-art-note">No tx submitted.</p>
+      <dl className="ql-pass-rows">
+        <div>
+          <dt>Email</dt>
+          <dd data-empty={fill.email === "" || undefined}>{fill.email || "—"}</dd>
         </div>
-        <svg viewBox="0 0 100 7" preserveAspectRatio="none" className="ql-art-tear">
-          <polyline points={Array.from({ length: 31 }, (_, i) => `${(i / 30) * 100},${i % 2 === 0 ? 0 : 7}`).join(" ")} />
-        </svg>
+        <div>
+          <dt>Role</dt>
+          <dd>Officer</dd>
+        </div>
+        <div>
+          <dt>Network</dt>
+          <dd>Stellar Testnet</dd>
+        </div>
+        <div>
+          <dt>Session</dt>
+          <dd data-empty={!fill.busy || undefined}>{session}</dd>
+        </div>
+      </dl>
+      <div className="ql-pass-can">
+        <p className="ql-pass-label">Officers can</p>
+        <ul>
+          {PASS_CAN.map((line) => (
+            <li key={line}>
+              <Icon name="check" size={18} />
+              {line}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -169,34 +191,33 @@ const HEAD: Record<string, { title: string; lead: string }> = {
   "/signup": { title: "Create an officer account", lead: "Officers upload the masterlist, enroll drivers and take payments at stations." },
 };
 
-export function AuthScreen({ active, title, children }: { active: string; title: string; children: ReactNode }) {
+export function AuthScreen({ active, title, pass, children }: { active: string; title: string; pass: PassFill; children: ReactNode }) {
   const { user } = useAuth();
   const head = HEAD[active] ?? { title, lead: "" };
   return (
     // The negative margin cancels the phone layout's room for the tab bar, which these screens do not show.
     <div className="ql-auth-wrap -mb-[calc(56px+env(safe-area-inset-bottom))]">
       <main className="ql-auth" aria-label={title}>
-        <aside className="ql-auth-brand">
-          <span className="ql-auth-arc" aria-hidden="true" />
+        <div className="ql-auth-road">
           <MovingLogo />
-          <AuthArt />
-          <p className="ql-auth-cap">Illustration with sample data</p>
-        </aside>
-        <div className="ql-auth-main">
-          <div className="ql-auth-card">
-            <Suspense fallback={<Tabs active={active} next={null} />}>
-              <TabsKeepingNext active={active} />
-            </Suspense>
-            <div className="ql-auth-head" key={active}>
-              <h1>{head.title}</h1>
-              {head.lead !== "" ? <p>{head.lead}</p> : null}
+          <span className="ql-auth-dashes" aria-hidden="true">
+            <span />
+          </span>
+        </div>
+        <div className="ql-book">
+          <div className="ql-book-page">
+            <div className="ql-book-form">
+              <Suspense fallback={<Tabs active={active} next={null} />}>
+                <TabsKeepingNext active={active} />
+              </Suspense>
+              <div className="ql-auth-head" key={active}>
+                <h1>{head.title}</h1>
+                {head.lead !== "" ? <p>{head.lead}</p> : null}
+              </div>
+              {user === null ? children : <LoggedIn />}
             </div>
-            {user === null ? children : <LoggedIn />}
           </div>
-          <p className="ql-auth-foot">
-            <i aria-hidden="true" />
-            Prototype on Stellar Testnet
-          </p>
+          <OfficerPass signup={active === "/signup"} fill={pass} />
         </div>
       </main>
     </div>
