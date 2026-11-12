@@ -3,54 +3,58 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Fragment, type CSSProperties } from "react";
 import { useAuth } from "@/app/(app)/_components/Auth";
 import { Icon, type IconName } from "@/app/(app)/_components/Icon";
-import { Chip } from "@/app/(app)/_components/ui";
 
-const GROUPS: Array<{ label: string; links: Array<{ label: string; href: string; icon: IconName; match: string }> }> = [
-  {
-    label: "Program",
-    links: [
-      { label: "Overview", href: "/desktop", icon: "home", match: "/desktop" },
-      { label: "Masterlist", href: "/desktop/intake", icon: "list", match: "/desktop/intake" },
-      { label: "Cards", href: "/desktop/cards", icon: "wallet", match: "/desktop/cards" },
-      { label: "Stations", href: "/desktop/stations", icon: "pump", match: "/desktop/stations" },
-      { label: "Activity", href: "/desktop/activity", icon: "receipt", match: "/desktop/activity" },
-    ],
-  },
-  {
-    label: "Operate",
-    links: [
-      { label: "Agents", href: "/desktop/demo", icon: "pulse", match: "/desktop/demo" },
-      { label: "Station terminal", href: "/desktop/station/A", icon: "tap", match: "/desktop/station" },
-      { label: "Enroll driver", href: "/desktop/enroll", icon: "idcard", match: "/desktop/enroll" },
-      { label: "System health", href: "/desktop/health", icon: "info", match: "/desktop/health" },
-    ],
-  },
+// The Quiet Livery rail: Program links, a divider, then Operate links. `title` keeps the full name on hover.
+const LINKS: Array<{ label: string; title: string; href: string; icon: IconName; match: string }> = [
+  { label: "Overview", title: "Overview", href: "/desktop", icon: "home", match: "/desktop" },
+  { label: "Masterlist", title: "Masterlist", href: "/desktop/intake", icon: "list", match: "/desktop/intake" },
+  { label: "Cards", title: "Cards", href: "/desktop/cards", icon: "wallet", match: "/desktop/cards" },
+  { label: "Stations", title: "Stations", href: "/desktop/stations", icon: "pump", match: "/desktop/stations" },
+  { label: "Activity", title: "Activity", href: "/desktop/activity", icon: "receipt", match: "/desktop/activity" },
+  { label: "Agents", title: "Agents", href: "/desktop/demo", icon: "pulse", match: "/desktop/demo" },
+  { label: "Terminal", title: "Station terminal", href: "/desktop/station/A", icon: "tap", match: "/desktop/station" },
+  { label: "Enroll", title: "Enroll driver", href: "/desktop/enroll", icon: "idcard", match: "/desktop/enroll" },
+  { label: "Health", title: "System health", href: "/desktop/health", icon: "info", match: "/desktop/health" },
 ];
+const OPERATE = 5; // index of the first Operate link
+const ITEM = 60; // rail item pitch in px
+const DIVIDER = 21; // the divider's height, margins included
 
 function isActive(path: string, match: string): boolean {
   return match === "/desktop" ? path === match : path === match || path.startsWith(`${match}/`);
 }
 
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function Account() {
   const { user, logout } = useAuth();
-  const button = "flex min-h-11 items-center justify-center rounded-md border-[1.5px] border-text text-label hover:bg-mint";
   if (user === null) {
     return (
-      <Link href="/desktop/login" className={button}>
-        Log in
+      <Link href="/desktop/login" className="ql-rail-it">
+        <Icon name="logout" />
+        <span>Log in</span>
       </Link>
     );
   }
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-label">{user.displayName}</span>
-        <Chip tone={user.role === "officer" ? "mint" : "outline"}>{user.role}</Chip>
-      </div>
-      <button type="button" onClick={() => void logout()} className={button}>
-        Log out
+    <div className="ql-rail-account">
+      <span className="ql-rail-avatar" title={`${user.displayName} · ${user.email}`}>
+        {initials(user.displayName)}
+      </span>
+      <span className="ql-rail-role">{user.role}</span>
+      <button type="button" onClick={() => void logout()} className="ql-rail-it" aria-label={`Log out ${user.displayName}`}>
+        <Icon name="logout" />
+        <span>Log out</span>
       </button>
     </div>
   );
@@ -59,34 +63,31 @@ function Account() {
 export function Sidebar() {
   const path = usePathname();
   const { user } = useAuth();
+  const active = LINKS.findIndex((link) => isActive(path, link.match));
+  const y = active * ITEM + (active >= OPERATE ? DIVIDER : 0);
   return (
-    <aside className="fixed inset-y-0 left-0 flex w-64 flex-col gap-6 overflow-y-auto border-r-[1.5px] border-text bg-raised p-4">
-      <Link href="/desktop" aria-label="TAPat home" className="block h-14 w-28 shrink-0 overflow-hidden">
-        {/* The icon file is square with wide margins; this slot shows its middle band. */}
-        <Image src="/tapat-app-icon-1024.png" alt="" width={112} height={112} className="-mt-7 max-w-none mix-blend-darken" priority />
+    <aside className="ql-rail fixed inset-y-0 left-0 z-30 flex w-[84px] flex-col items-center overflow-y-auto">
+      <Link href="/desktop" aria-label="TAPat home" className="ql-rail-logo">
+        <Image src="/tapat-logo.png" alt="" width={64} height={38} priority />
       </Link>
-      <nav aria-label="Main" className="flex flex-1 flex-col gap-6">
-        {user !== null && GROUPS.map((group) => (
-          <div key={group.label} className="flex flex-col gap-1">
-            <h2 className="px-3 pb-1 text-caption text-muted">{group.label}</h2>
-            {group.links.map((link) => {
-              const on = isActive(path, link.match);
+      <nav aria-label="Main" className="ql-rail-items">
+        {user !== null ? (
+          <>
+            {active >= 0 ? <span className="ql-rail-ind" style={{ "--y": `${y}px` } as CSSProperties} aria-hidden="true" /> : null}
+            {LINKS.map((link, index) => {
+              const on = index === active;
               return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={on ? "page" : undefined}
-                  className={`flex min-h-11 items-center gap-3 rounded-md px-3 text-label transition-colors duration-[var(--motion-fast)] ${
-                    on ? "bg-primary text-surface" : "hover:bg-mint"
-                  }`}
-                >
-                  <Icon name={link.icon} />
-                  {link.label}
-                </Link>
+                <Fragment key={link.href}>
+                  {index === OPERATE ? <hr className="ql-rail-div" /> : null}
+                  <Link href={link.href} title={link.title} aria-current={on ? "page" : undefined} className="ql-rail-it">
+                    <Icon key={on ? "on" : "off"} name={link.icon} className={on ? "ql-rail-pop" : ""} />
+                    <span>{link.label}</span>
+                  </Link>
+                </Fragment>
               );
             })}
-          </div>
-        ))}
+          </>
+        ) : null}
       </nav>
       <Account />
     </aside>

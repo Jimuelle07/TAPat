@@ -4,11 +4,12 @@ import { DeviceRedirect } from "../DeviceRedirect";
 import { TabBar } from "./_components/TabBar";
 import { PhoneFrame } from "./_components/PhoneFrame";
 import { AuthProvider, RequireLogin, SignedIn } from "./_components/Auth";
+import { QUIET_LIVERY } from "./_components/fonts";
 
 export default function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     // Hidden on laptops, which DeviceRedirect sends to /desktop, so the phone mockup never flashes first.
-    <div className="lg:invisible">
+    <div className={`${QUIET_LIVERY} lg:invisible`}>
       <Suspense fallback={null}>
         <DeviceRedirect />
       </Suspense>

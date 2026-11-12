@@ -78,14 +78,14 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
   const difference = php(gap < BigInt(0) ? -gap : gap, rate);
 
   return (
-    <section aria-labelledby="ledger-title" className="flex flex-col gap-6 rounded-md border border-ring-surface bg-raised p-6">
+    <section aria-labelledby="ledger-title" className="ql-ledger flex flex-col gap-6 rounded-md border border-ring-surface bg-raised p-6">
       <h2 id="ledger-title" className="sr-only">
         Where the funded money is
       </h2>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-8 min-[1400px]:grid-cols-[1.5fr_repeat(5,minmax(0,1fr))]">
         <div className="col-span-3 flex flex-col gap-1 min-[1400px]:col-span-1">
           <dt className="text-caption text-muted">Funded =</dt>
-          <dd className="text-amount-md whitespace-nowrap tabular-nums">{php(dashboard.fundedStroops, rate)}</dd>
+          <dd className="ql-ledger-total text-amount-md whitespace-nowrap tabular-nums">{php(dashboard.fundedStroops, rate)}</dd>
           <dd className="text-caption text-muted">Released to cards</dd>
         </div>
         {parts.map((part) => (
@@ -100,7 +100,7 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
           </div>
         ))}
       </dl>
-      <div aria-hidden="true" className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-sunken">
+      <div aria-hidden="true" className="ql-ledger-bar flex h-2 gap-0.5 overflow-hidden rounded-full bg-sunken">
         {parts.map((part) =>
           BigInt(part.stroops) > BigInt(0) ? <span key={part.key} className={part.swatch} style={{ flexGrow: Number(part.stroops), flexBasis: 0 }} /> : null,
         )}

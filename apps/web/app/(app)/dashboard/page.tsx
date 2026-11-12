@@ -72,7 +72,7 @@ function BudgetWell({ dashboard, onOpen }: { dashboard: Dashboard; onOpen: () =>
             solid: false,
           };
   return (
-    <section aria-label="Budget" className="flex items-center gap-3 rounded-md bg-sunken px-4 py-3">
+    <section aria-label="Budget" className="ql-card flex items-center gap-3 rounded-md bg-sunken px-4 py-3">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-caption text-muted">
           Budget
@@ -115,11 +115,11 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
     parts.reduce((a, b) => a + b, 0),
   );
   return (
-    <section aria-label="Ledger" className="flex flex-col gap-4 rounded-md border border-ring-surface bg-raised p-4">
+    <section aria-label="Ledger" className="ql-ledger flex flex-col gap-4 rounded-md border border-ring-surface bg-raised p-4">
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-caption text-muted">Funded</span>
-          <Money stroops={dashboard.fundedStroops} rate={rate} className="text-h2" />
+          <Money stroops={dashboard.fundedStroops} rate={rate} className="ql-ledger-total text-h2" />
         </div>
         <span className={`text-label ${dashboard.invariantOk ? "text-primary" : "text-danger"}`}>
           {dashboard.invariantOk ? "Balanced" : "Mismatch"}
@@ -128,7 +128,7 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
       <div
         role="img"
         aria-label="Funded split into spent, held, pending, escrow and returned"
-        className="flex h-2 gap-px overflow-hidden rounded-sm bg-sunken"
+        className="ql-ledger-bar flex h-2 gap-px overflow-hidden rounded-sm bg-sunken"
       >
         {denominator > 0
           ? segments.map((s, i) =>

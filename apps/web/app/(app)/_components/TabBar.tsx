@@ -45,13 +45,22 @@ export function TabBar({ path: shown }: { path?: string }) {
   return (
     <nav
       aria-label="Main"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 bg-raised pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(27,46,40,0.06),0_-6px_16px_rgba(27,46,40,0.10)]"
+      className="ql-tabbar fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 bg-raised pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(27,46,40,0.06),0_-6px_16px_rgba(27,46,40,0.10)]"
     >
       {activeIndex >= 0 ? (
         <span className="tab-orb" style={{ "--tab": activeIndex } as CSSProperties} aria-hidden="true">
           <ActiveCurve />
-          <span className="absolute -top-2.5 left-1/2 flex size-11 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-surface shadow-button">
+          {/* Keyed by tab so the disc pops and the logo's headlight rays flick on every change (Quiet Livery). */}
+          <span
+            key={activeIndex}
+            className="tab-disc absolute -top-2.5 left-1/2 flex size-11 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-surface shadow-button"
+          >
             <Icon key={path} name={TABS[activeIndex].icon} size={28} className="tab-bounce" />
+            <span className="tab-rays">
+              <i />
+              <i />
+              <i />
+            </span>
           </span>
         </span>
       ) : null}
