@@ -161,7 +161,7 @@ export function DataTable<T>({
   quiet?: boolean;
 }) {
   const stretched = "text-left after:absolute after:inset-0";
-  const frame = quiet ? "overflow-x-auto rounded-md border border-ring-surface bg-sunken" : "overflow-x-auto rounded-md border-[1.5px] border-text bg-raised";
+  const frame = quiet ? "overflow-x-auto rounded-md border border-ring-surface bg-sunken" : "ql-table overflow-x-auto rounded-md border-[1.5px] border-text bg-raised";
   const rule = quiet ? "border-ring-surface" : "border-text";
   return (
     <div className={frame}>

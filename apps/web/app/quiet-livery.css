@@ -1,6 +1,7 @@
 /* ---- Quiet Livery ------------------------------------------------------------------------------------------------
    The app's visual direction: Quiet Ledger as the base (cream ground, ink rules, stamps, the ruled Overview ledger),
-   fused with Livery & Ledger's navigation, type, raised cards and forest buttons. Everything here is scoped to
+   fused with Livery & Ledger's navigation, type and forest buttons. Cards and status labels are Quiet Ledger's
+   ("Ledger cards"): paper with a 1px ink outline and 6px corners lifted by a soft shadow, and dot-and-word labels. Everything here is scoped to
    `.quiet-livery`, which only the app's two layouts carry, so the landing page is untouched. Rules are unlayered on
    purpose: they win over Tailwind's utility layer without !important. */
 
@@ -35,7 +36,9 @@
   --radius-sm: 6px;
   --radius-md: 6px;
   --shadow-button: none;
-  --ql-card-shadow: 0 1px 0 rgb(21 48 42 / 0.04), 0 14px 30px -20px rgb(21 48 42 / 0.42);
+  --ql-paper: #fcf8ee;
+  /* Depth without losing the ledger: a light top edge, a 1px ink-tinted base, a soft drop beneath */
+  --ql-card-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 1px 0 rgb(27 43 37 / 0.16), 0 12px 24px -16px rgb(27 43 37 / 0.5);
 
   /* Springs sampled from Remotion's spring(): pop {damping 13, stiffness 170, mass 0.9}, soft {damping 22, stiffness 160}. */
   --ql-spring-pop: linear(0, 0.088, 0.292, 0.534, 0.76, 0.939, 1.059, 1.124, 1.144, 1.132, 1.104, 1.069, 1.036, 1.01, 0.992, 0.983, 0.979, 0.981, 0.985, 0.99, 0.995, 0.998, 1.001, 1.002, 1.003, 1.003, 1.002, 1);
@@ -64,17 +67,21 @@
   font-weight: 600;
 }
 
-/* ---- Cards: raised paper, 18px corners, a soft forest-tinted shadow instead of an ink border */
+/* ---- Cards: Quiet Ledger paper with a 1px ink outline and 6px corners, lifted by a soft shadow */
 .quiet-livery :is(.ql-card, .ql-stat) {
   border-width: 1px;
-  border-color: rgb(27 43 37 / 0.06);
-  border-radius: 18px;
-  background-color: var(--color-raised);
+  border-color: var(--color-text);
+  border-radius: 6px;
+  background-color: var(--ql-paper);
   box-shadow: var(--ql-card-shadow);
 }
+/* The forest stat (program-end total) becomes a paper card too; its arc turns into a faint outline */
 .quiet-livery .ql-stat[data-tone="forest"] {
-  border-color: transparent;
-  background-color: var(--color-primary-deep);
+  color: var(--color-text);
+}
+.quiet-livery .ql-stat-arc {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px rgb(27 43 37 / 0.14);
 }
 .quiet-livery .ql-rings {
   display: none;
@@ -87,40 +94,78 @@
   border-top: 1px dashed rgb(27 43 37 / 0.2);
 }
 
-/* ---- Chips: tinted pills, the word always written out */
+/* ---- Laptop tables (DataTable): the table sits in a raised paper card; a tinted, muted header; light row rules */
+.quiet-livery .ql-table {
+  border: 1px solid var(--color-text);
+  border-radius: 6px;
+  background-color: var(--ql-paper);
+  box-shadow: var(--ql-card-shadow);
+}
+.quiet-livery .ql-table th {
+  padding: 13px 18px;
+  border-bottom: 1px solid rgb(27 43 37 / 0.18);
+  background-color: rgb(235 224 199 / 0.45);
+  color: var(--color-muted);
+  font-weight: 500;
+}
+.quiet-livery .ql-table td {
+  padding: 14px 18px;
+}
+.quiet-livery .ql-table tbody tr {
+  border-top-width: 1px;
+  border-color: rgb(27 43 37 / 0.1);
+}
+.quiet-livery .ql-table tbody tr:first-child {
+  border-top-width: 0;
+}
+
+/* ---- Status labels (Quiet Ledger): a dot and the word in the status colour, no pill; set in Inter, sentence case */
 .quiet-livery .chip {
+  gap: 6px;
   border: 0;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-weight: 550;
-  background: var(--c-bg, transparent);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
   color: var(--c-fg, var(--color-text));
-  box-shadow: inset 0 0 0 1px var(--c-line, transparent);
+  font: 550 12.5px/1.3 var(--font-sans);
+}
+.quiet-livery .chip::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-dot, var(--color-muted));
 }
 .quiet-livery .chip[data-tone="outline"] {
-  --c-bg: transparent;
   --c-fg: #3d4f48;
-  --c-line: rgb(27 43 37 / 0.24);
+  --c-dot: #5d6b64;
 }
 .quiet-livery .chip[data-tone="mint"] {
-  --c-bg: #dcebe1;
   --c-fg: #1d523e;
+  --c-dot: #24614a;
 }
 .quiet-livery .chip[data-tone="accent"] {
-  --c-bg: #fbe9bf;
   --c-fg: #6b4a07;
+  --c-dot: #c98f1e;
 }
 .quiet-livery .chip[data-tone="danger"] {
-  --c-bg: #f8e1d5;
   --c-fg: #8a3214;
+  --c-dot: #c4532f;
 }
 .quiet-livery .chip[data-tone="frozen"] {
-  --c-bg: #d6eff9;
   --c-fg: #1d566d;
+  --c-dot: #3f8fb2;
 }
+/* Ink keeps Quiet Ledger's small ink box (a mismatch, a down service) */
 .quiet-livery .chip[data-tone="ink"] {
-  --c-bg: #1b2b25;
-  --c-fg: #f6ecd6;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: #1b2b25;
+  color: #f6ecd6;
+}
+.quiet-livery .chip[data-tone="ink"]::before {
+  background: #f6ecd6;
 }
 
 /* ---- Buttons: forest fill with a darker sweep on hover; secondary is paper with an ink line */
@@ -244,15 +289,20 @@
   background-color: var(--color-text);
 }
 
-/* ---- The fuel card: Livery's deep forest card with the sidecar pinstripe, no rings, a slight tilt */
+/* ---- The fuel card: Quiet Ledger paper with an ink outline and the sidecar pinstripe, no rings, a slight tilt */
 .quiet-livery .ql-fuel {
-  border: 0;
+  border: 1px solid var(--color-text);
   border-radius: 20px;
-  background-color: #15302a;
+  background-color: var(--ql-paper);
+  color: var(--color-text);
   box-shadow:
-    0 30px 46px -28px rgb(21 48 42 / 0.95),
-    inset 0 1px 0 rgb(255 255 255 / 0.1);
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 22px 36px -28px rgb(27 43 37 / 0.7);
   transform: perspective(900px) rotateX(5deg) rotateY(-7deg);
+}
+.quiet-livery .ql-fuel > span:first-child {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px rgb(27 43 37 / 0.18);
 }
 .quiet-livery .ql-fuel:hover {
   transform: none;
@@ -264,7 +314,7 @@
   right: 0;
   bottom: 64px;
   height: 9px;
-  background: linear-gradient(var(--color-accent) 0 3px, transparent 3px 5px, #4f9a77 5px 9px);
+  background: linear-gradient(var(--color-accent) 0 3px, transparent 3px 5px, var(--color-text) 5px 6px);
 }
 
 /* ---- Phone tab bar: the orb pops on the spring and flicks the logo's headlight rays */
@@ -462,12 +512,10 @@
   width: 100%;
   max-width: 440px;
   padding: 24px 20px 22px;
-  border: 1px solid rgb(27 43 37 / 0.06);
-  border-radius: 22px;
-  background: var(--color-raised);
-  box-shadow:
-    0 1px 0 rgb(21 48 42 / 0.04),
-    0 26px 50px -30px rgb(21 48 42 / 0.55);
+  border: 1px solid var(--color-text);
+  border-radius: 6px;
+  background: var(--ql-paper);
+  box-shadow: var(--ql-card-shadow);
 }
 .ql-auth-tabs {
   position: relative;

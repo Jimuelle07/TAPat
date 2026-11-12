@@ -247,7 +247,7 @@ export function StatCard({
     >
       <span
         aria-hidden="true"
-        className={`absolute top-[2px] rounded-full ${forest ? "bg-primary" : "bg-sunken"} ${
+        className={`ql-stat-arc absolute top-[2px] rounded-full ${forest ? "bg-primary" : "bg-sunken"} ${
           full ? "-right-[148px] size-[296px]" : "-right-[116px] size-[232px]"
         }`}
       />
