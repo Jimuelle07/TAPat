@@ -22,7 +22,7 @@ const BUTTON_BASE =
   "flex min-h-[54px] w-full items-center justify-center gap-2 rounded-md px-4 text-label transition-[transform,background-color,color] duration-[var(--motion-fast)] ease-[var(--ease-standard)] active:scale-[0.97] active:duration-75 disabled:active:scale-100";
 
 function buttonClass(style: ButtonStyle, disabled: boolean): string {
-  return `${BUTTON_BASE} ${disabled ? "cursor-not-allowed bg-sunken text-text" : BUTTON[style]}`;
+  return `ql-btn ql-btn-${disabled ? "disabled" : style} ${BUTTON_BASE} ${disabled ? "cursor-not-allowed bg-sunken text-text" : BUTTON[style]}`;
 }
 
 interface ButtonProps extends Omit<ComponentProps<"button">, "style"> {
@@ -90,6 +90,7 @@ export function Chip({ tone = "outline", children }: { tone?: ChipTone; children
     <span
       key={n}
       data-pop={n > 0 ? "true" : undefined}
+      data-tone={tone}
       className={`chip inline-flex w-fit shrink-0 items-center rounded-sm border-[1.5px] px-2 py-1 text-caption ${CHIP[tone]}`}
     >
       {children}
@@ -114,7 +115,7 @@ export function FilterChip({
   onClick?: () => void;
   grow?: boolean;
 }) {
-  const className = `flex min-h-11 shrink-0 items-center justify-center rounded-sm border-[1.5px] px-3 text-label transition-transform duration-[var(--motion-fast)] active:scale-[0.96] ${
+  const className = `ql-fchip flex min-h-11 shrink-0 items-center justify-center rounded-sm border-[1.5px] px-3 text-label transition-transform duration-[var(--motion-fast)] active:scale-[0.96] ${
     selected ? "border-primary bg-primary text-surface pop-in" : "border-text bg-raised text-text"
   } ${grow ? "flex-1" : ""}`;
   if (href !== undefined) {
@@ -134,13 +135,13 @@ export function FilterChip({
 // ---- Card, table, list -----------------------------------------------------------------------------------------
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`flex flex-col gap-2 rounded-md border-[1.5px] border-text bg-raised p-4 ${className}`}>{children}</div>;
+  return <div className={`ql-card flex flex-col gap-2 rounded-md border-[1.5px] border-text bg-raised p-4 ${className}`}>{children}</div>;
 }
 
 /** Consecutive facts as one ruled table; amounts and ids stay in Azeret Mono. */
 export function KeyValues({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (
-    <dl className="flex flex-col font-mono text-mono">
+    <dl className="ql-kv flex flex-col font-mono text-mono">
       {rows.map(([key, value], index) => (
         <div key={key} className={`flex items-start justify-between gap-3 py-2 ${index === 0 ? "" : "border-t-[1.5px] border-text"}`}>
           <dt className="shrink-0">{key}</dt>
@@ -175,7 +176,7 @@ export function ListItem({ row, last = false }: { row: ListRow; last?: boolean }
       {row.chip === undefined && row.value === undefined && interactive ? <Icon name="chevron" /> : null}
     </>
   );
-  const className = `flex min-h-14 w-full items-center gap-3 py-3 ${
+  const className = `ql-row flex min-h-14 w-full items-center gap-3 py-3 ${
     interactive ? "transition-transform duration-[var(--motion-fast)] active:scale-[0.995]" : ""
   } ${last ? "" : "border-b-[1.5px] border-text"}`;
   if (row.href !== undefined) {
@@ -197,7 +198,7 @@ export function ListItem({ row, last = false }: { row: ListRow; last?: boolean }
 
 export function ListCard({ heading, rows }: { heading?: string; rows: ListRow[] }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised px-4 py-1">
+    <div className="ql-card ql-list flex flex-col overflow-hidden rounded-md border-[1.5px] border-text bg-raised px-4 py-1">
       {heading !== undefined ? <h3 className="pt-2 pb-1 text-label">{heading}</h3> : null}
       <ul className="stagger">
         {rows.map((row, index) => (
@@ -214,7 +215,7 @@ export function ListCard({ heading, rows }: { heading?: string; rows: ListRow[] 
 
 export function Rings({ size, step, count, className }: { size: number; step: number; count: number; className: string }) {
   return (
-    <svg aria-hidden="true" width={size} height={size} className={`absolute top-0 right-0 ${className}`} viewBox={`0 0 ${size} ${size}`}>
+    <svg aria-hidden="true" width={size} height={size} className={`ql-rings absolute top-0 right-0 ${className}`} viewBox={`0 0 ${size} ${size}`}>
       {Array.from({ length: count }, (_, i) => (
         <circle key={i} cx={size} cy="0" r={size - i * step} fill="none" stroke="currentColor" strokeWidth="1.5" />
       ))}
@@ -239,13 +240,14 @@ export function StatCard({
   const forest = tone === "forest";
   return (
     <div
-      className={`relative flex flex-col justify-center gap-1 overflow-hidden rounded-md border-[1.5px] border-text ${
+      data-tone={tone}
+      className={`ql-stat relative flex flex-col justify-center gap-1 overflow-hidden rounded-md border-[1.5px] border-text ${
         full ? "h-28 px-6" : "h-22 min-w-0 flex-1 px-4"
       } ${forest ? "bg-primary-deep text-surface" : "bg-raised text-text"}`}
     >
       <span
         aria-hidden="true"
-        className={`absolute top-[2px] rounded-full ${forest ? "bg-primary" : "bg-sunken"} ${
+        className={`ql-stat-arc absolute top-[2px] rounded-full ${forest ? "bg-primary" : "bg-sunken"} ${
           full ? "-right-[148px] size-[296px]" : "-right-[116px] size-[232px]"
         }`}
       />
@@ -294,7 +296,7 @@ export function Field({ label, helper, error, id, className = "", ...rest }: Fie
     <div className="flex flex-col gap-1">
       <label
         htmlFor={inputId}
-        className={`flex flex-col gap-1 rounded-md border-[1.5px] px-4 py-3 focus-within:border-[2.5px] focus-within:border-primary ${
+        className={`ql-field flex flex-col gap-1 rounded-md border-[1.5px] px-4 py-3 focus-within:border-[2.5px] focus-within:border-primary ${
           error !== undefined ? "border-declined bg-declined-tint" : "border-text bg-raised"
         }`}
       >
@@ -327,7 +329,7 @@ const NOTICE: Record<"info" | "frozen" | "error", { icon: IconName; box: string 
 export function Notice({ tone = "info", title, children }: { tone?: "info" | "frozen" | "error"; title: string; children?: ReactNode }) {
   const style = NOTICE[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`notice-in flex items-start gap-3 rounded-md border-text p-3 ${style.box}`}>
+    <div role={tone === "error" ? "alert" : "status"} data-tone={tone} className={`ql-notice notice-in flex items-start gap-3 rounded-md border-text p-3 ${style.box}`}>
       <Icon name={style.icon} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-label">{title}</p>
@@ -539,7 +541,7 @@ export function Sheet({ title, open, onClose, children }: { title: string; open:
         if (event.target === ref.current) onClose();
       }}
       aria-label={title}
-      className="m-0 mx-auto mt-auto max-h-[85dvh] w-full max-w-[430px] overflow-y-auto rounded-t-lg border-[1.5px] border-text bg-surface text-text shadow-sheet"
+      className="ql-sheet m-0 mx-auto mt-auto max-h-[85dvh] w-full max-w-[430px] overflow-y-auto rounded-t-lg border-[1.5px] border-text bg-surface text-text shadow-sheet"
     >
       <div className="flex flex-col gap-3 px-5 pt-3 pb-8">
         <div className="flex items-center justify-between">

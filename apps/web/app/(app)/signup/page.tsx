@@ -42,7 +42,7 @@ export default function Signup() {
   };
 
   return (
-    <AuthScreen active="/signup" title="Sign up">
+    <AuthScreen active="/signup" title="Sign up" pass={{ email, name: displayName, busy }}>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-3">
         {failure !== null && failure.field === null ? <AuthAlert>{failure.message}</AuthAlert> : null}
         <AuthField

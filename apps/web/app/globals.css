@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* The app's Quiet Livery direction, scoped to `.quiet-livery` (the app layouts only). */
+@import "./quiet-livery.css";
 
 /* Design tokens from the TAPat Mobile App UI Figma file (TAPat/Color, TAPat/Size, text and shadow styles). */
 @theme {

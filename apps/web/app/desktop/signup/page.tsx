@@ -1,10 +1,6 @@
 import Signup from "@/app/(app)/signup/page";
-import { Embedded } from "../_components/kit";
 
+// The Quiet Livery auth screen lays itself out for the laptop (brand panel beside the form), so it takes the full frame.
 export default function DesktopSignup() {
-  return (
-    <Embedded tall>
-      <Signup />
-    </Embedded>
-  );
+  return <Signup />;
 }

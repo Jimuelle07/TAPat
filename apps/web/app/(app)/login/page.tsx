@@ -38,7 +38,7 @@ export default function Login() {
   };
 
   return (
-    <AuthScreen active="/login" title="Log in">
+    <AuthScreen active="/login" title="Log in" pass={{ email, busy }}>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-3">
         {wrongLogin ? <AuthAlert>{WRONG_LOGIN}</AuthAlert> : null}
         {failure !== null && failure.field === null ? <AuthAlert>{failure.message}</AuthAlert> : null}

@@ -23,7 +23,7 @@ export function Shell({ sidebar, children }: { sidebar: ReactNode; children: Rea
 function Frame({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) {
   const bare = PUBLIC_PATHS.includes(usePathname());
   return (
-    <div className={`${FRAME} ${bare ? "" : "pl-64"}`}>
+    <div className={`${FRAME} ${bare ? "" : "pl-[84px]"}`}>
       {bare ? null : sidebar}
       {children}
     </div>

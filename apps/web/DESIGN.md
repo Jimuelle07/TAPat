@@ -5,6 +5,9 @@ colors:
   primary: "#2e6f55"
   primary-deep: "#29664e"
   pressed: "#1f5540"
+  pass-forest: "#163d2f"
+  pass-green: "#1f4d3c"
+  pass-pressed: "#133427"
   accent: "#f7b93e"
   accent-tint: "#fbd88f"
   ring-accent: "#c98f1e"
@@ -271,6 +274,25 @@ components:
     textColor: "{colors.text}"
     typography: "{typography.mono}"
     padding: "20px"
+  auth-book:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    rounded: "16px"
+    padding: "0 56px"
+  officer-pass:
+    backgroundColor: "{colors.pass-forest}"
+    textColor: "{colors.surface}"
+    typography: "{typography.mono}"
+    rounded: "16px"
+    padding: "44px 44px 40px 52px"
+  auth-button:
+    backgroundColor: "{colors.pass-green}"
+    textColor: "{colors.surface}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+    height: "54px"
+  auth-button-pressed:
+    backgroundColor: "{colors.pass-pressed}"
 ---
 
 # Design System: TAPat
@@ -376,9 +398,14 @@ A hybrid that is mostly flat. Layers separate by 1.5px ink lines (1px on the lan
 ### Shadow Vocabulary
 - **Button** (`box-shadow: 0 2px 4px rgb(27 46 40 / 0.3)`): Filled app buttons and the active tab disc.
 - **Sheet** (`box-shadow: 0 -4px 24px rgb(27 46 40 / 0.18)`): The bottom sheet, over a `rgb(27 46 40 / 0.45)` backdrop.
+- **Book** (`box-shadow: 0 1px 1px rgb(20 40 32 / 0.08), 0 10px 20px -8px rgb(20 40 32 / 0.2), 0 34px 70px -28px rgb(20 40 32 / 0.42)`): Log in and sign up only: under the passbook's page block, and on the phone's pass strip and form card.
+- **Auth Button** (`box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 2px 3px rgb(19 52 39 / 0.25), 0 10px 18px -8px rgb(19 52 39 / 0.6)`): The submit button on log in and sign up.
+- **Recess** (`box-shadow: inset 0 1.5px 2px rgb(27 46 40 / 0.09)`): The fields and the tab track on log in and sign up.
 
 ### Named Rules
 **The Ink-Before-Shadow Rule.** Cards, receipts, chips and panels get a rule, not a shadow. If a surface needs separating, draw the line. The landing page follows the same rule with no exception: it has no shadows at all.
+
+**The Passbook Exception.** Log in and sign up are the one place the app adds depth on top of its rules: the open passbook keeps every 1.5px Ink line and adds the Book, Auth Button and Recess shadows above, a shaded spine and light on the pass. All of them are soft and offset; none is a hard block shadow.
 
 ## Shapes
 
@@ -425,6 +452,17 @@ Tactile and plain: a solid block with a clear press state.
 - **Top Bar:** The cropped logo on root screens; a back target and H2 title on detail screens.
 - **Landing Header:** A floating pill, fixed and centred 12px from the top over the cover: Cream and a 1px Ink border, one row 56px tall with fully rounded ends at every size, clipping its contents to that outline. It holds the transparent logo at the left (the home link, `aria-label="TAPat"`, no blend mode; 44px tall below `lg`, 30px tall from `lg`, vertically centred like the links), then from `lg` three plain Ink section links (The problem, How it works, Diesel simulation; 44px tall, underlined on hover, no numbers), an "Agent demo" link (hidden below `sm`) and a fully rounded 44px "Open the app" button. The logo sits behind the links and button. The bottom nav was removed.
 
+### Log In and Sign Up ("The Officer Pass")
+`/login`, `/signup` and their `/desktop` twins share `AuthScreen` (`app/(app)/_components/AuthScreen.tsx`), styled by the `ql-auth`, `ql-book` and `ql-pass` rules in `app/quiet-livery.css`. The screen is an open passbook under the moving logo.
+
+- **Scope:** `.ql-auth` sets its own tokens. Words are Outfit and checkable figures Azeret Mono (it overrides the app's Fraunces, Inter and Plex Mono). Primary is Pass Green (#1f4d3c) and pressed is Pass Pressed (#133427), on a Cream (#fbf5e3) ground. The rest of the app keeps its own greens.
+- **Road:** the moving logo (the README banner's tricycle: it drives in, then rolls with spinning wheel hubs, a bob, a pitch, speed lines and dust) is 330px wide on a laptop and 240px on a phone, centred over a 1.5px Ink rule at its ground line. Under the rule a dashed strip in Ink at 30% rolls left at the logo's road speed (46px every 460ms), across the full width of the book. The logo's speed lines are Ink at 32% and its dust Ink at 12%; it has no cream outline.
+- **Book (900px container and up):** one 1040px cover, 1.5px Ink and 16px corners, split into a 560:480 grid at least 620px tall. Two page edges peek out beneath it (Ring Cream 6px down, Sunken Cream 12px down, each inset a little more), the lower one carrying the Book shadow. The left page is Raised Paper with the form centred at up to 448px; it darkens toward the spine (Ink at 11% over 56px).
+- **Form:** the Log in / Sign up control is a Sunken Cream track with a Recess, a 1.5px Ink inner line and 12px corners; the Ink indicator slides on the pop spring and carries a soft shadow. The heading is Outfit 500, 36px (28px on a phone), and the lead is 15px. Fields are 48px tall with 12px corners, a 1.5px Ink border at 60% and a Recess on #fffdf6. Email and password are set in Azeret Mono 16px; the full name and every placeholder are in Outfit. Focus turns the border Pass Green and thickens it by a 1px inset ring. The submit button has 12px corners and the Auth Button shadow. Errors keep the app's terracotta field and alert.
+- **Officer Pass (right page):** Pass Forest (#163d2f), shaded toward the spine (black at 34% to nothing over 72px), lit softly from the top left, with a dashed Cream stitch 16px from the spine. Top row: "OFFICER PASS" in Azeret Mono with 0.16em tracking, and an outlined "Testnet" chip. Then the label ("Officer", or "Returning officer" on log in) and the name in Outfit 500 40px with a 1px dark emboss. On sign up the name is the privacy-scoped short form ("Maria S."); until one is typed, and always on log in, it shows "Your name" or "Your pass" at 45% Cream. Ruled Azeret rows follow (Email, Role "Officer", Network "Stellar Testnet", and Session: "Not logged in", "New account", or "Opening" while the request runs). At the foot, "Officers can" lists Upload the masterlist, Enroll drivers and Take payments at stations, each with a check icon. It has no arc and no rings. The pass only repeats what the form holds, so it is `aria-hidden`.
+- **Phone (below 900px):** the book comes apart into a pass strip above a form card, both 1.5px Ink with 12px corners and the Book shadow. The strip shows the top row, the name at 26px and one Azeret line, the email followed by "· Officer".
+- **Motion:** the book rises on the soft spring (700ms) and the heading re-rises (520ms) when the tab changes; the dashes roll and the logo drives in and rolls as before. All of it is off under reduced motion.
+
 ### Receipt
 The system's core artefact. Square Raised Paper with a 1.5px Ink border, the cropped logo, a written status chip with its amount, ruled ledger rows, dashed separators and the Tear Edge. A declined receipt shows the reason and no balance.
 
@@ -469,14 +507,14 @@ The public page at `/` is an unnumbered program brief, not an app screen. It is 
 - **Do** spell amounts with the "PHP" label in the app wherever they are set in Azeret Mono. The landing page sets amounts in Plex Mono with ₱.
 - **Do** write status out in a chip or sentence alongside any status colour. On the landing page, status appears only in written words in the figures.
 - **Do** label simulated data "simulated" and precomputed model output "precomputed" on the page.
-- **Do** place the logo in the app's top bar, sidebar and auth screens on Cream or Raised Paper, using the original `public/tapat-app-icon-1024.png` cropped to the icon's middle band, since it blends with `mix-blend-mode: darken`. The landing nav instead uses the transparent `app/_landing/logo-tricycle.png` with no crop or blend.
+- **Do** place the logo in the app's top bar and sidebar on Cream or Raised Paper, using the original `public/tapat-app-icon-1024.png` cropped to the icon's middle band, since it blends with `mix-blend-mode: darken`. The landing nav instead uses the transparent `app/_landing/logo-tricycle.png` with no crop or blend, and log in and sign up use the moving `public/tapat-logo.png` with spinning wheel hubs.
 - **Do** gate motion behind `prefers-reduced-motion: no-preference`. On the landing page that is the headline rise, scroll reveals, heading underline draws, the cover's Ken Burns and parallax, tile hover lifts, the button sweep, the Anatomy figures (each paused off-screen and while the tab is hidden, a still resting frame under reduced motion), the two Remotion agent scenes (a still `Thumbnail` under reduced motion) and the nav logo (one brake-in on load, and the drive-off on "Open the app").
 - **Do** credit the cover photo to Denniz Futalan / Pexels in the footer, and call it a stock photo in the Prototype notes. There is no caption chip on the cover.
 
 ### Don't:
 - **Don't** use Ice Blue for anything but a freeze, or Terracotta and its tint for anything but refusal and invalid input.
 - **Don't** set the ₱ glyph in Azeret Mono.
-- **Don't** give cards, receipts, chips or the landing page's panels a shadow, and don't use hard offset shadows anywhere.
+- **Don't** give cards, receipts, chips or the landing page's panels a shadow (the passbook on log in and sign up is the one exception), and don't use hard offset shadows anywhere.
 - **Don't** set Muted Green-Grey as body copy.
 - **Don't** round receipts, or square off app cards and controls.
 - **Don't** add looping motion on the landing page outside the Anatomy figures (hero dispenser, recorder, price-mixing machine, the four problem figures, the build-flow figure), the two Remotion agent scenes, the cover's Ken Burns and the nav tricycle, and don't add gradient scrims or abstract art. Scroll motion is limited to count-up, the 12px reveal rise (and the matrix rows' slide from the left), the heading underline draw and the cover's parallax.

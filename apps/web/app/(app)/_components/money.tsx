@@ -33,7 +33,7 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
       </dl>
     </>
   );
-  const className = `block overflow-hidden rounded-md border border-ring-surface bg-raised ${frozen ? "shiver" : "rise"}`;
+  const className = `ql-card ql-strip block overflow-hidden rounded-md border border-ring-surface bg-raised ${frozen ? "shiver" : "rise"}`;
   return href === undefined ? (
     <div className={className}>{content}</div>
   ) : (
@@ -123,15 +123,17 @@ export function BalanceCard({
 }) {
   return (
     <div
-      className="rise relative flex h-[220px] flex-col justify-between overflow-hidden rounded-md border-[1.5px] border-text bg-primary-deep p-6 text-surface"
+      className="ql-fuel rise relative flex h-[220px] flex-col justify-between overflow-hidden rounded-md border-[1.5px] border-text bg-primary-deep p-6 text-surface"
       style={{ animationDelay: "80ms" }}
     >
       <span aria-hidden="true" className="absolute -right-[60px] top-[100px] size-[326px] rounded-full bg-primary" />
-      <svg aria-hidden="true" width="90" height="90" viewBox="0 0 90 90" className="absolute top-0 right-0 text-primary">
+      <svg aria-hidden="true" width="90" height="90" viewBox="0 0 90 90" className="ql-rings absolute top-0 right-0 text-primary">
         {[90, 74, 58, 42, 26, 10].map((r) => (
           <circle key={r} cx="90" cy="0" r={r} fill="none" stroke="currentColor" strokeWidth="1.5" />
         ))}
       </svg>
+      {/* The logo's sidecar pinstripe, shown only in Quiet Livery. */}
+      <span aria-hidden="true" className="ql-fuel-livery" />
       <p className="relative text-caption tracking-[0.04em]">TODA FUEL AID</p>
       <div className="relative flex flex-col gap-2">
         <p className="text-small">Fuel credit left</p>
