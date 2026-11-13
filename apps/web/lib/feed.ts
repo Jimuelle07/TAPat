@@ -3,7 +3,7 @@ import { TAP_REASON_LABELS } from '@tapat/shared';
 import type { AgentDecision, CardSummary, ChainTx, Dashboard, Stroops, Tap } from '@tapat/shared';
 import { php, shortHash, txHash } from './format';
 
-export type FeedTone = 'outline' | 'mint' | 'danger' | 'frozen' | 'ink';
+export type FeedTone = 'outline' | 'mint' | 'accent' | 'danger' | 'frozen' | 'ink';
 
 export interface FeedItem {
   id: string;
@@ -304,7 +304,7 @@ function budgetItems(dashboard: Dashboard): FeedItem[] {
       detail: {
         title: 'Budget verified',
         chip: 'Velo verified',
-        tone: 'mint',
+        tone: 'accent',
         rows: [
           ['Verified', amount],
           ['Payment intent', intent ?? 'Not recorded'],

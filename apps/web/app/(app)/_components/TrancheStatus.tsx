@@ -60,7 +60,7 @@ export function TrancheStatusCard({ dashboard, tranche }: TrancheProps) {
     <Card>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-label">Tranche status</h3>
-        <Chip tone={budgetVerified ? "mint" : "danger"}>
+        <Chip tone={budgetVerified ? "accent" : "danger"}>
           {budgetVerified ? `Velo verified ${php(dashboard.budget.verifiedStroops, dashboard.phpPerXlm)}` : "Budget not verified"}
         </Chip>
       </div>

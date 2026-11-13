@@ -148,7 +148,7 @@ export default function Intake() {
               {error.body}
             </Notice>
           ) : null}
-          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start gap-6">
+          <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6">
             {isOfficer ? (
               <div className="flex flex-col gap-4">
                 <label

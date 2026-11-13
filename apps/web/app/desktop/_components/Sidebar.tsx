@@ -27,7 +27,7 @@ function isActive(path: string, match: string): boolean {
   return match === "/desktop" ? path === match : path === match || path.startsWith(`${match}/`);
 }
 
-function initials(name: string): string {
+export function initials(name: string): string {
   return name
     .trim()
     .split(/\s+/)
@@ -48,10 +48,6 @@ function Account() {
   }
   return (
     <div className="ql-rail-account">
-      <span className="ql-rail-avatar" title={`${user.displayName} · ${user.email}`}>
-        {initials(user.displayName)}
-      </span>
-      <span className="ql-rail-role">{user.role}</span>
       <button type="button" onClick={() => void logout()} className="ql-rail-it" aria-label={`Log out ${user.displayName}`}>
         <Icon name="logout" />
         <span>Log out</span>
