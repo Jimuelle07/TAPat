@@ -62,18 +62,15 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
           </div>
         ))}
       </dl>
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <p role="status" className="text-[12.5px]">
-          {dashboard.invariantOk ? (
-            <StatusText tone="mint">Funded = spent + held + pending + escrow + returned. Every row carries a tx hash.</StatusText>
-          ) : (
-            <StatusText tone="danger">
-              <strong className="font-semibold">Invariant broken:</strong> the five parts differ from funded by {difference}.
-            </StatusText>
-          )}
-        </p>
-        <p className="font-mono text-[12px] text-muted">Testnet demo rate</p>
-      </div>
+      <p role="status" className="text-[12px]">
+        {dashboard.invariantOk ? (
+          <span className="text-muted">Funded = spent + held + pending + escrow + returned. Every row carries a tx hash. PHP at the testnet demo rate.</span>
+        ) : (
+          <StatusText tone="danger">
+            <strong className="font-semibold">Invariant broken:</strong> the five parts differ from funded by {difference}.
+          </StatusText>
+        )}
+      </p>
     </section>
   );
 }
