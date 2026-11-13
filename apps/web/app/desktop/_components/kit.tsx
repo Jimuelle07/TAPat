@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import type { Dashboard } from "@tapat/shared";
 import type { FeedItem } from "@/lib/feed";
-import { dateTime, explorerUrl } from "@/lib/format";
+import { dateTime } from "@/lib/format";
 import { useDashboard } from "@/lib/use-dashboard";
 import { OfficerOnly, useAuth } from "@/app/(app)/_components/Auth";
 import { Icon, type IconName } from "@/app/(app)/_components/Icon";
-import { Chip, EmptyState, ErrorBlock, KeyValues, LinkButton, NoProgram, Sheet, Skeleton, type ChipTone } from "@/app/(app)/_components/ui";
+import { Chip, EmptyState, ErrorBlock, NoProgram, Sheet, Skeleton, type ChipTone } from "@/app/(app)/_components/ui";
+import { FeedDetail } from "@/app/(app)/_components/FeedDetail";
 import { initials } from "./Sidebar";
 
 export const PROGRAM_STATUS: Record<Dashboard["program"]["status"], { label: string; tone: ChipTone }> = {
@@ -335,18 +336,7 @@ export function FeedTable({ items, quiet = false }: { items: FeedItem[]; quiet?:
 function FeedSheet({ item, onClose }: { item: FeedItem | null; onClose: () => void }) {
   return (
     <Sheet title={item?.detail.title ?? "Activity"} open={item !== null} onClose={onClose}>
-      {item !== null ? (
-        <>
-          <Chip tone={item.detail.tone}>{item.detail.chip}</Chip>
-          {item.detail.rows.length > 0 ? <KeyValues rows={item.detail.rows} /> : null}
-          {item.detail.label !== undefined ? <Chip>{item.detail.label}</Chip> : null}
-          {item.detail.hash !== null ? (
-            <LinkButton look="secondary" external href={explorerUrl(item.detail.hash)}>
-              View on Stellar Expert
-            </LinkButton>
-          ) : null}
-        </>
-      ) : null}
+      {item !== null ? <FeedDetail item={item} /> : null}
     </Sheet>
   );
 }

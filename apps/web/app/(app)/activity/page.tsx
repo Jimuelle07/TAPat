@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { buildFeed, type FeedItem } from "@/lib/feed";
-import { explorerUrl } from "@/lib/format";
 import { useDashboard } from "@/lib/use-dashboard";
-import { Body, Chip, DemoRate, EmptyState, ErrorBlock, KeyValues, LinkButton, ListCard, NoProgram, Sheet, Skeleton, TopBar } from "../_components/ui";
+import { FeedDetail } from "../_components/FeedDetail";
+import { Body, DemoRate, EmptyState, ErrorBlock, ListCard, NoProgram, Sheet, Skeleton, TopBar } from "../_components/ui";
 
 export default function Activity() {
   const state = useDashboard();
@@ -39,18 +39,7 @@ export default function Activity() {
         ) : null}
       </Body>
       <Sheet title={selected?.detail.title ?? "Activity"} open={selected !== null} onClose={() => setSelected(null)}>
-        {selected !== null ? (
-          <>
-            <Chip tone={selected.detail.tone}>{selected.detail.chip}</Chip>
-            {selected.detail.rows.length > 0 ? <KeyValues rows={selected.detail.rows} /> : null}
-            {selected.detail.label !== undefined ? <Chip>{selected.detail.label}</Chip> : null}
-            {selected.detail.hash !== null ? (
-              <LinkButton look="secondary" external href={explorerUrl(selected.detail.hash)}>
-                View on Stellar Expert
-              </LinkButton>
-            ) : null}
-          </>
-        ) : null}
+        {selected !== null ? <FeedDetail item={selected} /> : null}
       </Sheet>
     </>
   );

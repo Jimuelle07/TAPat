@@ -608,6 +608,15 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 
+/* Activity detail: Details and On-chain sections under a light rule, each with a small muted label */
+.quiet-livery .ql-ev-sec {
+  border-color: rgb(27 43 37 / 0.1);
+}
+.quiet-livery .ql-ev-k {
+  color: var(--color-muted);
+  font: 600 12.5px/1.3 var(--font-sans);
+}
+
 /* Budget card: a Fraunces figure over a mustard meter */
 .quiet-livery .ql-big-amt {
   font: 620 32px/1.05 var(--font-display);

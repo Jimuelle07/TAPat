@@ -71,7 +71,28 @@ describe('buildFeed', () => {
   it('labels declines through TAP_REASON_LABELS and marks no tx', () => {
     const [item] = buildFeed(dashboard({ recentTaps: [tap({ status: 'rejected', reasonCode: 'OVER_CAP', chainTxId: null })] }));
     expect(item).toMatchObject({ meta: 'Declined · over the ₱500.00 per-tap cap', chip: 'Declined', tone: 'danger' });
-    expect(item?.detail.rows).toContainEqual(['Tx', 'None submitted']);
+    expect(item?.detail).toMatchObject({ hash: null, chainNote: 'None submitted.' });
+    expect(item?.detail.summary).toBe('This tap was declined: over the ₱500.00 per-tap cap. No money moved.');
+  });
+
+  it('gives agent decisions plain-word status and the details they recorded', () => {
+    const [baseline] = buildFeed(dashboard({ recentDecisions: [decision({ decision: 'BASELINE_SET', inputs: { seeds: 7, ticks: 60 }, outputs: { perStation: { A: 3.8333 } } })] }));
+    expect(baseline?.detail).toMatchObject({ chip: 'Baseline set', agent: 'Freeze Agent', hash: null });
+    expect(baseline?.detail.rows).toEqual([
+      ['Ticks replayed', '60'],
+      ['Petron San Roque normal', '3.8 taps per 10 ticks'],
+    ]);
+    const [upload] = buildFeed(
+      dashboard({
+        recentDecisions: [
+          decision({ agent: 'intake', decision: 'REJECTED', inputs: { lambdaLo: 0.42, lambdaHi: 0.86 }, outputs: { total: 11, approved: 4, rejected: 2, uncertain: 1, enrolled: 4, source: 'csv' } }),
+        ],
+      }),
+    );
+    expect(upload).toMatchObject({ title: 'Masterlist checked', meta: 'Intake Agent · 11 rows, 2 rejected' });
+    expect(upload?.detail).toMatchObject({ chip: 'Rows rejected', tone: 'danger' });
+    expect(upload?.detail.rows).toContainEqual(['Source', 'CSV']);
+    expect(upload?.detail.rows).toContainEqual(['Approve at or above λ', '0.86']);
   });
 
   it('labels burst edges as simulated, with no card', () => {
