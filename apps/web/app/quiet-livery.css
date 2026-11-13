@@ -193,7 +193,10 @@
 }
 .quiet-livery .ql-fchip {
   border-width: 1px;
-  border-radius: 6px;
+  border-radius: 4px;
+}
+.quiet-livery .ql-fchip:not([aria-pressed="true"], [aria-current="page"]) {
+  background-color: var(--ql-paper);
 }
 
 /* ---- Fields */
@@ -251,6 +254,39 @@
   background-color: var(--color-surface);
   box-shadow: 0 -14px 40px -10px rgb(16 32 26 / 0.4);
 }
+/* On the laptop a sheet is a full-height panel on the right (the mockup's side sheet), not a centered card */
+.quiet-livery .desktop-shell .ql-sheet {
+  width: 440px;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 0 0 auto;
+  border-radius: 0;
+  box-shadow: -20px 0 50px -20px rgb(16 32 26 / 0.45);
+}
+.quiet-livery .desktop-shell .ql-sheet::backdrop {
+  background: rgb(16 32 26 / 0.45);
+}
+.quiet-livery .desktop-shell .ql-sheet > div {
+  gap: 14px;
+  padding: 26px 28px;
+}
+.quiet-livery .ql-sheet .text-h2 {
+  font-size: 24px;
+  line-height: 1.15;
+}
+/* Key-value rows read as a ledger: mono figures, muted keys, dashed rules */
+.quiet-livery .ql-kv {
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.quiet-livery .ql-kv > div {
+  padding: 9px 0;
+}
+.quiet-livery .ql-kv dt {
+  max-width: 55%;
+  color: var(--color-muted);
+}
 
 /* ---- The Overview ledger: Quiet's ruled strip, a Fraunces headline figure, the funded split as livery bars */
 .quiet-livery .ql-ledger {
@@ -287,6 +323,318 @@
 }
 .quiet-livery .ql-ledger .bg-primary\/40 {
   background-color: var(--color-text);
+}
+
+/* ---- Laptop frame (Ledger cards mockup): a top bar under the rail's reach, display titles, section heads, links */
+.quiet-livery .ql-dtop-title {
+  font: 640 25px/1 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 72;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+.quiet-livery .ql-crumb {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding-right: 14px;
+  border-right: 1px solid rgb(27 43 37 / 0.24);
+  color: var(--color-muted);
+  font: 500 14px var(--font-sans);
+}
+.quiet-livery .ql-crumb:hover {
+  color: var(--color-primary);
+}
+.quiet-livery .ql-dtop-prog {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-right: 14px;
+  border-right: 1px solid rgb(27 43 37 / 0.24);
+  font-size: 13px;
+}
+.quiet-livery .ql-dtop-user {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  font: 500 14px/1.2 var(--font-sans);
+}
+.quiet-livery .ql-dtop-user small {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.quiet-livery .ql-dtop-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--color-text);
+  font: 650 12px/1 var(--font-sans);
+  letter-spacing: 0.02em;
+}
+.quiet-livery .ql-icon-btn {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border-radius: 12px;
+  transition: background-color 0.15s;
+}
+.quiet-livery .ql-icon-btn:hover {
+  background: rgb(27 43 37 / 0.045);
+}
+.quiet-livery .ql-display {
+  font: 640 44px/1.04 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+.quiet-livery .ql-sec-title {
+  font: 640 21px/1.2 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 48;
+}
+.quiet-livery .ql-tlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  color: var(--color-text);
+  font: 500 13.5px var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  white-space: nowrap;
+}
+.quiet-livery .ql-nudge {
+  transition: transform 0.22s var(--ql-spring-pop);
+}
+.quiet-livery :is(.ql-tlink, .ql-list-row):hover .ql-nudge {
+  transform: translateX(3px);
+}
+
+/* Rows inside a Ledger card: title over a muted line, light rules between */
+.quiet-livery .ql-list-row {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-color: rgb(27 43 37 / 0.1);
+  text-align: left;
+}
+.quiet-livery .ql-list-title {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+  transition: color 0.15s;
+}
+.quiet-livery .ql-list-row:hover .ql-list-title {
+  color: var(--color-primary);
+}
+
+/* The Overview hero: the ruled ledger, a Fraunces figure, a stamp, the livery bar and a five-part legend */
+.quiet-livery .ql-hero-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 0 22px;
+  border-top: 2px solid var(--color-text);
+  border-bottom: 1px solid var(--color-text);
+}
+.quiet-livery .ql-hero-total {
+  margin-top: 6px;
+  font: 620 60px/1 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.quiet-livery .ql-stamp {
+  flex: none;
+  padding: 7px 10px 6px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  rotate: -4deg;
+  color: var(--color-primary);
+  font: 500 13px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+.quiet-livery .ql-stamp-bad {
+  color: #a83b1d;
+}
+.quiet-livery .ql-livery-bar {
+  display: flex;
+  height: 14px;
+  gap: 3px;
+}
+.quiet-livery .ql-livery-bar > span {
+  min-width: 8px;
+  border-radius: 3px;
+}
+.quiet-livery .ql-sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+}
+.quiet-livery .ql-lb-spent {
+  background: #24614a;
+}
+.quiet-livery .ql-lb-held {
+  background: #cbe9f6;
+  box-shadow: inset 0 0 0 1px #1b2b25;
+}
+.quiet-livery .ql-lb-pending {
+  background: #f2b53e;
+}
+.quiet-livery .ql-lb-escrow {
+  background: #1b2b25;
+}
+.quiet-livery .ql-lb-returned {
+  background: #e08a68;
+}
+
+/* Station strips: figures in mono; a frozen station takes an ice wash and its reason in ice ink */
+.quiet-livery .ql-strip-fig {
+  font: 500 14px var(--font-mono);
+}
+.quiet-livery .ql-strip[data-frozen] {
+  border-color: #a9d6ea;
+  background: linear-gradient(180deg, #e2f3fa 0%, var(--ql-paper) 70%);
+}
+.quiet-livery .ql-strip-why {
+  color: #1d566d;
+}
+
+/* Masterlist upload: a dashed ink drop zone on paper with a mint icon tile, the chosen file in mono */
+.quiet-livery .ql-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 64px 24px;
+  border: 1.5px dashed var(--color-text);
+  border-radius: 6px;
+  background: var(--ql-paper);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.quiet-livery .ql-drop:hover,
+.quiet-livery .ql-drop:focus-within,
+.quiet-livery .ql-drop[data-active] {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-mint) 35%, var(--ql-paper));
+}
+.quiet-livery .ql-drop:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.quiet-livery .ql-drop-ic {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 6px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--color-mint);
+  color: var(--color-primary);
+}
+.quiet-livery .ql-drop-t {
+  font: 600 16px var(--font-sans);
+}
+.quiet-livery .ql-drop-file {
+  font: 600 16px var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.quiet-livery .ql-drop-pick {
+  margin-top: 8px;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The Upload masterlist button stays forest green before a file is chosen; it is still disabled until then */
+.quiet-livery .ql-upload > .ql-btn-disabled {
+  background-color: var(--color-primary);
+  color: #fdf6e6;
+}
+.quiet-livery .ql-code {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-sunken);
+  font: 400 13px/1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* Intake results: the four outcomes as a bar and Fraunces counts */
+.quiet-livery .ql-tally-bar {
+  display: flex;
+  height: 14px;
+  gap: 3px;
+}
+.quiet-livery .ql-tally-bar > span {
+  min-width: 8px;
+  border-radius: 3px;
+}
+.quiet-livery .ql-tb-approved {
+  background: #24614a;
+}
+.quiet-livery .ql-tb-enrolled {
+  background: #8cb9a0;
+}
+.quiet-livery .ql-tb-uncertain {
+  background: #f2b53e;
+}
+.quiet-livery .ql-tb-rejected {
+  background: #c4532f;
+}
+.quiet-livery .ql-tally-v {
+  margin-top: 2px;
+  font: 640 34px/1 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Activity detail: Details and On-chain sections under a light rule, each with a small muted label */
+.quiet-livery .ql-ev-sec {
+  border-color: rgb(27 43 37 / 0.1);
+}
+.quiet-livery .ql-ev-k {
+  color: var(--color-muted);
+  font: 600 12.5px/1.3 var(--font-sans);
+}
+
+/* Budget card: a Fraunces figure over a mustard meter */
+.quiet-livery .ql-big-amt {
+  font: 620 32px/1.05 var(--font-display);
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.quiet-livery .ql-meter {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--color-sunken);
+  box-shadow: inset 0 1px 2px rgb(27 43 37 / 0.14);
+}
+.quiet-livery .ql-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--color-accent);
 }
 
 /* ---- The fuel card: Quiet Ledger paper with an ink outline and the sidecar pinstripe, no rings, a slight tilt */
@@ -417,17 +765,6 @@
   box-shadow: 0 8px 16px -10px rgb(0 0 0 / 0.6);
   transform: translateY(var(--y, 0px));
 }
-.ql-rail-ind::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  left: 50%;
-  width: 22px;
-  height: 3px;
-  margin-left: -11px;
-  border-radius: 2px;
-  background: #f2b53e;
-}
 .ql-rail-div {
   width: 40px;
   margin: 10px 22px;
@@ -442,21 +779,6 @@
   gap: 4px;
   margin-top: 8px;
 }
-.ql-rail-avatar {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: #24614a;
-  color: #f6ecd6;
-  font: 650 12px/1 var(--font-sans);
-}
-.ql-rail-role {
-  color: #a9bfb2;
-  font: 500 11px/1 var(--font-sans);
-}
-
 /* ---- Log in and sign up: "The Officer Pass" -----------------------------------------------------------------------
    The moving logo drives along a ruled line above an open passbook: the form is the left page, the officer pass the
    right. On a phone the pass folds to a strip above the form card; a container of 900px or more (the laptop frame)
@@ -941,6 +1263,19 @@
 
 /* ---- Motion: all of it opt-in, so reduced motion keeps every state still and visible */
 @media (prefers-reduced-motion: no-preference) {
+  /* Laptop sheets slide in from the right on the soft spring */
+  .quiet-livery .desktop-shell .ql-sheet[open] {
+    animation: ql-sheet-in var(--ql-spring-soft-ms) var(--ql-spring-soft) both;
+  }
+  /* The Overview's livery bar and budget meter grow in on the soft spring */
+  .quiet-livery :is(.ql-livery-bar > span, .ql-meter > span, .ql-tally-bar > span) {
+    transform-origin: left center;
+    animation: ql-grow 900ms var(--ql-spring-soft) both;
+  }
+  .quiet-livery .ql-livery-bar > span:nth-child(2) { animation-delay: 70ms; }
+  .quiet-livery .ql-livery-bar > span:nth-child(3) { animation-delay: 140ms; }
+  .quiet-livery .ql-livery-bar > span:nth-child(4) { animation-delay: 210ms; }
+  .quiet-livery .ql-livery-bar > span:nth-child(5) { animation-delay: 280ms; }
   .quiet-livery .tab-orb {
     transition: transform var(--ql-spring-pop-ms) var(--ql-spring-pop);
   }
@@ -1002,6 +1337,16 @@
   }
   .ql-auth-dashes > span {
     animation: ql-road 460ms linear infinite;
+  }
+}
+@keyframes ql-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes ql-grow {
+  from {
+    transform: scaleX(0);
   }
 }
 @keyframes ql-orb-pop {

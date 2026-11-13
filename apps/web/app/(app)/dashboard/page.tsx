@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { Dashboard, Station, Tap } from "@tapat/shared";
 import { dateTime, php } from "@/lib/format";
 import { useDashboard } from "@/lib/use-dashboard";
-import { Body, EmptyState, ErrorBlock, NoProgram, Skeleton, Toast, TopBar } from "../_components/ui";
+import { Body, Chip, EmptyState, ErrorBlock, NoProgram, Skeleton, Toast, TopBar } from "../_components/ui";
 import { Icon } from "../_components/Icon";
 import { CountUp } from "../_components/motion";
 import { OfficerOnly } from "../_components/Auth";
@@ -79,7 +79,7 @@ function BudgetWell({ dashboard, onOpen }: { dashboard: Dashboard; onOpen: () =>
           {view.status !== null ? (
             <>
               {" · "}
-              <span className={budget.state === "verified" ? "text-primary" : ""}>{view.status}</span>
+              {budget.state === "verified" ? <Chip tone="accent">{view.status}</Chip> : <span>{view.status}</span>}
             </>
           ) : null}
         </span>
@@ -107,7 +107,7 @@ function Ledger({ dashboard }: { dashboard: Dashboard }) {
     { key: "held", label: "Held", stroops: dashboard.heldStroops, swatch: "bg-frozen ring-1 ring-inset ring-text/15" },
     { key: "pending", label: "Pending", stroops: dashboard.pendingStroops, swatch: "bg-accent" },
     { key: "escrow", label: "Escrow remaining", stroops: dashboard.escrowRemainingStroops, swatch: "bg-primary/40" },
-    { key: "returned", label: "Returned", stroops: dashboard.returnedStroops, swatch: "bg-muted" },
+    { key: "returned", label: "Returned", stroops: dashboard.returnedStroops, swatch: "bg-muted ql-lb-returned" },
   ];
   const parts = segments.map((s) => Number(s.stroops));
   const denominator = Math.max(

@@ -18,16 +18,16 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
     <>
       <div className="mx-4 flex items-center justify-between gap-2 border-b border-ring-surface py-3">
         <h3 className="min-w-0 flex-1 text-label">{station.name}</h3>
-        <span className={`text-label ${frozen ? "text-declined" : "text-primary"}`}>{frozen ? "Frozen" : "Active"}</span>
+        <Chip tone={frozen ? "frozen" : "mint"}>{frozen ? "Frozen" : "Active"}</Chip>
       </div>
       {frozen && station.frozenReason !== null ? (
-        <p className="mx-4 border-b border-ring-surface py-2 text-caption break-words">{station.frozenReason}</p>
+        <p className="ql-strip-why mx-4 border-b border-ring-surface py-2 text-caption break-words">{station.frozenReason}</p>
       ) : null}
       <dl className="flex px-1">
         {figures.map(([key, value], index) => (
           <div key={key} className={`my-3 flex min-w-0 flex-1 flex-col gap-1 px-3 ${index < 2 ? "border-r border-ring-surface" : ""}`}>
             <dt className="text-caption text-muted">{key}</dt>
-            <dd className="text-small tabular-nums break-words">{php(value, phpPerXlm)}</dd>
+            <dd className="ql-strip-fig text-small tabular-nums break-words">{php(value, phpPerXlm)}</dd>
           </div>
         ))}
       </dl>
@@ -35,9 +35,11 @@ export function StationRow({ station, phpPerXlm, href }: { station: Station; php
   );
   const className = `ql-card ql-strip block overflow-hidden rounded-md border border-ring-surface bg-raised ${frozen ? "shiver" : "rise"}`;
   return href === undefined ? (
-    <div className={className}>{content}</div>
+    <div className={className} data-frozen={frozen || undefined}>
+      {content}
+    </div>
   ) : (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} data-frozen={frozen || undefined}>
       {content}
     </Link>
   );

@@ -49,7 +49,7 @@ export function BudgetSheet({
   if (budget.state === "verified") {
     return (
       <Sheet title="Budget" open={open} onClose={onClose}>
-        <Chip>Velo verified</Chip>
+        <Chip tone="accent">Velo verified</Chip>
         <KeyValues
           rows={[
             ["Verified", php(budget.verifiedStroops, phpPerXlm)],

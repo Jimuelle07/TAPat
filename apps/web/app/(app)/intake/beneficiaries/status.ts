@@ -5,6 +5,6 @@ export const STATUS_CHIP: Record<BeneficiaryStatus, { label: string; tone?: Chip
   approved: { label: "Approved", tone: "mint" },
   uncertain: { label: "Uncertain" },
   evidence_requested: { label: "Evidence requested" },
-  rejected: { label: "Rejected" },
+  rejected: { label: "Rejected", tone: "danger" },
   enrolled: { label: "Enrolled", tone: "mint" },
 };
