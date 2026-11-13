@@ -251,6 +251,39 @@
   background-color: var(--color-surface);
   box-shadow: 0 -14px 40px -10px rgb(16 32 26 / 0.4);
 }
+/* On the laptop a sheet is a full-height panel on the right (the mockup's side sheet), not a centered card */
+.quiet-livery .desktop-shell .ql-sheet {
+  width: 440px;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 0 0 auto;
+  border-radius: 0;
+  box-shadow: -20px 0 50px -20px rgb(16 32 26 / 0.45);
+}
+.quiet-livery .desktop-shell .ql-sheet::backdrop {
+  background: rgb(16 32 26 / 0.45);
+}
+.quiet-livery .desktop-shell .ql-sheet > div {
+  gap: 14px;
+  padding: 26px 28px;
+}
+.quiet-livery .ql-sheet .text-h2 {
+  font-size: 24px;
+  line-height: 1.15;
+}
+/* Key-value rows read as a ledger: mono figures, muted keys, dashed rules */
+.quiet-livery .ql-kv {
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.quiet-livery .ql-kv > div {
+  padding: 9px 0;
+}
+.quiet-livery .ql-kv dt {
+  max-width: 55%;
+  color: var(--color-muted);
+}
 
 /* ---- The Overview ledger: Quiet's ruled strip, a Fraunces headline figure, the funded split as livery bars */
 .quiet-livery .ql-ledger {
@@ -1125,6 +1158,10 @@
 
 /* ---- Motion: all of it opt-in, so reduced motion keeps every state still and visible */
 @media (prefers-reduced-motion: no-preference) {
+  /* Laptop sheets slide in from the right on the soft spring */
+  .quiet-livery .desktop-shell .ql-sheet[open] {
+    animation: ql-sheet-in var(--ql-spring-soft-ms) var(--ql-spring-soft) both;
+  }
   /* The Overview's livery bar and budget meter grow in on the soft spring */
   .quiet-livery :is(.ql-livery-bar > span, .ql-meter > span) {
     transform-origin: left center;
@@ -1195,6 +1232,11 @@
   }
   .ql-auth-dashes > span {
     animation: ql-road 460ms linear infinite;
+  }
+}
+@keyframes ql-sheet-in {
+  from {
+    transform: translateX(100%);
   }
 }
 @keyframes ql-grow {
