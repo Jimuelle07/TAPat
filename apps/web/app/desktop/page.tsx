@@ -233,19 +233,18 @@ export default function Overview() {
       <Gate state={state} what="the dashboard" empty="Create a program to set the cap, tranche and expiry.">
         {(data) => (
           <>
+            {/* Each column stacks on its own, so the taller side column never leaves a gap under the ledger. */}
             <div className="grid grid-cols-12 items-start gap-x-6 gap-y-[26px]">
-              <div className="col-span-12 xl:col-span-8">
+              <div className="col-span-12 flex min-w-0 flex-col gap-[26px] xl:col-span-8">
                 <Ledger dashboard={data} />
-              </div>
-              <div className="col-span-12 grid gap-3.5 md:grid-cols-2 xl:col-span-4 xl:grid-cols-1">
-                <BudgetCard dashboard={data} onOpen={() => setBudgetOpen(true)} />
-                <RecordsCard dashboard={data} onExport={() => setExportOpen(true)} />
-              </div>
-              <div className="col-span-12 xl:col-span-7">
                 <StationsBlock dashboard={data} />
               </div>
-              <div className="col-span-12 xl:col-span-5">
-                <ActivityBlock dashboard={data} />
+              <div className="col-span-12 flex min-w-0 flex-col gap-3.5 xl:col-span-4">
+                <BudgetCard dashboard={data} onOpen={() => setBudgetOpen(true)} />
+                <RecordsCard dashboard={data} onExport={() => setExportOpen(true)} />
+                <div className="mt-3">
+                  <ActivityBlock dashboard={data} />
+                </div>
               </div>
             </div>
             <BudgetSheet dashboard={data} open={budgetOpen} onClose={() => setBudgetOpen(false)} onChanged={() => void state.reload()} />
