@@ -166,18 +166,20 @@ export default function Intake() {
       ) : null}
       {loadError === null && program === "ok" ? (
         <>
-          <div className="mx-auto flex w-full max-w-[640px] flex-col gap-[18px]">
-            <header className="flex flex-col gap-2.5">
+          <div className="grid grid-cols-12 items-start gap-x-6 gap-y-[18px]">
+            <header className="col-span-12 flex flex-col gap-2.5">
               <h2 className="ql-display">Upload the masterlist</h2>
               <p className="text-small text-[#3d4f48]">Every row is checked for duplicates and ghosts before anyone can enroll.</p>
             </header>
             {error !== null ? (
-              <Notice tone="error" title={error.title}>
-                {error.body}
-              </Notice>
+              <div className="col-span-12">
+                <Notice tone="error" title={error.title}>
+                  {error.body}
+                </Notice>
+              </div>
             ) : null}
             {isOfficer ? (
-              <div className="flex flex-col gap-3.5">
+              <div className="ql-upload col-span-12 flex flex-col gap-3.5 lg:col-span-7">
                 <label
                   onDragEnter={(event) => {
                     event.preventDefault();
@@ -228,23 +230,27 @@ export default function Intake() {
                 </Button>
               </div>
             ) : loading ? null : (
-              <OfficerNotice />
-            )}
-            <LedgerCard title="CSV columns, in this order">
-              <p className="ql-code">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
-              <p className="text-[13px] text-muted">Birthdate as YYYY-MM-DD. Middle name and suffix may be empty.</p>
-            </LedgerCard>
-            <LedgerCard flush>
-              <div className="px-[18px]">
-                <Link href="/desktop/intake/beneficiaries" className="ql-list-row">
-                  <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                    <span className="ql-list-title">View beneficiaries</span>
-                    <span className="text-[13px] text-muted">{beneficiaries === null ? "Everyone on the current masterlist" : `${beneficiaries} on the current masterlist`}</span>
-                  </span>
-                  <Icon name="chevron" size={20} className="ql-nudge text-muted" />
-                </Link>
+              <div className="col-span-12 lg:col-span-7">
+                <OfficerNotice />
               </div>
-            </LedgerCard>
+            )}
+            <div className="col-span-12 flex flex-col gap-3.5 lg:col-span-5">
+              <LedgerCard title="CSV columns, in this order">
+                <p className="ql-code">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
+                <p className="text-[13px] text-muted">Birthdate as YYYY-MM-DD. Middle name and suffix may be empty.</p>
+              </LedgerCard>
+              <LedgerCard flush>
+                <div className="px-[18px]">
+                  <Link href="/desktop/intake/beneficiaries" className="ql-list-row">
+                    <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                      <span className="ql-list-title">View beneficiaries</span>
+                      <span className="text-[13px] text-muted">{beneficiaries === null ? "Everyone on the current masterlist" : `${beneficiaries} on the current masterlist`}</span>
+                    </span>
+                    <Icon name="chevron" size={20} className="ql-nudge text-muted" />
+                  </Link>
+                </div>
+              </LedgerCard>
+            </div>
           </div>
         </>
       ) : null}

@@ -566,6 +566,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* The Upload masterlist button stays forest green before a file is chosen; it is still disabled until then */
+.quiet-livery .ql-upload > .ql-btn-disabled {
+  background-color: var(--color-primary);
+  color: #fdf6e6;
+}
 .quiet-livery .ql-code {
   padding: 10px 12px;
   border-radius: 8px;
