@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { IntakeResponse } from "@tapat/shared";
 import { ApiClientError, getProgram, uploadIntake } from "@/lib/api";
 import { fullName } from "@/lib/format";
-import { errorMessage } from "@/lib/use-dashboard";
+import { errorMessage, useDashboard } from "@/lib/use-dashboard";
 import { OfficerNotice, useAuth } from "@/app/(app)/_components/Auth";
 import { Icon } from "@/app/(app)/_components/Icon";
-import { Button, Card, Chip, ErrorBlock, KeyValues, LinkButton, NoProgram, Notice, Skeleton, StatCard } from "@/app/(app)/_components/ui";
-import { ActionRow, DataTable, Page } from "../_components/kit";
+import { Button, Chip, ErrorBlock, KeyValues, LinkButton, NoProgram, Notice, Skeleton } from "@/app/(app)/_components/ui";
+import { LedgerCard, Page, SectionTitle } from "../_components/kit";
 
 const ERROR_TITLE: Record<string, string> = {
   VALIDATION_ERROR: "Check the file",
@@ -19,58 +20,87 @@ const ERROR_TITLE: Record<string, string> = {
 function Results({ response, onBack }: { response: IntakeResponse; onBack: () => void }) {
   const { rows, summary, calibration } = response;
   const rejected = rows.filter((row) => row.status === "rejected");
-  const count = (label: string, value: number) => <StatCard label={label} value={String(value)} live={{ to: value, format: (n) => String(Math.round(n)) }} />;
+  const tally = [
+    { key: "approved", label: "Approved", value: summary.approved },
+    { key: "enrolled", label: "Already enrolled", value: summary.enrolled },
+    { key: "uncertain", label: "Uncertain", value: summary.uncertain },
+    { key: "rejected", label: "Rejected", value: summary.rejected },
+  ];
   return (
-    <Page
-      title={`${summary.total} rows checked`}
-      chip={rows.some((row) => row.source === "ocr_precomputed") ? <Chip>precomputed OCR</Chip> : undefined}
-      actions={
-        <ActionRow>
+    <Page title="Intake results">
+      <div className="grid grid-cols-12 items-start gap-x-6 gap-y-[18px]">
+        <header className="col-span-12 flex flex-col gap-2.5">
+          <h2 className="ql-display">{summary.total} rows checked</h2>
+          <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-small text-[#3d4f48]">
+            {rows.some((row) => row.source === "ocr_precomputed") ? <Chip>precomputed OCR</Chip> : null}
+            The matcher scored each row against the calibration limits.
+          </p>
+        </header>
+        {!calibration.feasible ? (
+          <div className="col-span-12">
+            <Notice title="Calibration is not feasible">The two limits overlap on the grid, so the thresholds were clamped. Review results with care.</Notice>
+          </div>
+        ) : null}
+        <div className="col-span-12 flex min-w-0 flex-col gap-3.5 xl:col-span-8">
+          <LedgerCard>
+            <section aria-label="Results" className="flex flex-col gap-4 py-0.5">
+              <div aria-hidden="true" className="ql-tally-bar">
+                {tally.map((item) => (item.value > 0 ? <span key={item.key} className={`ql-tb-${item.key}`} style={{ flexGrow: item.value }} /> : null))}
+              </div>
+              <dl className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+                {tally.map((item) => (
+                  <div key={item.key}>
+                    <dt className="flex items-center gap-2 text-[13.5px] text-[#3d4f48]">
+                      <span aria-hidden="true" className={`ql-sw ql-tb-${item.key}`} />
+                      {item.label}
+                    </dt>
+                    <dd className="ql-tally-v">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </LedgerCard>
+          <SectionTitle>Rejected</SectionTitle>
+          <LedgerCard flush>
+            {rejected.length === 0 ? (
+              <p className="px-[18px] py-4 text-small">No row was rejected.</p>
+            ) : (
+              <ul aria-label="Rejected rows" className="px-[18px]">
+                {rejected.map((row, index) => (
+                  <li key={row.id}>
+                    <Link href={`/desktop/intake/beneficiaries/${row.id}`} className={`ql-list-row ${index === 0 ? "" : "border-t"}`}>
+                      <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                        <span className="ql-list-title">{fullName(row)}</span>
+                        <span className="text-[13px] break-words text-muted">{row.decisionReason ?? row.ruleCode ?? "Rejected by the matcher"}</span>
+                      </span>
+                      <Chip tone="danger">Rejected</Chip>
+                      <Icon name="chevron" size={20} className="ql-nudge text-muted" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </LedgerCard>
+        </div>
+        <div className="col-span-12 flex min-w-0 flex-col gap-3.5 xl:col-span-4">
+          <LedgerCard title="Calibration">
+            <KeyValues
+              rows={[
+                ["Approve at or above λ", calibration.lambdaHi.toFixed(2)],
+                ["Reject below λ", calibration.lambdaLo.toFixed(2)],
+                ["Max wrongful denial α", String(calibration.alpha)],
+                ["Max ghost admission β", String(calibration.beta)],
+                ["Measured wrongful denial", calibration.wrongfulDenialRate.toFixed(3)],
+                ["Measured ghost admission", calibration.ghostAdmissionRate.toFixed(3)],
+                ["Calibration set", String(calibration.n)],
+              ]}
+            />
+          </LedgerCard>
+          <LinkButton href="/desktop/intake/beneficiaries">Review beneficiaries</LinkButton>
           <Button look="secondary" onClick={onBack}>
             Upload another
           </Button>
-          <LinkButton href="/desktop/intake/beneficiaries">Review beneficiaries</LinkButton>
-        </ActionRow>
-      }
-    >
-      {!calibration.feasible ? <Notice title="Calibration is not feasible">The two limits overlap on the grid, so the thresholds were clamped. Review results with care.</Notice> : null}
-      <div className="grid grid-cols-4 gap-3">
-        {count("Approved", summary.approved)}
-        {count("Already enrolled", summary.enrolled)}
-        {count("Rejected", summary.rejected)}
-        {count("Uncertain", summary.uncertain)}
-      </div>
-      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6">
-        {rejected.length > 0 ? (
-          <DataTable
-            label="Rejected rows"
-            rows={rejected}
-            rowKey={(row) => row.id}
-            href={(row) => `/desktop/intake/beneficiaries/${row.id}`}
-            columns={[
-              { header: "Rejected", cell: (row) => <span className="text-label">{fullName(row)}</span> },
-              { header: "Reason", cell: (row) => row.decisionReason ?? row.ruleCode ?? "Rejected by the matcher" },
-            ]}
-          />
-        ) : (
-          <Card>
-            <p className="text-small">No row was rejected.</p>
-          </Card>
-        )}
-        <Card>
-          <h2 className="text-label">Calibration</h2>
-          <KeyValues
-            rows={[
-              ["Approve at or above λ", calibration.lambdaHi.toFixed(2)],
-              ["Reject below λ", calibration.lambdaLo.toFixed(2)],
-              ["Max wrongful denial α", String(calibration.alpha)],
-              ["Max ghost admission β", String(calibration.beta)],
-              ["Measured wrongful denial", calibration.wrongfulDenialRate.toFixed(3)],
-              ["Measured ghost admission", calibration.ghostAdmissionRate.toFixed(3)],
-              ["Calibration set", String(calibration.n)],
-            ]}
-          />
-        </Card>
+        </div>
       </div>
     </Page>
   );
@@ -85,6 +115,8 @@ export default function Intake() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [response, setResponse] = useState<IntakeResponse | null>(null);
+  const dashboard = useDashboard();
+  const beneficiaries = dashboard.status === "ready" ? dashboard.dashboard.counts.beneficiaries : null;
 
   const load = useCallback(() => {
     getProgram()
@@ -120,16 +152,7 @@ export default function Intake() {
   };
 
   return (
-    <Page
-      title="Masterlist"
-      actions={
-        <ActionRow>
-          <LinkButton look="secondary" href="/desktop/intake/beneficiaries">
-            View beneficiaries
-          </LinkButton>
-        </ActionRow>
-      }
-    >
+    <Page title="Masterlist">
       {loadError !== null ? (
         <div className="flex max-w-xl flex-col gap-4">
           <ErrorBlock title="Could not load the program" message={loadError} onRetry={load} />
@@ -143,14 +166,18 @@ export default function Intake() {
       ) : null}
       {loadError === null && program === "ok" ? (
         <>
-          {error !== null ? (
-            <Notice tone="error" title={error.title}>
-              {error.body}
-            </Notice>
-          ) : null}
-          <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6">
+          <div className="mx-auto flex w-full max-w-[640px] flex-col gap-[18px]">
+            <header className="flex flex-col gap-2.5">
+              <h2 className="ql-display">Upload the masterlist</h2>
+              <p className="text-small text-[#3d4f48]">Every row is checked for duplicates and ghosts before anyone can enroll.</p>
+            </header>
+            {error !== null ? (
+              <Notice tone="error" title={error.title}>
+                {error.body}
+              </Notice>
+            ) : null}
             {isOfficer ? (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3.5">
                 <label
                   onDragEnter={(event) => {
                     event.preventDefault();
@@ -177,13 +204,15 @@ export default function Intake() {
                     setFile(dropped);
                     setError(null);
                   }}
-                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-dashed border-text bg-raised px-4 py-20 text-center hover:bg-mint focus-within:border-[2.5px] focus-within:border-solid focus-within:border-primary ${
-                    dragging || busy ? "pulse bg-mint" : ""
-                  }`}
+                  data-active={dragging || busy || undefined}
+                  className={`ql-drop ${dragging || busy ? "pulse" : ""}`}
                 >
-                  <Icon name="upload" />
-                  <span className="text-label">{file?.name ?? "Drop a CSV or a scanned list here, or choose a file"}</span>
-                  <span className="text-caption">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>
+                  <span aria-hidden="true" className="ql-drop-ic">
+                    <Icon name="upload" size={26} />
+                  </span>
+                  {file !== null ? <span className="ql-drop-file">{file.name}</span> : <span className="ql-drop-t">Drop a CSV or a scanned list here</span>}
+                  <span className="text-[13px] text-muted">CSV up to 1 MB. PNG or JPG up to 5 MB.</span>
+                  <span className="ql-drop-pick">{file !== null ? "Choose another file" : "or choose a file"}</span>
                   <input
                     type="file"
                     accept=".csv,text/csv,image/png,image/jpeg"
@@ -201,11 +230,21 @@ export default function Intake() {
             ) : loading ? null : (
               <OfficerNotice />
             )}
-            <Card>
-              <h2 className="text-label">CSV columns, in this order</h2>
-              <p className="font-mono text-mono">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
-              <p className="text-caption">Birthdate as YYYY-MM-DD. Middle name and suffix may be empty.</p>
-            </Card>
+            <LedgerCard title="CSV columns, in this order">
+              <p className="ql-code">last_name, first_name, middle_name, suffix, birthdate, plate, toda, barangay</p>
+              <p className="text-[13px] text-muted">Birthdate as YYYY-MM-DD. Middle name and suffix may be empty.</p>
+            </LedgerCard>
+            <LedgerCard flush>
+              <div className="px-[18px]">
+                <Link href="/desktop/intake/beneficiaries" className="ql-list-row">
+                  <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                    <span className="ql-list-title">View beneficiaries</span>
+                    <span className="text-[13px] text-muted">{beneficiaries === null ? "Everyone on the current masterlist" : `${beneficiaries} on the current masterlist`}</span>
+                  </span>
+                  <Icon name="chevron" size={20} className="ql-nudge text-muted" />
+                </Link>
+              </div>
+            </LedgerCard>
           </div>
         </>
       ) : null}
