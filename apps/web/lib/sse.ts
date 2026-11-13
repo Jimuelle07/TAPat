@@ -101,28 +101,52 @@ export function useStream(onEvent: (event: StreamEvent) => void, options: UseStr
     onOpen.current = options.onOpen;
   }, [onEvent, options.onOpen]);
 
-  useEffect(() => {
-    const source = new EventSource(streamUrl());
-    const listeners = STREAM_EVENT_NAMES.map((name) => {
-      const listener = (message: MessageEvent<string>): void => {
+  useEffect(
+    () =>
+      subscribe(streamUrl(), {
+        onEvent: (event) => handler.current(event),
+        onOpen: () => onOpen.current?.(),
+      }),
+    [],
+  );
+}
+
+interface Subscriber {
+  onEvent: (event: StreamEvent) => void;
+  onOpen: () => void;
+}
+
+/** One EventSource per URL, shared by every mounted subscriber, so a page with several readers holds one connection. */
+const sources = new Map<string, { source: EventSource; subscribers: Set<Subscriber> }>();
+
+export function subscribe(url: string, subscriber: Subscriber): () => void {
+  let entry = sources.get(url);
+  if (entry === undefined) {
+    const source = new EventSource(url);
+    const subscribers = new Set<Subscriber>();
+    for (const name of STREAM_EVENT_NAMES) {
+      source.addEventListener(name, ((message: MessageEvent<string>): void => {
         const payload = parseFrame(message.data);
         if (payload === undefined) return;
         // `name` is the event that delivered the frame, so it and the payload belong to the same union member.
-        handler.current({ event: name, data: payload } as StreamEvent);
-      };
-      source.addEventListener(name, listener as EventListener);
-      return { name, listener };
+        const event = { event: name, data: payload } as StreamEvent;
+        for (const each of [...subscribers]) each.onEvent(event);
+      }) as EventListener);
+    }
+    source.addEventListener('open', () => {
+      for (const each of [...subscribers]) each.onOpen();
     });
-
-    const open = (): void => onOpen.current?.();
-    source.addEventListener('open', open);
-
-    return () => {
-      source.removeEventListener('open', open);
-      for (const { name, listener } of listeners) source.removeEventListener(name, listener as EventListener);
-      source.close();
-    };
-  }, []);
+    entry = { source, subscribers };
+    sources.set(url, entry);
+  }
+  const current = entry;
+  current.subscribers.add(subscriber);
+  return () => {
+    current.subscribers.delete(subscriber);
+    if (current.subscribers.size > 0) return;
+    current.source.close();
+    if (sources.get(url) === current) sources.delete(url);
+  };
 }
 
 /** A frame we cannot parse is not one of the ten events: ignore it rather than throw inside a handler. */

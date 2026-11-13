@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Dashboard, Station } from "@tapat/shared";
@@ -186,7 +186,8 @@ function StationsBlock({ dashboard }: { dashboard: Dashboard }) {
 }
 
 function ActivityBlock({ dashboard }: { dashboard: Dashboard }) {
-  const feed = buildFeed(dashboard).slice(0, FEED_PREVIEW);
+  // The Overview re-renders when a sheet opens; the feed only changes with the dashboard.
+  const feed = useMemo(() => buildFeed(dashboard).slice(0, FEED_PREVIEW), [dashboard]);
   const { counts } = dashboard;
   return (
     <div className="flex min-w-0 flex-col gap-3.5">

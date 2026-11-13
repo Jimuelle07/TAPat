@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { buildFeed, type FeedItem } from "@/lib/feed";
 import { useDashboard } from "@/lib/use-dashboard";
 import { FeedDetail } from "../_components/FeedDetail";
@@ -9,7 +9,9 @@ import { Body, DemoRate, EmptyState, ErrorBlock, ListCard, NoProgram, Sheet, Ske
 export default function Activity() {
   const state = useDashboard();
   const [selected, setSelected] = useState<FeedItem | null>(null);
-  const feed = state.status === "ready" ? buildFeed(state.dashboard) : [];
+  const dashboard = state.status === "ready" ? state.dashboard : null;
+  // Opening and closing the sheet re-renders the page; the feed only changes with the dashboard.
+  const feed = useMemo(() => (dashboard === null ? [] : buildFeed(dashboard)), [dashboard]);
   return (
     <>
       <TopBar title="Activity" back="/dashboard" />
